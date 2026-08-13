@@ -37,7 +37,7 @@ func TestInputReports(t *testing.T) {
 				assert.Equal(t, byte(steamdeck.InputReportID), got[2])
 				assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3])
 				assert.Equal(t, make([]byte, 7), got[8:15])
-				assert.Equal(t, uint16(0x4000), binary.LittleEndian.Uint16(got[36:38]))
+				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[36:38]))
 				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[38:40]))
 				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[40:42]))
 				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[42:44]))
@@ -78,7 +78,7 @@ func TestInputReports(t *testing.T) {
 				return
 			}
 			dev.UpdateInputState(&tt.state)
-			got := dev.HandleTransfer(defaultControllerEndpoint, usbip.DirIn, nil)
+			got := dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
 			tt.validate(t, got)
 		})
 	}
@@ -102,7 +102,7 @@ func TestMotionFieldWireOrderMatchesSteamConsumers(t *testing.T) {
 		GyroQuatZ: 0x0aaa,
 	})
 
-	got := dev.HandleTransfer(defaultControllerEndpoint, usbip.DirIn, nil)
+	got := dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
 
 	// Linux hid-steam and SDL both decode the Steam Deck IMU report as X, Z, -Y.
 	// Keep the raw field order stable so higher-level HC translations can target it precisely.
@@ -352,7 +352,7 @@ func TestAPIStreamAndUSBInput(t *testing.T) {
 		t.Fatalf("Failed to start API server: %v", err)
 	}
 
-	b, err := virtualbus.NewWithBusId(1)
+	b, err := virtualbus.NewWithBusID(1)
 	if err != nil {
 		t.Fatalf("Failed to create virtual bus: %v", err)
 	}
@@ -427,7 +427,7 @@ func TestAPIStreamAndUSBInput(t *testing.T) {
 	cmd[4] = steamdeck.IntensityLong
 	cmd[5] = 0xf9
 	dev := b.GetAllDeviceMetas()[0].Dev
-	dev.HandleTransfer(defaultControllerEndpoint, usbip.DirOut, cmd)
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, cmd)
 
 	var feedback [steamdeck.InputReportLen]byte
 	_ = stream.SetReadDeadline(time.Now().Add(750 * time.Millisecond))

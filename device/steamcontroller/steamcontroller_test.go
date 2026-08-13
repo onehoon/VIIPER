@@ -82,7 +82,7 @@ func TestInputReports(t *testing.T) {
 				return
 			}
 			dev.UpdateInputState(&tt.state)
-			got := dev.HandleTransfer(steamControllerEndpoint, usbip.DirIn, nil)
+			got := dev.HandleTransfer(context.Background(), steamControllerEndpoint, usbip.DirIn, nil)
 			tt.validate(t, got)
 		})
 	}
@@ -101,7 +101,7 @@ func TestLizardKeyboardReports(t *testing.T) {
 		DPadRight: true,
 	})
 
-	report := dev.HandleTransfer(steamControllerKeyboardEndpoint, usbip.DirIn, nil)
+	report := dev.HandleTransfer(context.Background(), steamControllerKeyboardEndpoint, usbip.DirIn, nil)
 	if !assert.Len(t, report, 8) {
 		return
 	}
@@ -120,7 +120,7 @@ func TestLizardKeyboardReports(t *testing.T) {
 		return
 	}
 	assert.Equal(t, byte(steamcontroller.LizardModeOff), resp[9])
-	assert.Equal(t, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, dev.HandleTransfer(steamControllerKeyboardEndpoint, usbip.DirIn, nil))
+	assert.Equal(t, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, dev.HandleTransfer(context.Background(), steamControllerKeyboardEndpoint, usbip.DirIn, nil))
 	_, handled = dev.HandleControl(0x21, 0x09, 0x0300, steamControllerInterface, 4, []byte{0x00, steamcontroller.FeatureGetDigitalMappings, 0x01, 0x00})
 	if !assert.True(t, handled) {
 		return
@@ -137,7 +137,7 @@ func TestLizardKeyboardReports(t *testing.T) {
 	if !assert.True(t, handled) {
 		return
 	}
-	assert.Equal(t, []byte{0x00, 0x00, 0x28, 0x29, 0x52, 0x4f, 0x00, 0x00}, dev.HandleTransfer(steamControllerKeyboardEndpoint, usbip.DirIn, nil))
+	assert.Equal(t, []byte{0x00, 0x00, 0x28, 0x29, 0x52, 0x4f, 0x00, 0x00}, dev.HandleTransfer(context.Background(), steamControllerKeyboardEndpoint, usbip.DirIn, nil))
 	_, handled = dev.HandleControl(0x21, 0x09, 0x0300, steamControllerInterface, 4, []byte{0x00, steamcontroller.FeatureGetDigitalMappings, 0x01, 0x00})
 	if !assert.True(t, handled) {
 		return
@@ -154,19 +154,19 @@ func TestLizardKeyboardReports(t *testing.T) {
 	if !assert.True(t, handled) {
 		return
 	}
-	assert.Equal(t, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, dev.HandleTransfer(steamControllerKeyboardEndpoint, usbip.DirIn, nil))
+	assert.Equal(t, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, dev.HandleTransfer(context.Background(), steamControllerKeyboardEndpoint, usbip.DirIn, nil))
 
 	_, handled = dev.HandleControl(0x21, 0x09, 0x0300, steamControllerInterface, 6, []byte{0x00, steamcontroller.FeatureSetSettingsValues, 0x03, steamcontroller.SettingLizardMode, byte(steamcontroller.LizardModeOn), 0x00})
 	if !assert.True(t, handled) {
 		return
 	}
-	assert.Equal(t, []byte{0x00, 0x00, 0x28, 0x29, 0x52, 0x4f, 0x00, 0x00}, dev.HandleTransfer(steamControllerKeyboardEndpoint, usbip.DirIn, nil))
+	assert.Equal(t, []byte{0x00, 0x00, 0x28, 0x29, 0x52, 0x4f, 0x00, 0x00}, dev.HandleTransfer(context.Background(), steamControllerKeyboardEndpoint, usbip.DirIn, nil))
 
 	_, handled = dev.HandleControl(0x21, 0x09, 0x0300, steamControllerInterface, 4, []byte{0x00, steamcontroller.FeatureSetControllerMode, 0x01, 0x01})
 	if !assert.True(t, handled) {
 		return
 	}
-	assert.Equal(t, []byte{0x00, 0x00, 0x28, 0x29, 0x52, 0x4f, 0x00, 0x00}, dev.HandleTransfer(steamControllerKeyboardEndpoint, usbip.DirIn, nil))
+	assert.Equal(t, []byte{0x00, 0x00, 0x28, 0x29, 0x52, 0x4f, 0x00, 0x00}, dev.HandleTransfer(context.Background(), steamControllerKeyboardEndpoint, usbip.DirIn, nil))
 }
 
 func TestWriteRegisterGyroMode(t *testing.T) {
@@ -245,7 +245,7 @@ func TestWriteRegisterGyroMode(t *testing.T) {
 	for index := 0; index+2 < len(settings); index += 3 {
 		if settings[index] == steamcontroller.SettingIMUMode {
 			assert.Equal(t, uint16(steamcontroller.GyroModeSendRawAccel|steamcontroller.GyroModeSendRawGyro), binary.LittleEndian.Uint16(settings[index+1:index+3]))
-			report := dev.HandleTransfer(steamControllerEndpoint, usbip.DirIn, nil)
+			report := dev.HandleTransfer(context.Background(), steamControllerEndpoint, usbip.DirIn, nil)
 			assert.Equal(t, make([]byte, 12), report[28:40])
 			assert.Equal(t, make([]byte, 8), report[40:48])
 
@@ -261,7 +261,7 @@ func TestWriteRegisterGyroMode(t *testing.T) {
 				GyroQuatY: 0x3456,
 				GyroQuatZ: 0x4567,
 			})
-			report = dev.HandleTransfer(steamControllerEndpoint, usbip.DirIn, nil)
+			report = dev.HandleTransfer(context.Background(), steamControllerEndpoint, usbip.DirIn, nil)
 			assert.Equal(t, uint16(111), binary.LittleEndian.Uint16(report[28:30]))
 			assert.Equal(t, uint16(0xff22), binary.LittleEndian.Uint16(report[30:32]))
 			assert.Equal(t, uint16(333), binary.LittleEndian.Uint16(report[32:34]))
@@ -384,7 +384,7 @@ func TestFeatureResponses(t *testing.T) {
 	if !assert.True(t, handled) {
 		return
 	}
-	assert.Equal(t, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, dev.HandleTransfer(steamControllerKeyboardEndpoint, usbip.DirIn, nil))
+	assert.Equal(t, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, dev.HandleTransfer(context.Background(), steamControllerKeyboardEndpoint, usbip.DirIn, nil))
 	_, handled = dev.HandleControl(0x21, 0x09, 0x0300, steamControllerInterface, 4, []byte{0x00, steamcontroller.FeatureGetDigitalMappings, 0x01, 0x00})
 	if !assert.True(t, handled) {
 		return
@@ -539,7 +539,7 @@ func TestAPIStreamAndUSBInput(t *testing.T) {
 		t.Fatalf("Failed to start API server: %v", err)
 	}
 
-	b, err := virtualbus.NewWithBusId(1)
+	b, err := virtualbus.NewWithBusID(1)
 	if err != nil {
 		t.Fatalf("Failed to create virtual bus: %v", err)
 	}
@@ -617,7 +617,7 @@ func TestAPIStreamAndUSBInput(t *testing.T) {
 	cmd[4] = steamcontroller.IntensityLong
 	cmd[5] = 0xf9
 	dev := b.GetAllDeviceMetas()[0].Dev
-	dev.HandleTransfer(steamControllerEndpoint, usbip.DirOut, cmd)
+	dev.HandleTransfer(context.Background(), steamControllerEndpoint, usbip.DirOut, cmd)
 
 	var feedback [steamcontroller.InputReportLen]byte
 	_ = stream.SetReadDeadline(time.Now().Add(750 * time.Millisecond))
