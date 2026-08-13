@@ -21,6 +21,9 @@
 
 # VIIPER 🐍
 
+> [!NOTE]
+> This fork includes additional device and embedded-library work for SteamInputAddonforClaw. Fork-specific decisions are documented in [FORK_ARCHITECTURE.md](./FORK_ARCHITECTURE.md).
+
 **Virtual** **I**nput over **IP** **E**mulato**R**
 
 A **cross-platform virtual USB input framework** for creating virtual USB input devices (game controllers, keyboards, mice and more)

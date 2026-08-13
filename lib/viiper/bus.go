@@ -7,11 +7,7 @@ package main
 typedef uintptr_t USBServerHandle;
 */
 import "C"
-import (
-	"runtime/cgo"
-
-	"github.com/Alia5/VIIPER/virtualbus"
-)
+import "github.com/Alia5/VIIPER/virtualbus"
 
 // CreateUSBBus creates a new USB bus on the server associated with the given handle.
 // @param handle Handle to the USB server.
@@ -19,12 +15,20 @@ import (
 //
 //export CreateUSBBus
 func CreateUSBBus(handle C.USBServerHandle, busID *uint32) bool {
-	h := cgo.Handle(handle)
-	hw, ok := h.Value().(*usbServerHandleWrapper)
+	hw, ok := lookupServerHandle(uintptr(handle))
 	if !ok {
 		return false
 	}
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	return hw.createBusLocked(busID)
+}
 
+func (hw *usbServerHandleWrapper) createBusLocked(busID *uint32) bool {
+	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("CreateUSBBus")
+		return false
+	}
 	if busID == nil {
 		id := hw.s.NextFreeBusID()
 		busID = &id
@@ -53,21 +57,24 @@ func CreateUSBBus(handle C.USBServerHandle, busID *uint32) bool {
 //
 //export RemoveUSBBus
 func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
-	h := cgo.Handle(handle)
-	hw, ok := h.Value().(*usbServerHandleWrapper)
+	hw, ok := lookupServerHandle(uintptr(handle))
 	if !ok {
 		return false
 	}
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	return hw.removeBusLocked(busID)
+}
 
+func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
+	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("RemoveUSBBus")
+		return false
+	}
 	if err := hw.s.RemoveBus(busID); err != nil {
 		return false
 	}
-	hw.mtx.Lock()
-	defer hw.mtx.Unlock()
-	for _, dh := range hw.deviceHandles[busID] {
-		cgo.Handle(dh).Delete()
-	}
-	delete(hw.deviceHandles, busID)
+	hw.finalizeBusLocked(busID)
 
 	return true
 }

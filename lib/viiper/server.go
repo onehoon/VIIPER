@@ -31,6 +31,7 @@ import "C"
 import (
 	"log/slog"
 	"runtime/cgo"
+	"slices"
 	"time"
 	"unsafe"
 
@@ -93,10 +94,19 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 
 	select {
 	case <-readyChan:
-		*outHandle = C.USBServerHandle(cgo.NewHandle(&usbServerHandleWrapper{
-			s:             s,
-			deviceHandles: make(map[uint32][]deviceHandle),
-		}))
+		hw := &usbServerHandleWrapper{
+			s:                   s,
+			state:               serverActive,
+			deviceHandles:       make(map[uint32][]deviceHandle),
+			deviceHandleRecords: make(map[deviceHandle]*deviceHandleWrapper),
+			ops:                 defaultServerOperations(),
+			logger:              logger,
+			rejectionWarnings:   make(map[string]bool),
+		}
+		h := cgo.NewHandle(hw)
+		*outHandle = C.USBServerHandle(h)
+		serverHandleRecords.Store(uintptr(h), hw)
+		logger.Info("USB server started", "operation", "NewUSBServer", "serverState", serverActive.String())
 		return true
 	case err := <-errChan:
 		logger.Error("NewUSBServer: ListenAndServe failed", "error", err)
@@ -110,25 +120,52 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 //
 //export CloseUSBServer
 func CloseUSBServer(handle C.USBServerHandle) bool {
-	h := cgo.Handle(handle)
-	hw, ok := h.Value().(*usbServerHandleWrapper)
+	hw, ok := lookupServerHandle(uintptr(handle))
 	if !ok {
 		return false
 	}
-	hw.mtx.Lock()
-	defer hw.mtx.Unlock()
-
-	for busID, dhs := range hw.deviceHandles {
-		for _, dh := range dhs {
-			cgo.Handle(dh).Delete()
-		}
-		delete(hw.deviceHandles, busID)
-	}
-	hw.deviceHandles = nil
-
-	if err := hw.s.Close(); err != nil {
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if !hw.closeLocked() {
 		return false
 	}
-	h.Delete()
+	serverHandleRecords.Delete(uintptr(handle))
+	cgo.Handle(handle).Delete()
+	return true
+}
+
+// closeLocked tears down a server while lifecycleMu is held.
+func (hw *usbServerHandleWrapper) closeLocked() bool {
+	if hw.state != serverActive && hw.state != serverCloseFailed {
+		hw.warnMutationRejectedLocked("CloseUSBServer")
+		return false
+	}
+	if hw.state == serverCloseFailed {
+		hw.logger.Warn("retrying a previously failed server close", "operation", "CloseUSBServer", "serverState", hw.state.String())
+	}
+	hw.state = serverClosing
+
+	busIDs := hw.s.ListBuses()
+	slices.Sort(busIDs)
+	for _, busID := range busIDs {
+		if err := hw.ops.removeBus(hw.s, busID); err != nil {
+			if hw.s.GetBus(busID) == nil {
+				hw.finalizeBusLocked(busID)
+				continue
+			}
+			hw.state = serverCloseFailed
+			hw.logger.Error("failed to remove bus during server close", "operation", "CloseUSBServer", "serverState", hw.state.String(), "busID", busID, "remainingBusCount", len(hw.s.ListBuses()), "error", err)
+			return false
+		}
+		hw.finalizeBusLocked(busID)
+	}
+
+	if err := hw.ops.close(hw.s); err != nil {
+		hw.state = serverCloseFailed
+		hw.logger.Error("failed to close USB server", "operation", "CloseUSBServer", "serverState", hw.state.String(), "remainingBusCount", len(hw.s.ListBuses()), "error", err)
+		return false
+	}
+	hw.state = serverClosed
+	hw.logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", hw.state.String())
 	return true
 }

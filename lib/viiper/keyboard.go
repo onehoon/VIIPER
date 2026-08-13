@@ -136,15 +136,10 @@ static void viiper_call_kb_led(KeyboardLEDCallback fn, KeyboardDeviceHandle hand
 */
 import "C"
 import (
-	"context"
 	"fmt"
-	"log/slog"
-	"runtime/cgo"
-	"slices"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/keyboard"
-	"github.com/Alia5/VIIPER/internal/server/api"
 )
 
 // CreateKeyboardDevice creates a new HID keyboard device on the bus with the given ID on the server associated with the given handle.
@@ -164,13 +159,8 @@ func CreateKeyboardDevice(
 	idVendor uint16,
 	idProduct uint16,
 ) bool {
-	sh := cgo.Handle(serverHandle)
-	shw, ok := sh.Value().(*usbServerHandleWrapper)
+	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
-		return false
-	}
-	bus := shw.s.GetBus(busID)
-	if bus == nil {
 		return false
 	}
 
@@ -186,39 +176,13 @@ func CreateKeyboardDevice(
 	if err != nil {
 		return false
 	}
-	devCtx, err := bus.Add(d)
-	if err != nil {
+	shw.lifecycleMu.Lock()
+	defer shw.lifecycleMu.Unlock()
+	h, ok := shw.createDeviceLocked(busID, d, autoAttachLocalhost)
+	if !ok {
 		return false
 	}
-	exportMeta := device.GetDeviceMeta(devCtx)
-	if exportMeta == nil {
-		return false
-	}
-
-	if autoAttachLocalhost {
-		err := api.AttachLocalhostClient(
-			context.Background(),
-			exportMeta,
-			shw.s.GetListenPort(),
-			true,
-			slog.Default(),
-		)
-		if err != nil {
-			slog.Error("failed to auto-attach localhost client", "error", err)
-			return false
-		}
-	}
-
-	handleWrapper := &deviceHandleWrapper{
-		device:     d,
-		exportMeta: exportMeta,
-		usbServer:  shw,
-	}
-	*outDeviceHandle = C.KeyboardDeviceHandle(cgo.NewHandle(handleWrapper))
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = append(shw.deviceHandles[busID], deviceHandle(*outDeviceHandle))
+	*outDeviceHandle = C.KeyboardDeviceHandle(h)
 	return true
 }
 
@@ -228,23 +192,20 @@ func CreateKeyboardDevice(
 //
 //export SetKeyboardDeviceState
 func SetKeyboardDeviceState(handle C.KeyboardDeviceHandle, state C.KeyboardDeviceState) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	kbDevice, ok := dhw.device.(*keyboard.Keyboard)
-	if !ok {
-		return false
-	}
-	s := keyboard.InputState{
-		Modifiers: uint8(state.Modifiers),
-	}
-	for i, v := range state.KeyBitmap {
-		s.KeyBitmap[i] = byte(v)
-	}
-	kbDevice.UpdateInputState(s)
-	return true
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		kbDevice, ok := dhw.device.(*keyboard.Keyboard)
+		if !ok {
+			return false
+		}
+		s := keyboard.InputState{
+			Modifiers: uint8(state.Modifiers),
+		}
+		for i, v := range state.KeyBitmap {
+			s.KeyBitmap[i] = byte(v)
+		}
+		kbDevice.UpdateInputState(s)
+		return true
+	})
 }
 
 // SetKeyboardLEDCallback sets a callback to be invoked when the host changes keyboard LED state.
@@ -253,39 +214,36 @@ func SetKeyboardDeviceState(handle C.KeyboardDeviceHandle, state C.KeyboardDevic
 //
 //export SetKeyboardLEDCallback
 func SetKeyboardLEDCallback(handle C.KeyboardDeviceHandle, cb C.KeyboardLEDCallback) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	kbDevice, ok := dhw.device.(*keyboard.Keyboard)
-	if !ok {
-		return false
-	}
-	if cb == nil {
-		kbDevice.SetLEDCallback(nil)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		kbDevice, ok := dhw.device.(*keyboard.Keyboard)
+		if !ok {
+			return false
+		}
+		if cb == nil {
+			kbDevice.SetLEDCallback(nil)
+			return true
+		}
+		kbDevice.SetLEDCallback(func(led keyboard.LEDState) {
+			var raw C.uint8_t
+			if led.NumLock {
+				raw |= 0x01
+			}
+			if led.CapsLock {
+				raw |= 0x02
+			}
+			if led.ScrollLock {
+				raw |= 0x04
+			}
+			if led.Compose {
+				raw |= 0x08
+			}
+			if led.Kana {
+				raw |= 0x10
+			}
+			C.viiper_call_kb_led(cb, handle, raw)
+		})
 		return true
-	}
-	kbDevice.SetLEDCallback(func(led keyboard.LEDState) {
-		var raw C.uint8_t
-		if led.NumLock {
-			raw |= 0x01
-		}
-		if led.CapsLock {
-			raw |= 0x02
-		}
-		if led.ScrollLock {
-			raw |= 0x04
-		}
-		if led.Compose {
-			raw |= 0x08
-		}
-		if led.Kana {
-			raw |= 0x10
-		}
-		C.viiper_call_kb_led(cb, handle, raw)
 	})
-	return true
 }
 
 // RemoveKeyboardDevice removes the keyboard device associated with the given handle from the server.
@@ -293,24 +251,11 @@ func SetKeyboardLEDCallback(handle C.KeyboardDeviceHandle, cb C.KeyboardLEDCallb
 //
 //export RemoveKeyboardDevice
 func RemoveKeyboardDevice(handle C.KeyboardDeviceHandle) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-		return false
-	}
-
-	shw := dhw.usbServer
-	busID := dhw.exportMeta.BusID
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = slices.DeleteFunc(shw.deviceHandles[busID], func(h deviceHandle) bool {
-		return h == deviceHandle(handle)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+			return false
+		}
+		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
+		return true
 	})
-	dh.Delete()
-
-	return true
 }
