@@ -156,13 +156,13 @@ jobs:
                   cache-dependency-path: go.sum
 
             - name: Run focused tests
-              run: go test ./lib/viiper ./internal/server/usb ./virtualbus
+              run: go test ./device/steamcontroller ./lib/viiper ./internal/server/usb ./virtualbus
 
             - name: Run lifecycle race tests
-              run: go test -race ./lib/viiper
+              run: go test -race ./device/steamcontroller ./lib/viiper
 
             - name: Vet canonical packages
-              run: go vet ./lib/viiper ./internal/server/usb ./virtualbus
+              run: go vet ./device/steamcontroller ./lib/viiper ./internal/server/usb ./virtualbus
 
     libviiper-linux:
         name: Build libVIIPER (linux/amd64)
@@ -241,8 +241,24 @@ jobs:
               run: |
                   set -euo pipefail
                   grep -Eq 'GetUSBDeviceIdentity\(uintptr_t handle, uint32_t\* outBusID, uint32_t\* outDeviceID\)' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SteamControllerDeviceHandle' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SteamControllerDeviceState' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SteamControllerOutputCallback' dist/libVIIPER/libVIIPER.h
+                  grep -q 'CreateSteamControllerDevice' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SetSteamControllerDeviceState' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SetSteamControllerOutputCallback' dist/libVIIPER/libVIIPER.h
+                  grep -q 'RemoveSteamControllerDevice' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'typedef void \(\*SteamControllerOutputCallback\)\(SteamControllerDeviceHandle handle, const uint8_t\* data, uint32_t length\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern GoUint8 CreateSteamControllerDevice\(USBServerHandle serverHandle, SteamControllerDeviceHandle\* outDeviceHandle, GoUint32 busID, GoUint8 autoAttachLocalhost, GoUint16 idVendor, GoUint16 idProduct\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern GoUint8 SetSteamControllerDeviceState\(SteamControllerDeviceHandle handle, SteamControllerDeviceState state\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern GoUint8 SetSteamControllerOutputCallback\(SteamControllerDeviceHandle handle, SteamControllerOutputCallback cb\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern GoUint8 RemoveSteamControllerDevice\(SteamControllerDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
                   export_tool="$(command -v llvm-objdump || command -v objdump)"
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'GetUSBDeviceIdentity'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'CreateSteamControllerDevice'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamControllerDeviceState'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamControllerOutputCallback'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamControllerDevice'
 
             - name: Package
               shell: pwsh

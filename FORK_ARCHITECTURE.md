@@ -8,6 +8,7 @@ This fork carries additional embedded-library and device work for SteamInputAddo
 
 - `lib/viiper` is the canonical embedded C ABI for new fork development.
 - Typed libVIIPER device handles are the preferred ownership model.
+- `lib/viiper` currently exposes the Classic Steam Controller (Gordon) through a typed ABI.
 - Current local Windows attachment uses existing `autoAttachLocalhost` behavior.
 - Explicit attach/detach APIs are not implemented yet.
 - `clib/` remains a compatibility and historical flat API for Handheld Companion-derived integration.
@@ -39,6 +40,8 @@ This is a target design, not a statement that explicit attach/detach is currentl
 ## Fork-added devices
 
 This fork contains device implementations not currently present upstream, including `device/steamcontroller` and `device/steamdeck`. Required fork devices should be exposed through typed `lib/viiper` wrappers rather than a new generic controller-manager API.
+
+The Steam Deck does not yet have a typed `lib/viiper` wrapper.
 
 The intended virtual outputs are a persistent Classic Steam Controller (Gordon, `28DE:1102`) and a temporary Xbox 360 controller for the Game Bar route.
 
