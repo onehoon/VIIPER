@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
-	"strconv"
 	"syscall"
 	"unsafe"
 
@@ -53,7 +52,11 @@ const (
 	niMaxServ = 32
 )
 
-// PLUGIN_HARDWARE structure from usbip-win2
+// usbip-win2 v0.9.7.7 ABI reference:
+// https://github.com/vadimgrn/usbip-win2/blob/7c219953101cc5d0ec9a0bcb3eb87259cf72bedd/include/usbip/vhci.h
+//
+// plugin_hardware is intentionally pinned to that released ABI. Later
+// usbip-win2 versions add fields and are not supported by this native binding.
 type attachIOCTL struct {
 	Size       uint32
 	PortOutput int32
@@ -62,39 +65,47 @@ type attachIOCTL struct {
 	Host       [niMaxHost]byte
 }
 
+// plugoutIOCTL is usbip-win2 v0.9.7.7 ioctl::plugout_hardware.
+type plugoutIOCTL struct {
+	Size uint32
+	Port int32
+}
+
 const (
-	fileDeviceUnknown   = 0x00000022
-	methodBuffered      = 0
-	fileReadData        = 0x0001
-	fileWriteData       = 0x0002
-	ioctlPluginHardware = (fileDeviceUnknown << 16) | ((fileReadData | fileWriteData) << 14) | (0x800 << 2) | methodBuffered
+	fileDeviceUnknown    = 0x00000022
+	methodBuffered       = 0
+	fileReadData         = 0x0001
+	fileWriteData        = 0x0002
+	ioctlPluginHardware  = (fileDeviceUnknown << 16) | ((fileReadData | fileWriteData) << 14) | (0x800 << 2) | methodBuffered
+	ioctlPlugoutHardware = (fileDeviceUnknown << 16) | ((fileReadData | fileWriteData) << 14) | (0x801 << 2) | methodBuffered
+)
+
+var (
+	attachPortOutputLength = uint32(unsafe.Offsetof(attachIOCTL{}.PortOutput) + unsafe.Sizeof(attachIOCTL{}.PortOutput))
+	attachInputLength      = uint32(unsafe.Sizeof(attachIOCTL{}))
 )
 
 func attachLocalhostClientImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) error {
-	if useNativeIOCTL {
-		err := attachViaIOCTL(ctx, deviceExportMeta, usbipServerPort, logger)
-		if err != nil {
-			slog.Error("Native IOCTL auto-attach failed, falling back to command execution", "error", err)
-			slog.Info("Trying fallback via usbip executable")
-		} else {
-			return nil
-		}
-	}
-	return attachViaCommand(ctx, deviceExportMeta, usbipServerPort, logger)
+	_, err := attachLocalhostClientTrackedImpl(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger)
+	return err
 }
 
-func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) error {
+func attachLocalhostClientTrackedImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) (LocalhostAttachment, error) {
+	return attachLocalhostClientWithFallback(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger, attachViaIOCTL, attachViaCommand)
+}
+
+func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
 	logger.Info("Auto-attaching localhost client via native IOCTL",
 		"busID", deviceExportMeta.BusID,
 		"deviceID", deviceExportMeta.DevID)
 
 	if usbipServerPort == 0 {
-		return fmt.Errorf("argumentValidation: invalid TCP port number (0)")
+		return LocalhostAttachment{}, fmt.Errorf("argumentValidation: invalid TCP port number (0)")
 	}
 
 	devicePath, err := getDeviceInterfacePath(&deviceGUID)
 	if err != nil {
-		return fmt.Errorf("discovery: %w", err)
+		return LocalhostAttachment{}, fmt.Errorf("discovery: %w", err)
 	}
 
 	logger.Debug("Found usbip-win2 device", "path", devicePath)
@@ -104,20 +115,20 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 
 	busID := fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID)
 	if len(busID) >= len(ioctlData.BusID) {
-		return fmt.Errorf("argumentValidation: bus ID too long: %s", busID)
+		return LocalhostAttachment{}, fmt.Errorf("argumentValidation: bus ID too long: %s", busID)
 	}
 	copy(ioctlData.BusID[:], busID)
 
 	service := fmt.Sprintf("%d", usbipServerPort)
 	if len(service) >= len(ioctlData.Service) {
-		return fmt.Errorf("argumentValidation: service string too long: %s", service)
+		return LocalhostAttachment{}, fmt.Errorf("argumentValidation: service string too long: %s", service)
 	}
 	copy(ioctlData.Service[:], service)
 	copy(ioctlData.Host[:], "localhost")
 
 	devicePathUTF16, err := windows.UTF16PtrFromString(devicePath)
 	if err != nil {
-		return fmt.Errorf("open: failed to convert device path: %w", err)
+		return LocalhostAttachment{}, fmt.Errorf("open: failed to convert device path: %w", err)
 	}
 
 	handle, err := windows.CreateFile(
@@ -130,31 +141,32 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 		0,
 	)
 	if err != nil {
-		return fmt.Errorf("open: failed to open usbip-win2 device: %w", err)
+		return LocalhostAttachment{}, fmt.Errorf("open: failed to open usbip-win2 device: %w", err)
 	}
 	defer windows.CloseHandle(handle) // nolint
 
 	logger.Debug("Opened device handle")
 
 	var bytesReturned uint32
+	inputLength, outputLength := nativeAttachIOCTLLengths()
 	err = windows.DeviceIoControl(
 		handle,
 		ioctlPluginHardware,
 		(*byte)(unsafe.Pointer(&ioctlData)),
-		uint32(unsafe.Sizeof(ioctlData)),
+		inputLength,
 		(*byte)(unsafe.Pointer(&ioctlData)),
-		uint32(unsafe.Sizeof(ioctlData)),
+		outputLength,
 		&bytesReturned,
 		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("IOControl: DeviceIoControl failed: %w", err)
+		return LocalhostAttachment{}, fmt.Errorf("%w: native PLUGIN_HARDWARE DeviceIoControl failed: %v", ErrAttachmentOutcomeUnknown, err)
 	}
 
 	logger.Debug("IOCTL completed", "bytesReturned", bytesReturned, "portOutput", ioctlData.PortOutput)
 
-	if ioctlData.PortOutput <= 0 {
-		return fmt.Errorf("ResponseValidation: invalid USB port returned: %d", ioctlData.PortOutput)
+	if err := validateNativeAttachResponse(bytesReturned, ioctlData.PortOutput); err != nil {
+		return LocalhostAttachment{}, err
 	}
 
 	logger.Info("Successfully attached device via IOCTL",
@@ -162,20 +174,20 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 		"deviceID", deviceExportMeta.DevID,
 		"usbPort", ioctlData.PortOutput)
 
-	return nil
+	return LocalhostAttachment{Backend: LocalhostAttachmentBackendNativeIOCTL, Port: ioctlData.PortOutput}, nil
 }
 
-func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) error {
+func nativeAttachIOCTLLengths() (input uint32, output uint32) {
+	return attachInputLength, attachPortOutputLength
+}
+
+func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
 	logger.Info("Auto-attaching localhost client", "busID", deviceExportMeta.BusID, "deviceID", deviceExportMeta.DevID)
 
 	cmd := exec.CommandContext(
 		ctx,
 		"usbip",
-		"--tcp-port",
-		strconv.FormatUint(uint64(usbipServerPort), 10),
-		"attach",
-		"-r", "localhost",
-		"-b", fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID),
+		usbipAttachCommandArgs(usbipServerPort, fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID))...,
 	)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -183,10 +195,88 @@ func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, u
 			"error", err,
 			"port", usbipServerPort,
 			"output", string(output))
-		return err
+		port, resultErr := classifyUSBIPAttachCommandResult(output, err)
+		if resultErr != nil {
+			return LocalhostAttachment{}, resultErr
+		}
+		return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: port}, nil
 	}
 	logger.Debug("usbip attach output", "output", string(output))
+	port, err := classifyUSBIPAttachCommandResult(output, nil)
+	if err != nil {
+		return LocalhostAttachment{}, err
+	}
+	return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: port}, nil
+}
 
+func validateNativeAttachResponse(bytesReturned uint32, port int32) error {
+	if bytesReturned != attachPortOutputLength {
+		return fmt.Errorf("%w: native PLUGIN_HARDWARE returned %d bytes, expected %d", ErrAttachmentOutcomeUnknown, bytesReturned, attachPortOutputLength)
+	}
+	if port <= 0 {
+		return fmt.Errorf("%w: native PLUGIN_HARDWARE returned invalid USB port %d", ErrAttachmentOutcomeUnknown, port)
+	}
+	return nil
+}
+
+func detachLocalhostClientImpl(ctx context.Context, attachment LocalhostAttachment, logger *slog.Logger) error {
+	if attachment.Port <= 0 {
+		return fmt.Errorf("invalid USB/IP import port %d", attachment.Port)
+	}
+	switch attachment.Backend {
+	case LocalhostAttachmentBackendNativeIOCTL:
+		return detachViaIOCTL(ctx, attachment.Port, logger)
+	case LocalhostAttachmentBackendCommand:
+		return detachViaCommand(ctx, attachment.Port, logger)
+	default:
+		return fmt.Errorf("unknown localhost attachment backend %d", attachment.Backend)
+	}
+}
+
+func detachViaIOCTL(_ context.Context, port int32, logger *slog.Logger) error {
+	request, err := newPlugoutIOCTL(port)
+	if err != nil {
+		return err
+	}
+	devicePath, err := getDeviceInterfacePath(&deviceGUID)
+	if err != nil {
+		return fmt.Errorf("discovery: %w", err)
+	}
+	devicePathUTF16, err := windows.UTF16PtrFromString(devicePath)
+	if err != nil {
+		return fmt.Errorf("open: failed to convert device path: %w", err)
+	}
+	handle, err := windows.CreateFile(devicePathUTF16, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return fmt.Errorf("open: failed to open usbip-win2 device: %w", err)
+	}
+	defer windows.CloseHandle(handle) // nolint
+
+	var bytesReturned uint32
+	if err := windows.DeviceIoControl(handle, ioctlPlugoutHardware, (*byte)(unsafe.Pointer(&request)), uint32(unsafe.Sizeof(request)), nil, 0, &bytesReturned, nil); err != nil {
+		return fmt.Errorf("IOControl: PLUGOUT_HARDWARE failed: %w", err)
+	}
+	logger.Info("Successfully detached device via IOCTL", "usbPort", port)
+	return nil
+}
+
+func newPlugoutIOCTL(port int32) (plugoutIOCTL, error) {
+	if port <= 0 {
+		return plugoutIOCTL{}, fmt.Errorf("invalid USB/IP import port %d", port)
+	}
+	return plugoutIOCTL{Size: uint32(unsafe.Sizeof(plugoutIOCTL{})), Port: port}, nil
+}
+
+func detachViaCommand(ctx context.Context, port int32, logger *slog.Logger) error {
+	args, err := usbipDetachCommandArgs(port)
+	if err != nil {
+		return err
+	}
+	output, err := exec.CommandContext(ctx, "usbip", args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("usbip detach failed: %w: %s", err, output)
+	}
+	logger.Info("Successfully detached device via usbip command", "usbPort", port)
 	return nil
 }
 

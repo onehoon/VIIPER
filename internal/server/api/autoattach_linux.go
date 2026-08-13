@@ -39,6 +39,17 @@ func attachLocalhostClientImpl(ctx context.Context, deviceExportMeta *usbip.Expo
 	return nil
 }
 
+// Tracked Windows import-port ownership is intentionally not implemented for
+// Linux in PR3A. Keep the existing Linux auto-attach behavior unchanged while
+// making the unsupported boundary explicit to future callers.
+func attachLocalhostClientTrackedImpl(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ *slog.Logger) (LocalhostAttachment, error) {
+	return LocalhostAttachment{}, fmt.Errorf("tracked localhost USB/IP attachments are currently supported only on Windows")
+}
+
+func detachLocalhostClientImpl(_ context.Context, _ LocalhostAttachment, _ *slog.Logger) error {
+	return fmt.Errorf("tracked localhost USB/IP detach is currently supported only on Windows")
+}
+
 // CheckAutoAttachPrerequisites checks if auto-attach prerequisites are met on Linux.
 // Returns true if all requirements are satisfied, false otherwise with helpful log messages.
 func CheckAutoAttachPrerequisites(_ bool, logger *slog.Logger) bool {
