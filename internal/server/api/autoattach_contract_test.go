@@ -21,6 +21,7 @@ func TestParseUSBIPTerseAttachPort(t *testing.T) {
 	}{
 		{name: "positive port", output: "17\n", want: 17},
 		{name: "whitespace around a single port", output: " 42 \r\n", want: 42},
+		//nolint:misspell // usbip-win2 v0.9.7.7 emits this exact historical spelling.
 		{name: "normal output is not terse", output: "succesfully attached to port 17\n", wantErr: true},
 		{name: "unrelated numbers", output: "server 3241, port 17", wantErr: true},
 		{name: "zero", output: "0", wantErr: true},

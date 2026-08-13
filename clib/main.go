@@ -217,9 +217,11 @@ func attachDeviceToWindows(bid, did uint32) error {
 	logger := slog.Default()
 
 	mu.Unlock()
-	// AttachLocalhostClient owns classified native-to-command fallback. Retrying
-	// here could duplicate an attachment whose native outcome was unknown.
 	err := api.AttachLocalhostClient(context.Background(), exportMeta, port, true, logger)
+	if err != nil {
+		slog.Warn("auto-attach via IOCTL failed, trying usbip.exe", "error", err)
+		err = api.AttachLocalhostClient(context.Background(), exportMeta, port, false, logger)
+	}
 	mu.Lock()
 
 	if err == nil {

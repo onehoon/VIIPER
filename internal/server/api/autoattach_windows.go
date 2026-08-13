@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"strconv"
 	"syscall"
 	"unsafe"
 
@@ -86,8 +87,17 @@ var (
 )
 
 func attachLocalhostClientImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) error {
-	_, err := attachLocalhostClientTrackedImpl(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger)
-	return err
+	// Keep the legacy auto-attach contract isolated from tracked ownership.
+	// PR3B will migrate callers that can retain attachment-outcome-unknown.
+	if useNativeIOCTL {
+		if _, err := attachViaIOCTL(ctx, deviceExportMeta, usbipServerPort, logger); err == nil {
+			return nil
+		} else {
+			slog.Error("Native IOCTL auto-attach failed, falling back to command execution", "error", err)
+			slog.Info("Trying fallback via usbip executable")
+		}
+	}
+	return attachViaCommandLegacy(ctx, deviceExportMeta, usbipServerPort, logger)
 }
 
 func attachLocalhostClientTrackedImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) (LocalhostAttachment, error) {
@@ -207,6 +217,26 @@ func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, u
 		return LocalhostAttachment{}, err
 	}
 	return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: port}, nil
+}
+
+// attachViaCommandLegacy preserves the old error-only auto-attach behavior.
+// It intentionally does not participate in tracked attachment ownership; that
+// migration must happen atomically with PR3B's device lifecycle state.
+func attachViaCommandLegacy(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) error {
+	logger.Info("Auto-attaching localhost client", "busID", deviceExportMeta.BusID, "deviceID", deviceExportMeta.DevID)
+	cmd := exec.CommandContext(
+		ctx,
+		"usbip",
+		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),
+		"attach", "-r", "localhost", "-b", fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Error("Failed to attach device", "error", err, "port", usbipServerPort, "output", string(output))
+		return err
+	}
+	logger.Debug("usbip attach output", "output", string(output))
+	return nil
 }
 
 func validateNativeAttachResponse(bytesReturned uint32, port int32) error {
