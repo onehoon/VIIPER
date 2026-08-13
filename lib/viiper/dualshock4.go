@@ -73,16 +73,11 @@ static void viiper_call_ds4_output(DS4OutputCallback fn, DS4DeviceHandle handle,
 */
 import "C"
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"runtime/cgo"
-	"slices"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/dualshock4"
-	"github.com/Alia5/VIIPER/internal/server/api"
 )
 
 // CreateDS4Device creates a new DualShock 4 device on the bus with the given ID on the server associated with the given handle.
@@ -104,13 +99,8 @@ func CreateDS4Device(
 	idProduct uint16,
 	meta *C.DS4MetaState,
 ) bool {
-	sh := cgo.Handle(serverHandle)
-	shw, ok := sh.Value().(*usbServerHandleWrapper)
+	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
-		return false
-	}
-	bus := shw.s.GetBus(busID)
-	if bus == nil {
 		return false
 	}
 
@@ -140,39 +130,13 @@ func CreateDS4Device(
 	if err != nil {
 		return false
 	}
-	devCtx, err := bus.Add(d)
-	if err != nil {
+	shw.lifecycleMu.Lock()
+	defer shw.lifecycleMu.Unlock()
+	h, ok := shw.createDeviceLocked(busID, d, autoAttachLocalhost)
+	if !ok {
 		return false
 	}
-	exportMeta := device.GetDeviceMeta(devCtx)
-	if exportMeta == nil {
-		return false
-	}
-
-	if autoAttachLocalhost {
-		err := api.AttachLocalhostClient(
-			context.Background(),
-			exportMeta,
-			shw.s.GetListenPort(),
-			true,
-			slog.Default(),
-		)
-		if err != nil {
-			slog.Error("failed to auto-attach localhost client", "error", err)
-			return false
-		}
-	}
-
-	handleWrapper := &deviceHandleWrapper{
-		device:     d,
-		exportMeta: exportMeta,
-		usbServer:  shw,
-	}
-	*outDeviceHandle = C.DS4DeviceHandle(cgo.NewHandle(handleWrapper))
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = append(shw.deviceHandles[busID], deviceHandle(*outDeviceHandle))
+	*outDeviceHandle = C.DS4DeviceHandle(h)
 	return true
 }
 
@@ -182,39 +146,36 @@ func CreateDS4Device(
 //
 //export SetDS4DeviceState
 func SetDS4DeviceState(handle C.DS4DeviceHandle, state C.DS4DeviceState) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	ds4device, ok := dhw.device.(*dualshock4.DualShock4)
-	if !ok {
-		return false
-	}
-	s := &dualshock4.InputState{
-		LX:           int8(state.LX),
-		LY:           int8(state.LY),
-		RX:           int8(state.RX),
-		RY:           int8(state.RY),
-		Buttons:      uint16(state.Buttons),
-		DPad:         uint8(state.DPad),
-		L2:           uint8(state.L2),
-		R2:           uint8(state.R2),
-		Touch1X:      uint16(state.Touch1X),
-		Touch1Y:      uint16(state.Touch1Y),
-		Touch1Active: state.Touch1Active != 0,
-		Touch2X:      uint16(state.Touch2X),
-		Touch2Y:      uint16(state.Touch2Y),
-		Touch2Active: state.Touch2Active != 0,
-		GyroX:        int16(state.GyroX),
-		GyroY:        int16(state.GyroY),
-		GyroZ:        int16(state.GyroZ),
-		AccelX:       int16(state.AccelX),
-		AccelY:       int16(state.AccelY),
-		AccelZ:       int16(state.AccelZ),
-	}
-	ds4device.UpdateInputState(s)
-	return true
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		ds4device, ok := dhw.device.(*dualshock4.DualShock4)
+		if !ok {
+			return false
+		}
+		s := &dualshock4.InputState{
+			LX:           int8(state.LX),
+			LY:           int8(state.LY),
+			RX:           int8(state.RX),
+			RY:           int8(state.RY),
+			Buttons:      uint16(state.Buttons),
+			DPad:         uint8(state.DPad),
+			L2:           uint8(state.L2),
+			R2:           uint8(state.R2),
+			Touch1X:      uint16(state.Touch1X),
+			Touch1Y:      uint16(state.Touch1Y),
+			Touch1Active: state.Touch1Active != 0,
+			Touch2X:      uint16(state.Touch2X),
+			Touch2Y:      uint16(state.Touch2Y),
+			Touch2Active: state.Touch2Active != 0,
+			GyroX:        int16(state.GyroX),
+			GyroY:        int16(state.GyroY),
+			GyroZ:        int16(state.GyroZ),
+			AccelX:       int16(state.AccelX),
+			AccelY:       int16(state.AccelY),
+			AccelZ:       int16(state.AccelZ),
+		}
+		ds4device.UpdateInputState(s)
+		return true
+	})
 }
 
 // SetDS4OutputCallback sets a callback to be invoked when the host sends output (rumble/LED) commands to the device.
@@ -223,31 +184,28 @@ func SetDS4DeviceState(handle C.DS4DeviceHandle, state C.DS4DeviceState) bool {
 //
 //export SetDS4OutputCallback
 func SetDS4OutputCallback(handle C.DS4DeviceHandle, cb C.DS4OutputCallback) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	ds4device, ok := dhw.device.(*dualshock4.DualShock4)
-	if !ok {
-		return false
-	}
-	if cb == nil {
-		ds4device.SetOutputCallback(nil)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		ds4device, ok := dhw.device.(*dualshock4.DualShock4)
+		if !ok {
+			return false
+		}
+		if cb == nil {
+			ds4device.SetOutputCallback(nil)
+			return true
+		}
+		ds4device.SetOutputCallback(func(out dualshock4.OutputState) {
+			C.viiper_call_ds4_output(cb, handle,
+				C.uint8_t(out.RumbleSmall),
+				C.uint8_t(out.RumbleLarge),
+				C.uint8_t(out.LedRed),
+				C.uint8_t(out.LedGreen),
+				C.uint8_t(out.LedBlue),
+				C.uint8_t(out.FlashOn),
+				C.uint8_t(out.FlashOff),
+			)
+		})
 		return true
-	}
-	ds4device.SetOutputCallback(func(out dualshock4.OutputState) {
-		C.viiper_call_ds4_output(cb, handle,
-			C.uint8_t(out.RumbleSmall),
-			C.uint8_t(out.RumbleLarge),
-			C.uint8_t(out.LedRed),
-			C.uint8_t(out.LedGreen),
-			C.uint8_t(out.LedBlue),
-			C.uint8_t(out.FlashOn),
-			C.uint8_t(out.FlashOff),
-		)
 	})
-	return true
 }
 
 // RemoveDS4Device removes the DualShock 4 device associated with the given handle from the server.
@@ -255,24 +213,11 @@ func SetDS4OutputCallback(handle C.DS4DeviceHandle, cb C.DS4OutputCallback) bool
 //
 //export RemoveDS4Device
 func RemoveDS4Device(handle C.DS4DeviceHandle) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-		return false
-	}
-
-	shw := dhw.usbServer
-	busID := dhw.exportMeta.BusID
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = slices.DeleteFunc(shw.deviceHandles[busID], func(h deviceHandle) bool {
-		return h == deviceHandle(handle)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+			return false
+		}
+		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
+		return true
 	})
-	dh.Delete()
-
-	return true
 }

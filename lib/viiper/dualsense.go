@@ -100,16 +100,12 @@ static void viiper_call_ds_output(DSOutputCallback fn, DSDeviceHandle handle, ui
 */
 import "C"
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"runtime/cgo"
-	"slices"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/dualsense"
-	"github.com/Alia5/VIIPER/internal/server/api"
 )
 
 // CreateDualSenseDevice creates a new DualSense (non-edge) device on the bus with the given ID on the server associated with the given handle.
@@ -166,13 +162,8 @@ func createDualSenseDevice(
 	meta *C.DSMetaState,
 	edge bool,
 ) bool {
-	sh := cgo.Handle(serverHandle)
-	shw, ok := sh.Value().(*usbServerHandleWrapper)
+	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
-		return false
-	}
-	bus := shw.s.GetBus(busID)
-	if bus == nil {
 		return false
 	}
 
@@ -208,39 +199,13 @@ func createDualSenseDevice(
 	if err != nil {
 		return false
 	}
-	devCtx, err := bus.Add(d)
-	if err != nil {
+	shw.lifecycleMu.Lock()
+	defer shw.lifecycleMu.Unlock()
+	h, ok := shw.createDeviceLocked(busID, d, autoAttachLocalhost)
+	if !ok {
 		return false
 	}
-	exportMeta := device.GetDeviceMeta(devCtx)
-	if exportMeta == nil {
-		return false
-	}
-
-	if autoAttachLocalhost {
-		err := api.AttachLocalhostClient(
-			context.Background(),
-			exportMeta,
-			shw.s.GetListenPort(),
-			true,
-			slog.Default(),
-		)
-		if err != nil {
-			slog.Error("failed to auto-attach localhost client", "error", err)
-			return false
-		}
-	}
-
-	handleWrapper := &deviceHandleWrapper{
-		device:     d,
-		exportMeta: exportMeta,
-		usbServer:  shw,
-	}
-	*outDeviceHandle = C.DSDeviceHandle(cgo.NewHandle(handleWrapper))
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = append(shw.deviceHandles[busID], deviceHandle(*outDeviceHandle))
+	*outDeviceHandle = C.DSDeviceHandle(h)
 	return true
 }
 
@@ -322,24 +287,11 @@ func SetDualSenseOutputCallback(handle C.DSDeviceHandle, cb C.DSOutputCallback) 
 //
 //export RemoveDualSenseDevice
 func RemoveDualSenseDevice(handle C.DSDeviceHandle) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-		return false
-	}
-
-	shw := dhw.usbServer
-	busID := dhw.exportMeta.BusID
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = slices.DeleteFunc(shw.deviceHandles[busID], func(h deviceHandle) bool {
-		return h == deviceHandle(handle)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+			return false
+		}
+		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
+		return true
 	})
-	dh.Delete()
-
-	return true
 }

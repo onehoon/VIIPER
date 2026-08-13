@@ -47,16 +47,11 @@ static void viiper_call_rumble(Xbox360RumbleCallback fn, Xbox360DeviceHandle han
 */
 import "C"
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"runtime/cgo"
-	"slices"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/xbox360"
-	"github.com/Alia5/VIIPER/internal/server/api"
 )
 
 // CreateXbox360Device creates a new Xbox360 device on the bus with the given ID on the server associated with the given handle.
@@ -79,13 +74,8 @@ func CreateXbox360Device(
 	xinputSubType uint8,
 ) bool {
 
-	sh := cgo.Handle(serverHandle)
-	shw, ok := sh.Value().(*usbServerHandleWrapper)
+	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
-		return false
-	}
-	bus := shw.s.GetBus(busID)
-	if bus == nil {
 		return false
 	}
 
@@ -110,39 +100,13 @@ func CreateXbox360Device(
 	if err != nil {
 		return false
 	}
-	devCtx, err := bus.Add(d)
-	if err != nil {
+	shw.lifecycleMu.Lock()
+	defer shw.lifecycleMu.Unlock()
+	h, ok := shw.createDeviceLocked(busID, d, autoAttachLocalhost)
+	if !ok {
 		return false
 	}
-	exportMeta := device.GetDeviceMeta(devCtx)
-	if exportMeta == nil {
-		return false
-	}
-
-	if autoAttachLocalhost {
-		err := api.AttachLocalhostClient(
-			context.Background(),
-			exportMeta,
-			shw.s.GetListenPort(),
-			true,
-			slog.Default(),
-		)
-		if err != nil {
-			slog.Error("failed to auto-attach localhost client", "error", err)
-			return false
-		}
-	}
-
-	handleWrapper := &deviceHandleWrapper{
-		device:     d,
-		exportMeta: exportMeta,
-		usbServer:  shw,
-	}
-	*outDeviceHandle = C.Xbox360DeviceHandle(cgo.NewHandle(handleWrapper))
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = append(shw.deviceHandles[busID], deviceHandle(*outDeviceHandle))
+	*outDeviceHandle = C.Xbox360DeviceHandle(h)
 	return true
 }
 
@@ -152,31 +116,18 @@ func CreateXbox360Device(
 //
 //export SetXbox360DeviceState
 func SetXbox360DeviceState(handle C.Xbox360DeviceHandle, state C.Xbox360DeviceState) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	xbox360device, ok := dhw.device.(*xbox360.Xbox360)
-	if !ok {
-		return false
-	}
-	deviceState := xbox360.InputState{
-		Buttons: uint32(state.Buttons),
-		LT:      uint8(state.LT),
-		RT:      uint8(state.RT),
-		LX:      int16(state.LX),
-		LY:      int16(state.LY),
-		RX:      int16(state.RX),
-		RY:      int16(state.RY),
-	}
-	for i, v := range state.Reserved {
-		deviceState.Reserved[i] = byte(v)
-	}
-
-	xbox360device.UpdateInputState(deviceState)
-
-	return true
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		xbox360device, ok := dhw.device.(*xbox360.Xbox360)
+		if !ok {
+			return false
+		}
+		deviceState := xbox360.InputState{Buttons: uint32(state.Buttons), LT: uint8(state.LT), RT: uint8(state.RT), LX: int16(state.LX), LY: int16(state.LY), RX: int16(state.RX), RY: int16(state.RY)}
+		for i, v := range state.Reserved {
+			deviceState.Reserved[i] = byte(v)
+		}
+		xbox360device.UpdateInputState(deviceState)
+		return true
+	})
 }
 
 // RemoveXbox360Device removes the Xbox360 device associated with the given handle from the server.
@@ -184,26 +135,13 @@ func SetXbox360DeviceState(handle C.Xbox360DeviceHandle, state C.Xbox360DeviceSt
 //
 //export RemoveXbox360Device
 func RemoveXbox360Device(handle C.Xbox360DeviceHandle) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-		return false
-	}
-
-	shw := dhw.usbServer
-	busID := dhw.exportMeta.BusID
-
-	shw.mtx.Lock()
-	defer shw.mtx.Unlock()
-	shw.deviceHandles[busID] = slices.DeleteFunc(shw.deviceHandles[busID], func(h deviceHandle) bool {
-		return h == deviceHandle(handle)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+			return false
+		}
+		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
+		return true
 	})
-	dh.Delete()
-
-	return true
 }
 
 // SetXbox360RumbleCallback sets a callback to be invoked when the host sends rumble/motor commands to the device.
@@ -212,21 +150,18 @@ func RemoveXbox360Device(handle C.Xbox360DeviceHandle) bool {
 //
 //export SetXbox360RumbleCallback
 func SetXbox360RumbleCallback(handle C.Xbox360DeviceHandle, cb C.Xbox360RumbleCallback) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	xbox360device, ok := dhw.device.(*xbox360.Xbox360)
-	if !ok {
-		return false
-	}
-	if cb == nil {
-		xbox360device.SetRumbleCallback(nil)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		xbox360device, ok := dhw.device.(*xbox360.Xbox360)
+		if !ok {
+			return false
+		}
+		if cb == nil {
+			xbox360device.SetRumbleCallback(nil)
+			return true
+		}
+		xbox360device.SetRumbleCallback(func(rumble xbox360.XRumbleState) {
+			C.viiper_call_rumble(cb, handle, C.uint8_t(rumble.LeftMotor), C.uint8_t(rumble.RightMotor))
+		})
 		return true
-	}
-	xbox360device.SetRumbleCallback(func(rumble xbox360.XRumbleState) {
-		C.viiper_call_rumble(cb, handle, C.uint8_t(rumble.LeftMotor), C.uint8_t(rumble.RightMotor))
 	})
-	return true
 }

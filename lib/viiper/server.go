@@ -31,6 +31,7 @@ import "C"
 import (
 	"log/slog"
 	"runtime/cgo"
+	"slices"
 	"time"
 	"unsafe"
 
@@ -93,10 +94,17 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 
 	select {
 	case <-readyChan:
-		*outHandle = C.USBServerHandle(cgo.NewHandle(&usbServerHandleWrapper{
-			s:             s,
-			deviceHandles: make(map[uint32][]deviceHandle),
-		}))
+		hw := &usbServerHandleWrapper{
+			s:                   s,
+			state:               serverActive,
+			deviceHandles:       make(map[uint32][]deviceHandle),
+			deviceHandleRecords: make(map[deviceHandle]*deviceHandleWrapper),
+			finalizationCounts:  make(map[deviceHandle]uint32),
+			ops:                 defaultServerOperations(),
+		}
+		h := cgo.NewHandle(hw)
+		*outHandle = C.USBServerHandle(h)
+		serverHandleRecords.Store(uintptr(h), hw)
 		return true
 	case err := <-errChan:
 		logger.Error("NewUSBServer: ListenAndServe failed", "error", err)
@@ -110,25 +118,33 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 //
 //export CloseUSBServer
 func CloseUSBServer(handle C.USBServerHandle) bool {
-	h := cgo.Handle(handle)
-	hw, ok := h.Value().(*usbServerHandleWrapper)
+	hw, ok := lookupServerHandle(uintptr(handle))
 	if !ok {
 		return false
 	}
-	hw.mtx.Lock()
-	defer hw.mtx.Unlock()
-
-	for busID, dhs := range hw.deviceHandles {
-		for _, dh := range dhs {
-			cgo.Handle(dh).Delete()
-		}
-		delete(hw.deviceHandles, busID)
-	}
-	hw.deviceHandles = nil
-
-	if err := hw.s.Close(); err != nil {
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if hw.state != serverActive && hw.state != serverCloseFailed {
 		return false
 	}
-	h.Delete()
+	hw.state = serverClosing
+
+	busIDs := hw.s.ListBuses()
+	slices.Sort(busIDs)
+	for _, busID := range busIDs {
+		if err := hw.ops.removeBus(hw.s, busID); err != nil {
+			hw.state = serverCloseFailed
+			return false
+		}
+		hw.finalizeBusLocked(busID)
+	}
+
+	if err := hw.ops.close(hw.s); err != nil {
+		hw.state = serverCloseFailed
+		return false
+	}
+	hw.state = serverClosed
+	serverHandleRecords.Delete(uintptr(handle))
+	cgo.Handle(handle).Delete()
 	return true
 }

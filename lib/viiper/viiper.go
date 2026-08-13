@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/cgo"
+	"slices"
 	"strings"
 	"sync"
 
+	"github.com/Alia5/VIIPER/device"
+	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/internal/server/usb"
+	viiperusb "github.com/Alia5/VIIPER/usb"
 	"github.com/Alia5/VIIPER/usbip"
 )
 
@@ -24,16 +28,155 @@ func goStringOrEmpty(p *C.char) string {
 
 type deviceHandle cgo.Handle
 
+type serverLifecycleState uint8
+
+const (
+	serverActive serverLifecycleState = iota
+	serverClosing
+	serverCloseFailed
+	serverClosed
+)
+
+type serverOperations struct {
+	attachLocalhost func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error
+	removeBus       func(*usb.Server, uint32) error
+	close           func(*usb.Server) error
+	deleteHandle    func(cgo.Handle)
+}
+
+func defaultServerOperations() serverOperations {
+	return serverOperations{
+		attachLocalhost: api.AttachLocalhostClient,
+		removeBus:       func(s *usb.Server, busID uint32) error { return s.RemoveBus(busID) },
+		close:           func(s *usb.Server) error { return s.Close() },
+		deleteHandle:    func(h cgo.Handle) { h.Delete() },
+	}
+}
+
 type usbServerHandleWrapper struct {
-	s             *usb.Server
-	mtx           sync.Mutex
-	deviceHandles map[uint32][]deviceHandle
+	s                   *usb.Server
+	lifecycleMu         sync.Mutex
+	mtx                 sync.Mutex // Legacy wrapper synchronization; lifecycleMu gates mutations.
+	state               serverLifecycleState
+	deviceHandles       map[uint32][]deviceHandle
+	deviceHandleRecords map[deviceHandle]*deviceHandleWrapper
+	finalizationCounts  map[deviceHandle]uint32
+	ops                 serverOperations
 }
 
 type deviceHandleWrapper struct {
 	device     any
 	exportMeta *usbip.ExportMeta
 	usbServer  *usbServerHandleWrapper
+}
+
+var serverHandleRecords sync.Map // map[uintptr]*usbServerHandleWrapper
+var deviceHandleRecords sync.Map // map[uintptr]*deviceHandleWrapper
+
+func lookupServerHandle(raw uintptr) (*usbServerHandleWrapper, bool) {
+	v, ok := serverHandleRecords.Load(raw)
+	if !ok {
+		return nil, false
+	}
+	hw, ok := v.(*usbServerHandleWrapper)
+	return hw, ok
+}
+
+func lookupDeviceIdentity(raw uintptr) (*deviceHandleWrapper, bool) {
+	v, ok := deviceHandleRecords.Load(raw)
+	if !ok {
+		return nil, false
+	}
+	dhw, ok := v.(*deviceHandleWrapper)
+	if !ok {
+		return nil, false
+	}
+
+	hw := dhw.usbServer
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if hw.state != serverActive && hw.state != serverCloseFailed {
+		return nil, false
+	}
+	if hw.deviceHandleRecords[deviceHandle(raw)] != dhw {
+		return nil, false
+	}
+	return dhw, true
+}
+
+func withActiveDeviceHandle(raw uintptr, action func(*deviceHandleWrapper) bool) bool {
+	v, ok := deviceHandleRecords.Load(raw)
+	if !ok {
+		return false
+	}
+	dhw, ok := v.(*deviceHandleWrapper)
+	if !ok {
+		return false
+	}
+
+	hw := dhw.usbServer
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if hw.state != serverActive || hw.deviceHandleRecords[deviceHandle(raw)] != dhw {
+		return false
+	}
+	return action(dhw)
+}
+
+func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool) {
+	if hw.state != serverActive {
+		return 0, false
+	}
+	bus := hw.s.GetBus(busID)
+	if bus == nil {
+		return 0, false
+	}
+
+	devCtx, err := bus.Add(dev)
+	if err != nil {
+		return 0, false
+	}
+	exportMeta := device.GetDeviceMeta(devCtx)
+	if exportMeta == nil {
+		_ = bus.Remove(dev)
+		return 0, false
+	}
+	if autoAttach {
+		if err := hw.ops.attachLocalhost(context.Background(), exportMeta, hw.s.GetListenPort(), true, slog.Default()); err != nil {
+			slog.Error("failed to auto-attach localhost client", "error", err)
+			_ = bus.Remove(dev)
+			return 0, false
+		}
+	}
+
+	dhw := &deviceHandleWrapper{device: dev, exportMeta: exportMeta, usbServer: hw}
+	h := deviceHandle(cgo.NewHandle(dhw))
+	hw.deviceHandles[busID] = append(hw.deviceHandles[busID], h)
+	hw.deviceHandleRecords[h] = dhw
+	deviceHandleRecords.Store(uintptr(h), dhw)
+	return h, true
+}
+
+func (hw *usbServerHandleWrapper) finalizeDeviceLocked(h deviceHandle) {
+	dhw, ok := hw.deviceHandleRecords[h]
+	if !ok {
+		return
+	}
+	delete(hw.deviceHandleRecords, h)
+	deviceHandleRecords.Delete(uintptr(h))
+	busID := dhw.exportMeta.BusID
+	hw.deviceHandles[busID] = slices.DeleteFunc(hw.deviceHandles[busID], func(candidate deviceHandle) bool {
+		return candidate == h
+	})
+	hw.finalizationCounts[h]++
+	hw.ops.deleteHandle(cgo.Handle(h))
+}
+
+func (hw *usbServerHandleWrapper) finalizeBusLocked(busID uint32) {
+	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
+		hw.finalizeDeviceLocked(h)
+	}
+	delete(hw.deviceHandles, busID)
 }
 
 // ---
