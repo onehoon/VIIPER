@@ -36,6 +36,7 @@ import "C"
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/steamcontroller"
@@ -49,7 +50,19 @@ func CreateSteamControllerDevice(serverHandle C.USBServerHandle, outDeviceHandle
 	if outDeviceHandle == nil {
 		return false
 	}
-	hw, ok := lookupServerHandle(uintptr(serverHandle))
+	var handle deviceHandle
+	if !createSteamControllerDevice(uintptr(serverHandle), &handle, busID, autoAttachLocalhost, idVendor, idProduct) {
+		return false
+	}
+	*outDeviceHandle = C.SteamControllerDeviceHandle(handle)
+	return true
+}
+
+func createSteamControllerDevice(serverHandle uintptr, outDeviceHandle *deviceHandle, busID uint32, autoAttachLocalhost bool, idVendor uint16, idProduct uint16) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
+	hw, ok := lookupServerHandle(serverHandle)
 	if !ok {
 		return false
 	}
@@ -70,7 +83,7 @@ func CreateSteamControllerDevice(serverHandle C.USBServerHandle, outDeviceHandle
 	if !ok {
 		return false
 	}
-	*outDeviceHandle = C.SteamControllerDeviceHandle(h)
+	*outDeviceHandle = h
 	return true
 }
 
@@ -90,8 +103,15 @@ type steamControllerState struct {
 }
 
 func steamControllerStateFromC(state C.SteamControllerDeviceState) steamControllerState {
+	return steamControllerStateFromPointer(unsafe.Pointer(&state))
+}
+
+func steamControllerStateFromPointer(pointer unsafe.Pointer) steamControllerState {
+	state := (*C.SteamControllerDeviceState)(pointer)
 	return steamControllerState{A: state.A != 0, X: state.X != 0, B: state.B != 0, Y: state.Y != 0, L1: state.L1 != 0, R1: state.R1 != 0, Menu: state.Menu != 0, Steam: state.Steam != 0, Options: state.Options != 0, DPadDown: state.DPadDown != 0, DPadLeft: state.DPadLeft != 0, DPadRight: state.DPadRight != 0, DPadUp: state.DPadUp != 0, L3: state.L3 != 0, LGrip: state.LGrip != 0, RGrip: state.RGrip != 0, LPadTouch: state.LPadTouch != 0, RPadTouch: state.RPadTouch != 0, LPadPress: state.LPadPress != 0, RPadPress: state.RPadPress != 0, LPadAndStick: state.LPadAndStick != 0, LPadX: int16(state.LPadX), LPadY: int16(state.LPadY), RPadX: int16(state.RPadX), RPadY: int16(state.RPadY), LTrigger: uint16(state.LTrigger), RTrigger: uint16(state.RTrigger), LStickX: int16(state.LStickX), LStickY: int16(state.LStickY), AccelX: int16(state.AccelX), AccelY: int16(state.AccelY), AccelZ: int16(state.AccelZ), GyroX: int16(state.GyroX), GyroY: int16(state.GyroY), GyroZ: int16(state.GyroZ), GyroQuatW: int16(state.GyroQuatW), GyroQuatX: int16(state.GyroQuatX), GyroQuatY: int16(state.GyroQuatY), GyroQuatZ: int16(state.GyroQuatZ), BatteryMilliVolts: uint16(state.BatteryMilliVolts)}
 }
+
+func steamControllerDeviceStateSize() uintptr { return unsafe.Sizeof(C.SteamControllerDeviceState{}) }
 
 func setSteamControllerDeviceState(handle uintptr, state steamControllerState) bool {
 	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
