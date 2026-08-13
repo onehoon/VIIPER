@@ -81,7 +81,6 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
-	"runtime/cgo"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/ns2pro"
@@ -153,30 +152,14 @@ func CreateNS2ProDevice(
 //
 //export SetNS2ProDeviceState
 func SetNS2ProDeviceState(handle C.NS2ProDeviceHandle, state C.NS2ProDeviceState) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	ns2device, ok := dhw.device.(*ns2pro.NS2Pro)
-	if !ok {
-		return false
-	}
-	s := ns2pro.InputState{
-		Buttons: uint32(state.Buttons),
-		LX:      uint16(state.LX),
-		LY:      uint16(state.LY),
-		RX:      uint16(state.RX),
-		RY:      uint16(state.RY),
-		AccelX:  int16(state.AccelX),
-		AccelY:  int16(state.AccelY),
-		AccelZ:  int16(state.AccelZ),
-		GyroX:   int16(state.GyroX),
-		GyroY:   int16(state.GyroY),
-		GyroZ:   int16(state.GyroZ),
-	}
-	ns2device.UpdateInputState(s)
-	return true
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		ns2device, ok := dhw.device.(*ns2pro.NS2Pro)
+		if !ok {
+			return false
+		}
+		ns2device.UpdateInputState(ns2pro.InputState{Buttons: uint32(state.Buttons), LX: uint16(state.LX), LY: uint16(state.LY), RX: uint16(state.RX), RY: uint16(state.RY), AccelX: int16(state.AccelX), AccelY: int16(state.AccelY), AccelZ: int16(state.AccelZ), GyroX: int16(state.GyroX), GyroY: int16(state.GyroY), GyroZ: int16(state.GyroZ)})
+		return true
+	})
 }
 
 // SetNS2ProOutputCallback sets a callback to be invoked when the host sends output (rumble/LED) commands to the device.
@@ -185,30 +168,27 @@ func SetNS2ProDeviceState(handle C.NS2ProDeviceHandle, state C.NS2ProDeviceState
 //
 //export SetNS2ProOutputCallback
 func SetNS2ProOutputCallback(handle C.NS2ProDeviceHandle, cb C.NS2ProOutputCallback) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	ns2device, ok := dhw.device.(*ns2pro.NS2Pro)
-	if !ok {
-		return false
-	}
-	if cb == nil {
-		ns2device.SetOutputCallback(nil)
-		return true
-	}
-	ns2device.SetOutputCallback(func(out ns2pro.OutputState) {
-		var cOut C.NS2ProOutputState
-		for i := 0; i < 16; i++ {
-			cOut.LeftRumble[i] = C.uint8_t(out.LeftRumble[i])
-			cOut.RightRumble[i] = C.uint8_t(out.RightRumble[i])
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		ns2device, ok := dhw.device.(*ns2pro.NS2Pro)
+		if !ok {
+			return false
 		}
-		cOut.Flags = C.uint8_t(out.Flags)
-		cOut.PlayerLedMask = C.uint8_t(out.PlayerLedMask)
-		C.viiper_call_ns2pro_output(cb, handle, cOut)
+		if cb == nil {
+			ns2device.SetOutputCallback(nil)
+			return true
+		}
+		ns2device.SetOutputCallback(func(out ns2pro.OutputState) {
+			var cOut C.NS2ProOutputState
+			for i := 0; i < 16; i++ {
+				cOut.LeftRumble[i] = C.uint8_t(out.LeftRumble[i])
+				cOut.RightRumble[i] = C.uint8_t(out.RightRumble[i])
+			}
+			cOut.Flags = C.uint8_t(out.Flags)
+			cOut.PlayerLedMask = C.uint8_t(out.PlayerLedMask)
+			C.viiper_call_ns2pro_output(cb, handle, cOut)
+		})
+		return true
 	})
-	return true
 }
 
 // RemoveNS2ProDevice removes the NS2Pro device associated with the given handle from the server.
@@ -217,7 +197,7 @@ func SetNS2ProOutputCallback(handle C.NS2ProDeviceHandle, cb C.NS2ProOutputCallb
 //export RemoveNS2ProDevice
 func RemoveNS2ProDevice(handle C.NS2ProDeviceHandle) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
-		if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
 			return false
 		}
 		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))

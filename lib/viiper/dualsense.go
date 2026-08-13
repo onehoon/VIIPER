@@ -102,7 +102,6 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
-	"runtime/cgo"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/dualsense"
@@ -215,39 +214,14 @@ func createDualSenseDevice(
 //
 //export SetDualSenseDeviceState
 func SetDualSenseDeviceState(handle C.DSDeviceHandle, state C.DSDeviceState) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	dsDevice, ok := dhw.device.(*dualsense.DualSense)
-	if !ok {
-		return false
-	}
-	s := &dualsense.InputState{
-		LX:           int8(state.LX),
-		LY:           int8(state.LY),
-		RX:           int8(state.RX),
-		RY:           int8(state.RY),
-		Buttons:      uint32(state.Buttons),
-		DPad:         uint8(state.DPad),
-		L2:           uint8(state.L2),
-		R2:           uint8(state.R2),
-		Touch1X:      uint16(state.Touch1X),
-		Touch1Y:      uint16(state.Touch1Y),
-		Touch1Active: state.Touch1Active != 0,
-		Touch2X:      uint16(state.Touch2X),
-		Touch2Y:      uint16(state.Touch2Y),
-		Touch2Active: state.Touch2Active != 0,
-		GyroX:        int16(state.GyroX),
-		GyroY:        int16(state.GyroY),
-		GyroZ:        int16(state.GyroZ),
-		AccelX:       int16(state.AccelX),
-		AccelY:       int16(state.AccelY),
-		AccelZ:       int16(state.AccelZ),
-	}
-	dsDevice.UpdateInputState(s)
-	return true
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		dsDevice, ok := dhw.device.(*dualsense.DualSense)
+		if !ok {
+			return false
+		}
+		dsDevice.UpdateInputState(&dualsense.InputState{LX: int8(state.LX), LY: int8(state.LY), RX: int8(state.RX), RY: int8(state.RY), Buttons: uint32(state.Buttons), DPad: uint8(state.DPad), L2: uint8(state.L2), R2: uint8(state.R2), Touch1X: uint16(state.Touch1X), Touch1Y: uint16(state.Touch1Y), Touch1Active: state.Touch1Active != 0, Touch2X: uint16(state.Touch2X), Touch2Y: uint16(state.Touch2Y), Touch2Active: state.Touch2Active != 0, GyroX: int16(state.GyroX), GyroY: int16(state.GyroY), GyroZ: int16(state.GyroZ), AccelX: int16(state.AccelX), AccelY: int16(state.AccelY), AccelZ: int16(state.AccelZ)})
+		return true
+	})
 }
 
 // SetDualSenseOutputCallback sets a callback to be invoked when the host sends output (rumble/LED) commands to the device.
@@ -256,30 +230,20 @@ func SetDualSenseDeviceState(handle C.DSDeviceHandle, state C.DSDeviceState) boo
 //
 //export SetDualSenseOutputCallback
 func SetDualSenseOutputCallback(handle C.DSDeviceHandle, cb C.DSOutputCallback) bool {
-	dh := cgo.Handle(handle)
-	dhw, ok := dh.Value().(*deviceHandleWrapper)
-	if !ok {
-		return false
-	}
-	dsDevice, ok := dhw.device.(*dualsense.DualSense)
-	if !ok {
-		return false
-	}
-	if cb == nil {
-		dsDevice.SetOutputCallback(nil)
+	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		dsDevice, ok := dhw.device.(*dualsense.DualSense)
+		if !ok {
+			return false
+		}
+		if cb == nil {
+			dsDevice.SetOutputCallback(nil)
+			return true
+		}
+		dsDevice.SetOutputCallback(func(out dualsense.OutputState) {
+			C.viiper_call_ds_output(cb, handle, C.uint8_t(out.RumbleSmall), C.uint8_t(out.RumbleLarge), C.uint8_t(out.LedRed), C.uint8_t(out.LedGreen), C.uint8_t(out.LedBlue), C.uint8_t(out.PlayerLeds))
+		})
 		return true
-	}
-	dsDevice.SetOutputCallback(func(out dualsense.OutputState) {
-		C.viiper_call_ds_output(cb, handle,
-			C.uint8_t(out.RumbleSmall),
-			C.uint8_t(out.RumbleLarge),
-			C.uint8_t(out.LedRed),
-			C.uint8_t(out.LedGreen),
-			C.uint8_t(out.LedBlue),
-			C.uint8_t(out.PlayerLeds),
-		)
 	})
-	return true
 }
 
 // RemoveDualSenseDevice removes the DualSense device associated with the given handle from the server.
@@ -288,7 +252,7 @@ func SetDualSenseOutputCallback(handle C.DSDeviceHandle, cb C.DSOutputCallback) 
 //export RemoveDualSenseDevice
 func RemoveDualSenseDevice(handle C.DSDeviceHandle) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
-		if err := dhw.usbServer.s.RemoveDeviceByID(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
 			return false
 		}
 		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))

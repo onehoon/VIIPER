@@ -60,7 +60,6 @@ type usbServerHandleWrapper struct {
 	state               serverLifecycleState
 	deviceHandles       map[uint32][]deviceHandle
 	deviceHandleRecords map[deviceHandle]*deviceHandleWrapper
-	finalizationCounts  map[deviceHandle]uint32
 	ops                 serverOperations
 	logger              *slog.Logger
 	rejectionWarnings   map[string]bool
@@ -142,15 +141,13 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 	}
 	exportMeta := device.GetDeviceMeta(devCtx)
 	if exportMeta == nil {
-		_ = bus.Remove(dev)
+		hw.rollbackCreatedDeviceLocked(busID, 0, bus, dev, "device metadata was unavailable")
 		return 0, false
 	}
 	if autoAttach {
 		if err := hw.ops.attachLocalhost(context.Background(), exportMeta, hw.s.GetListenPort(), true, hw.logger); err != nil {
 			hw.logger.Warn("localhost auto-attach failed; rolling back logical device", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", exportMeta.BusID, "deviceID", exportMeta.DevID, "error", err)
-			if rollbackErr := bus.Remove(dev); rollbackErr != nil {
-				hw.logger.Error("failed to roll back logical device after auto-attach failure", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", exportMeta.BusID, "deviceID", exportMeta.DevID, "error", rollbackErr)
-			}
+			hw.rollbackCreatedDeviceLocked(exportMeta.BusID, exportMeta.DevID, bus, dev, "auto-attach failure")
 			return 0, false
 		}
 	}
@@ -161,6 +158,15 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 	hw.deviceHandleRecords[h] = dhw
 	deviceHandleRecords.Store(uintptr(h), dhw)
 	return h, true
+}
+
+func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, bus interface{ Remove(viiperusb.Device) error }, dev viiperusb.Device, reason string) {
+	if err := bus.Remove(dev); err == nil {
+		return
+	} else {
+		hw.state = serverCloseFailed
+		hw.logger.Error("failed to roll back logical device", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", busID, "deviceID", deviceID, "reason", reason, "error", err)
+	}
 }
 
 func (s serverLifecycleState) String() string {
@@ -198,7 +204,6 @@ func (hw *usbServerHandleWrapper) finalizeDeviceLocked(h deviceHandle) {
 	hw.deviceHandles[busID] = slices.DeleteFunc(hw.deviceHandles[busID], func(candidate deviceHandle) bool {
 		return candidate == h
 	})
-	hw.finalizationCounts[h]++
 	hw.ops.deleteHandle(cgo.Handle(h))
 }
 

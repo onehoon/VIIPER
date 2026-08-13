@@ -99,7 +99,6 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 			state:               serverActive,
 			deviceHandles:       make(map[uint32][]deviceHandle),
 			deviceHandleRecords: make(map[deviceHandle]*deviceHandleWrapper),
-			finalizationCounts:  make(map[deviceHandle]uint32),
 			ops:                 defaultServerOperations(),
 			logger:              logger,
 			rejectionWarnings:   make(map[string]bool),
@@ -127,6 +126,16 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	}
 	hw.lifecycleMu.Lock()
 	defer hw.lifecycleMu.Unlock()
+	if !hw.closeLocked() {
+		return false
+	}
+	serverHandleRecords.Delete(uintptr(handle))
+	cgo.Handle(handle).Delete()
+	return true
+}
+
+// closeLocked tears down a server while lifecycleMu is held.
+func (hw *usbServerHandleWrapper) closeLocked() bool {
 	if hw.state != serverActive && hw.state != serverCloseFailed {
 		hw.warnMutationRejectedLocked("CloseUSBServer")
 		return false
@@ -140,6 +149,10 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	slices.Sort(busIDs)
 	for _, busID := range busIDs {
 		if err := hw.ops.removeBus(hw.s, busID); err != nil {
+			if hw.s.GetBus(busID) == nil {
+				hw.finalizeBusLocked(busID)
+				continue
+			}
 			hw.state = serverCloseFailed
 			hw.logger.Error("failed to remove bus during server close", "operation", "CloseUSBServer", "serverState", hw.state.String(), "busID", busID, "remainingBusCount", len(hw.s.ListBuses()), "error", err)
 			return false
@@ -153,8 +166,6 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 		return false
 	}
 	hw.state = serverClosed
-	serverHandleRecords.Delete(uintptr(handle))
-	cgo.Handle(handle).Delete()
 	hw.logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", hw.state.String())
 	return true
 }

@@ -251,6 +251,17 @@ func (s *Server) RemoveBus(busID uint32) error {
 
 // RemoveDeviceByID removes a device by busId and cancels its connections.
 func (s *Server) RemoveDeviceByID(busID uint32, deviceID string) error {
+	return s.removeDeviceByID(busID, deviceID, true)
+}
+
+// RemoveDeviceByIDWithoutBusCleanup removes a device without scheduling the
+// empty-bus cleanup goroutine. Callers that own an explicit bus lifecycle use
+// this to keep device removal and subsequent bus teardown linearizable.
+func (s *Server) RemoveDeviceByIDWithoutBusCleanup(busID uint32, deviceID string) error {
+	return s.removeDeviceByID(busID, deviceID, false)
+}
+
+func (s *Server) removeDeviceByID(busID uint32, deviceID string, scheduleBusCleanup bool) error {
 	s.busesMu.Lock()
 	bus, ok := s.busses[busID]
 	s.busesMu.Unlock()
@@ -261,6 +272,9 @@ func (s *Server) RemoveDeviceByID(busID uint32, deviceID string) error {
 	err := bus.RemoveDeviceByID(deviceID)
 	if err != nil {
 		return err
+	}
+	if !scheduleBusCleanup {
+		return nil
 	}
 
 	if emptyCtx := bus.GetBusEmptyContext(); emptyCtx != nil {
