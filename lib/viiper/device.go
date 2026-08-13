@@ -10,15 +10,15 @@ import "C"
 // This does not indicate Windows attachment or PnP enumeration state.
 //
 //export GetUSBDeviceIdentity
-func GetUSBDeviceIdentity(handle C.uintptr_t, outBusID *C.uint32_t, outDeviceID *C.uint32_t) bool {
+func GetUSBDeviceIdentity(handle C.uintptr_t, outBusID *C.uint32_t, outDeviceID *C.uint32_t) C.bool {
 	if outBusID == nil || outDeviceID == nil {
-		return false
+		return C.bool(false)
 	}
 	dhw, ok := lookupDeviceIdentity(uintptr(handle))
 	if !ok {
-		return false
+		return C.bool(false)
 	}
 	*outBusID = C.uint32_t(dhw.exportMeta.BusID)
 	*outDeviceID = C.uint32_t(dhw.exportMeta.DevID)
-	return true
+	return C.bool(true)
 }
