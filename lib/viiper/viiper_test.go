@@ -30,6 +30,8 @@ func newLifecycleTestServer(t *testing.T, busID uint32) (*usbServerHandleWrapper
 		deviceHandleRecords: make(map[deviceHandle]*deviceHandleWrapper),
 		finalizationCounts:  make(map[deviceHandle]uint32),
 		ops:                 defaultServerOperations(),
+		logger:              slog.Default(),
+		rejectionWarnings:   make(map[string]bool),
 	}
 	t.Cleanup(func() { _ = s.RemoveBus(busID) })
 	return hw, b

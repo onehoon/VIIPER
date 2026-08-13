@@ -62,6 +62,8 @@ type usbServerHandleWrapper struct {
 	deviceHandleRecords map[deviceHandle]*deviceHandleWrapper
 	finalizationCounts  map[deviceHandle]uint32
 	ops                 serverOperations
+	logger              *slog.Logger
+	rejectionWarnings   map[string]bool
 }
 
 type deviceHandleWrapper struct {
@@ -118,6 +120,7 @@ func withActiveDeviceHandle(raw uintptr, action func(*deviceHandleWrapper) bool)
 	hw.lifecycleMu.Lock()
 	defer hw.lifecycleMu.Unlock()
 	if hw.state != serverActive || hw.deviceHandleRecords[deviceHandle(raw)] != dhw {
+		hw.warnMutationRejectedLocked("typed-device-mutation")
 		return false
 	}
 	return action(dhw)
@@ -125,6 +128,7 @@ func withActiveDeviceHandle(raw uintptr, action func(*deviceHandleWrapper) bool)
 
 func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool) {
 	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("typed-device-create")
 		return 0, false
 	}
 	bus := hw.s.GetBus(busID)
@@ -142,9 +146,11 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 		return 0, false
 	}
 	if autoAttach {
-		if err := hw.ops.attachLocalhost(context.Background(), exportMeta, hw.s.GetListenPort(), true, slog.Default()); err != nil {
-			slog.Error("failed to auto-attach localhost client", "error", err)
-			_ = bus.Remove(dev)
+		if err := hw.ops.attachLocalhost(context.Background(), exportMeta, hw.s.GetListenPort(), true, hw.logger); err != nil {
+			hw.logger.Warn("localhost auto-attach failed; rolling back logical device", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", exportMeta.BusID, "deviceID", exportMeta.DevID, "error", err)
+			if rollbackErr := bus.Remove(dev); rollbackErr != nil {
+				hw.logger.Error("failed to roll back logical device after auto-attach failure", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", exportMeta.BusID, "deviceID", exportMeta.DevID, "error", rollbackErr)
+			}
 			return 0, false
 		}
 	}
@@ -155,6 +161,30 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 	hw.deviceHandleRecords[h] = dhw
 	deviceHandleRecords.Store(uintptr(h), dhw)
 	return h, true
+}
+
+func (s serverLifecycleState) String() string {
+	switch s {
+	case serverActive:
+		return "active"
+	case serverClosing:
+		return "closing"
+	case serverCloseFailed:
+		return "close-failed"
+	case serverClosed:
+		return "closed"
+	default:
+		return "unknown"
+	}
+}
+
+func (hw *usbServerHandleWrapper) warnMutationRejectedLocked(operation string) {
+	key := operation + ":" + hw.state.String()
+	if hw.rejectionWarnings[key] {
+		return
+	}
+	hw.rejectionWarnings[key] = true
+	hw.logger.Warn("server mutation rejected", "operation", operation, "serverState", hw.state.String())
 }
 
 func (hw *usbServerHandleWrapper) finalizeDeviceLocked(h deviceHandle) {

@@ -101,10 +101,13 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 			deviceHandleRecords: make(map[deviceHandle]*deviceHandleWrapper),
 			finalizationCounts:  make(map[deviceHandle]uint32),
 			ops:                 defaultServerOperations(),
+			logger:              logger,
+			rejectionWarnings:   make(map[string]bool),
 		}
 		h := cgo.NewHandle(hw)
 		*outHandle = C.USBServerHandle(h)
 		serverHandleRecords.Store(uintptr(h), hw)
+		logger.Info("USB server started", "operation", "NewUSBServer", "serverState", serverActive.String())
 		return true
 	case err := <-errChan:
 		logger.Error("NewUSBServer: ListenAndServe failed", "error", err)
@@ -125,7 +128,11 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	hw.lifecycleMu.Lock()
 	defer hw.lifecycleMu.Unlock()
 	if hw.state != serverActive && hw.state != serverCloseFailed {
+		hw.warnMutationRejectedLocked("CloseUSBServer")
 		return false
+	}
+	if hw.state == serverCloseFailed {
+		hw.logger.Warn("retrying a previously failed server close", "operation", "CloseUSBServer", "serverState", hw.state.String())
 	}
 	hw.state = serverClosing
 
@@ -134,6 +141,7 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	for _, busID := range busIDs {
 		if err := hw.ops.removeBus(hw.s, busID); err != nil {
 			hw.state = serverCloseFailed
+			hw.logger.Error("failed to remove bus during server close", "operation", "CloseUSBServer", "serverState", hw.state.String(), "busID", busID, "remainingBusCount", len(hw.s.ListBuses()), "error", err)
 			return false
 		}
 		hw.finalizeBusLocked(busID)
@@ -141,10 +149,12 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 
 	if err := hw.ops.close(hw.s); err != nil {
 		hw.state = serverCloseFailed
+		hw.logger.Error("failed to close USB server", "operation", "CloseUSBServer", "serverState", hw.state.String(), "remainingBusCount", len(hw.s.ListBuses()), "error", err)
 		return false
 	}
 	hw.state = serverClosed
 	serverHandleRecords.Delete(uintptr(handle))
 	cgo.Handle(handle).Delete()
+	hw.logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", hw.state.String())
 	return true
 }

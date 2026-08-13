@@ -22,6 +22,7 @@ func CreateUSBBus(handle C.USBServerHandle, busID *uint32) bool {
 	hw.lifecycleMu.Lock()
 	defer hw.lifecycleMu.Unlock()
 	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("CreateUSBBus")
 		return false
 	}
 
@@ -60,6 +61,7 @@ func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
 	hw.lifecycleMu.Lock()
 	defer hw.lifecycleMu.Unlock()
 	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		return false
 	}
 
