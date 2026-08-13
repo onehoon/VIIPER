@@ -149,6 +149,21 @@ func TestBusIDCanBeReusedAfterExplicitRemoval(t *testing.T) {
 	}
 }
 
+func TestBusIDCanBeReusedAfterServerClose(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9120)
+	hw.lifecycleMu.Lock()
+	if !hw.closeLocked() {
+		hw.lifecycleMu.Unlock()
+		t.Fatal("server close failed")
+	}
+	hw.lifecycleMu.Unlock()
+
+	other, _ := newLifecycleTestServer(t, 9120)
+	if other.s.GetBus(9120) == nil {
+		t.Fatal("bus ID was not reusable after server close")
+	}
+}
+
 func TestNonActiveStateRejectsBusMutation(t *testing.T) {
 	for _, state := range []serverLifecycleState{serverClosing, serverCloseFailed} {
 		t.Run(state.String(), func(t *testing.T) {

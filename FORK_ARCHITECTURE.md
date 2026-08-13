@@ -14,16 +14,6 @@ This fork carries additional embedded-library and device work for SteamInputAddo
 
 New SteamInputAddonforClaw integration must not use `clib` as its architectural base. Do not remove or casually break `clib` compatibility behavior.
 
-## Target architecture
-
-```text
-process lifetime        -> libVIIPER module/runtime
-USB server/bus lifetime -> long-lived embedded runtime
-logical device lifetime -> typed Gordon/Xbox360 objects
-Windows attachment      -> explicit USB/IP attach/detach
-report-routing lifetime -> neutral/live routing
-```
-
 ### Caller-owned bus lifetime
 
 In this fork, a typed `Remove*Device` operation ends only the logical device
@@ -33,6 +23,16 @@ logical devices until the caller explicitly invokes `RemoveUSBBus` or closes
 the owning USB server. This intentionally differs from upstream's timed
 empty-bus cleanup behavior and prevents background cleanup from racing the
 embedded server close lifecycle.
+
+## Target architecture
+
+```text
+process lifetime        -> libVIIPER module/runtime
+USB server/bus lifetime -> long-lived embedded runtime
+logical device lifetime -> typed Gordon/Xbox360 objects
+Windows attachment      -> explicit USB/IP attach/detach
+report-routing lifetime -> neutral/live routing
+```
 
 This is a target design, not a statement that explicit attach/detach is currently available.
 
