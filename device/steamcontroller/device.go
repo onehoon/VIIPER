@@ -38,18 +38,6 @@ var firmwareDefaultSettings = map[uint8]uint16{
 	SettingWirelessPacketVer:   0,
 }
 
-// Steam programs a smaller runtime delta after loading defaults.
-var steamRuntimeSettings = map[uint8]uint16{
-	SettingLeftTrackpadMode:    TrackpadModeNone,
-	SettingRightTrackpadMode:   TrackpadModeNone,
-	SettingLizardMode:          LizardModeOn,
-	SettingSmoothAbsoluteMouse: 0,
-	SettingEnableRawJoystick:   0,
-	SettingEnableFastScan:      0,
-	SettingIMUMode:             GyroModeOff,
-	SettingWirelessPacketVer:   2,
-}
-
 const (
 	hidKeyEscape = 0x29
 	hidKeyEnter  = 0x28

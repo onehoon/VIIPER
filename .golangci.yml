@@ -49,6 +49,12 @@ linters:
       linters:
       - errcheck
       - staticcheck
+    # cgo generates these identifiers from the C preamble. They cannot follow
+    # Go naming conventions and are not user-authored Go API names.
+    - path: clib/main\.go
+      text: "should not use underscores in Go names"
+      linters:
+      - staticcheck
 
 formatters:
   enable:
