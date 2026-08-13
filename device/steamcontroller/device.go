@@ -51,6 +51,7 @@ type SteamController struct {
 	inputState          *InputState
 	mtx                 sync.Mutex
 	featureMtx          sync.Mutex
+	callbackMu          sync.RWMutex
 	outputFunc          func(OutputState)
 	frame               uint32
 	descriptor          usb.Descriptor
@@ -146,7 +147,9 @@ func (d *SteamController) reportedControllerMode() byte {
 }
 
 func (d *SteamController) SetOutputCallback(f func(OutputState)) {
+	d.callbackMu.Lock()
 	d.outputFunc = f
+	d.callbackMu.Unlock()
 }
 
 func (d *SteamController) UpdateInputState(state *InputState) {
@@ -349,12 +352,15 @@ func (d *SteamController) handleHostCommand(data []byte) {
 			gyroZ:  st.GyroZ,
 		}
 	}
-	if d.outputFunc == nil {
+	d.callbackMu.RLock()
+	callback := d.outputFunc
+	d.callbackMu.RUnlock()
+	if callback == nil {
 		return
 	}
 	var out OutputState
 	copy(out.Data[:], data)
-	d.outputFunc(out)
+	callback(out)
 }
 
 func cloneSettings(src map[uint8]uint16) map[uint8]uint16 {

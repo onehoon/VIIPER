@@ -241,8 +241,19 @@ jobs:
               run: |
                   set -euo pipefail
                   grep -Eq 'GetUSBDeviceIdentity\(uintptr_t handle, uint32_t\* outBusID, uint32_t\* outDeviceID\)' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SteamControllerDeviceHandle' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SteamControllerDeviceState' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SteamControllerOutputCallback' dist/libVIIPER/libVIIPER.h
+                  grep -q 'CreateSteamControllerDevice' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SetSteamControllerDeviceState' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SetSteamControllerOutputCallback' dist/libVIIPER/libVIIPER.h
+                  grep -q 'RemoveSteamControllerDevice' dist/libVIIPER/libVIIPER.h
                   export_tool="$(command -v llvm-objdump || command -v objdump)"
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'GetUSBDeviceIdentity'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'CreateSteamControllerDevice'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamControllerDeviceState'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamControllerOutputCallback'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamControllerDevice'
 
             - name: Package
               shell: pwsh
