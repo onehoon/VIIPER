@@ -11,14 +11,18 @@ import "C"
 //
 //export GetUSBDeviceIdentity
 func GetUSBDeviceIdentity(handle C.uintptr_t, outBusID *C.uint32_t, outDeviceID *C.uint32_t) C.bool {
+	return C.bool(getUSBDeviceIdentity(uintptr(handle), (*uint32)(outBusID), (*uint32)(outDeviceID)))
+}
+
+func getUSBDeviceIdentity(handle uintptr, outBusID *uint32, outDeviceID *uint32) bool {
 	if outBusID == nil || outDeviceID == nil {
-		return C.bool(false)
+		return false
 	}
-	dhw, ok := lookupDeviceIdentity(uintptr(handle))
+	dhw, ok := lookupDeviceIdentity(handle)
 	if !ok {
-		return C.bool(false)
+		return false
 	}
-	*outBusID = C.uint32_t(dhw.exportMeta.BusID)
-	*outDeviceID = C.uint32_t(dhw.exportMeta.DevID)
-	return C.bool(true)
+	*outBusID = dhw.exportMeta.BusID
+	*outDeviceID = dhw.exportMeta.DevID
+	return true
 }

@@ -24,6 +24,16 @@ Windows attachment      -> explicit USB/IP attach/detach
 report-routing lifetime -> neutral/live routing
 ```
 
+### Caller-owned bus lifetime
+
+In this fork, a typed `Remove*Device` operation ends only the logical device
+lifetime. It does not schedule or perform empty-bus cleanup. Buses are
+caller-owned, long-lived runtime resources and remain available for subsequent
+logical devices until the caller explicitly invokes `RemoveUSBBus` or closes
+the owning USB server. This intentionally differs from upstream's timed
+empty-bus cleanup behavior and prevents background cleanup from racing the
+embedded server close lifecycle.
+
 This is a target design, not a statement that explicit attach/detach is currently available.
 
 ## Fork-added devices

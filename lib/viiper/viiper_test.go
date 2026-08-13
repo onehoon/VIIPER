@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -115,6 +116,90 @@ func TestCreateWithoutAutoAttachDoesNotInvokeAttach(t *testing.T) {
 	hw.lifecycleMu.Lock()
 	_ = addTestMouse(t, hw, 9110)
 	hw.lifecycleMu.Unlock()
+}
+
+func TestTypedRemovalKeepsCallerOwnedBus(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9111)
+	hw.lifecycleMu.Lock()
+	h := addTestMouse(t, hw, 9111)
+	dhw := hw.deviceHandleRecords[h]
+	if err := hw.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+		hw.lifecycleMu.Unlock()
+		t.Fatal(err)
+	}
+	hw.finalizeDeviceLocked(h)
+	hw.lifecycleMu.Unlock()
+	if hw.s.GetBus(9111) == nil {
+		t.Fatal("typed removal removed the caller-owned bus")
+	}
+}
+
+func TestBusIDCanBeReusedAfterExplicitRemoval(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9112)
+	hw.lifecycleMu.Lock()
+	if err := hw.s.RemoveBus(9112); err != nil {
+		hw.lifecycleMu.Unlock()
+		t.Fatal(err)
+	}
+	hw.finalizeBusLocked(9112)
+	addTestBus(t, hw, 9112)
+	hw.lifecycleMu.Unlock()
+	if hw.s.GetBus(9112) == nil {
+		t.Fatal("bus ID was not reusable after explicit removal")
+	}
+}
+
+func TestNonActiveStateRejectsBusMutation(t *testing.T) {
+	for _, state := range []serverLifecycleState{serverClosing, serverCloseFailed} {
+		t.Run(state.String(), func(t *testing.T) {
+			hw, _ := newLifecycleTestServer(t, 9113)
+			hw.lifecycleMu.Lock()
+			hw.state = state
+			id := uint32(9116)
+			if hw.createBusLocked(&id) || hw.removeBusLocked(9113) {
+				t.Fatalf("%s accepted a bus mutation", state)
+			}
+			hw.lifecycleMu.Unlock()
+		})
+	}
+}
+
+func TestDeviceIdentityValidation(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9114)
+	hw.lifecycleMu.Lock()
+	h := addTestMouse(t, hw, 9114)
+	hw.lifecycleMu.Unlock()
+
+	var busID, deviceID uint32
+	if !getUSBDeviceIdentity(uintptr(h), &busID, &deviceID) || busID != 9114 || deviceID == 0 {
+		t.Fatalf("identity = (%d, %d), want bus 9114 and non-zero device", busID, deviceID)
+	}
+	for _, outputs := range []struct{ bus, device *uint32 }{{nil, &deviceID}, {&busID, nil}, {nil, nil}} {
+		if getUSBDeviceIdentity(uintptr(h), outputs.bus, outputs.device) {
+			t.Fatal("identity lookup accepted a nil output")
+		}
+	}
+	if getUSBDeviceIdentity(0, &busID, &deviceID) || getUSBDeviceIdentity(999999, &busID, &deviceID) {
+		t.Fatal("identity lookup accepted an invalid handle")
+	}
+	hw.lifecycleMu.Lock()
+	hw.finalizeDeviceLocked(h)
+	hw.lifecycleMu.Unlock()
+	if getUSBDeviceIdentity(uintptr(h), &busID, &deviceID) {
+		t.Fatal("identity lookup accepted a finalized handle")
+	}
+}
+
+func TestAutoAttachSuccessCreatesUsableHandle(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9115)
+	called := false
+	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error { called = true; return nil }
+	hw.lifecycleMu.Lock()
+	h := addTestMouseWithAutoAttach(t, hw, 9115)
+	hw.lifecycleMu.Unlock()
+	if !called || !lookupIdentityExists(uintptr(h)) {
+		t.Fatal("successful auto-attach did not create a usable handle")
+	}
 }
 
 func TestCloseRetryFinalizesEachBusHandleExactlyOnce(t *testing.T) {
@@ -298,6 +383,15 @@ func mustNewTestMouse(t *testing.T) *mouse.Mouse {
 		t.Fatal(err)
 	}
 	return d
+}
+
+func addTestMouseWithAutoAttach(t *testing.T, hw *usbServerHandleWrapper, busID uint32) deviceHandle {
+	t.Helper()
+	h, ok := hw.createDeviceLocked(busID, mustNewTestMouse(t), true)
+	if !ok {
+		t.Fatal("device creation with auto-attach failed")
+	}
+	return h
 }
 
 type failingRemovalBus struct{}

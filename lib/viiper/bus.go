@@ -21,11 +21,14 @@ func CreateUSBBus(handle C.USBServerHandle, busID *uint32) bool {
 	}
 	hw.lifecycleMu.Lock()
 	defer hw.lifecycleMu.Unlock()
+	return hw.createBusLocked(busID)
+}
+
+func (hw *usbServerHandleWrapper) createBusLocked(busID *uint32) bool {
 	if hw.state != serverActive {
 		hw.warnMutationRejectedLocked("CreateUSBBus")
 		return false
 	}
-
 	if busID == nil {
 		id := hw.s.NextFreeBusID()
 		busID = &id
@@ -60,11 +63,14 @@ func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
 	}
 	hw.lifecycleMu.Lock()
 	defer hw.lifecycleMu.Unlock()
+	return hw.removeBusLocked(busID)
+}
+
+func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 	if hw.state != serverActive {
 		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		return false
 	}
-
 	if err := hw.s.RemoveBus(busID); err != nil {
 		return false
 	}
