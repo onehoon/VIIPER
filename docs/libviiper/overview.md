@@ -17,11 +17,22 @@ libVIIPER is a shared library (`libVIIPER.dll` on Windows, `libVIIPER.so` on Lin
     libVIIPER uses USBIP internally. A USBIP client must be installed on the target machine.  
     See [Installation › Requirements](../getting-started/installation.md#usbip) for setup instructions.
 
+!!! warning "Fork-specific contracts"
+    This fork's canonical `lib/viiper` API has an explicit lifecycle and
+    ownership contract that differs from upstream: typed device removal does
+    not remove the caller-owned bus, tracked localhost attachment is Windows-only,
+    and the tested native attachment baseline is usbip-win2 `v0.9.7.7`.
+    Read the [fork API and lifecycle guide](fork-api.md) before embedding this
+    library.
+
 ## API Overview
 
 The libVIIPER C API is declared in `libVIIPER.h`.  
 All functions return `bool` (`true` on success, `false` on failure).  
 Handles (`USBServerHandle`, `Xbox360DeviceHandle`, …) are opaque `uintptr_t` values.
+
+For the fork-specific typed API, ownership, attachment, failure-state, and
+platform rules, see the [Fork-specific API guide](fork-api.md).
 
 ### Server lifecycle
 
