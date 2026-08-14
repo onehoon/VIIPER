@@ -16,7 +16,7 @@
         <link rel="prev" href="../../clients/generator/">
       
       
-        <link rel="next" href="../../devices/xbox360/">
+        <link rel="next" href="../fork-api/">
       
       
         
@@ -1246,6 +1246,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../devices/xbox360/" class="md-nav__link">
         
   
@@ -1841,10 +1869,21 @@ If your project cannot comply with the GPL-3.0, use the standalone VIIPER execut
 <p>libVIIPER uses USBIP internally. A USBIP client must be installed on the target machine.<br />
 See <a href="../../getting-started/installation/#usbip">Installation › Requirements</a> for setup instructions.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Fork-specific contracts</p>
+<p>This fork's canonical <code>lib/viiper</code> API has an explicit lifecycle and
+ownership contract that differs from upstream: typed device removal does
+not remove the caller-owned bus, tracked localhost attachment is Windows-only,
+and the tested native attachment baseline is usbip-win2 <code>v0.9.7.7</code>.
+Read the <a href="../fork-api/">fork API and lifecycle guide</a> before embedding this
+library.</p>
+</div>
 <h2 id="api-overview">API Overview</h2>
 <p>The libVIIPER C API is declared in <code>libVIIPER.h</code>.<br />
 All functions return <code>bool</code> (<code>true</code> on success, <code>false</code> on failure).<br />
 Handles (<code>USBServerHandle</code>, <code>Xbox360DeviceHandle</code>, …) are opaque <code>uintptr_t</code> values.</p>
+<p>For the fork-specific typed API, ownership, attachment, failure-state, and
+platform rules, see the <a href="../fork-api/">Fork-specific API guide</a>.</p>
 <h3 id="server-lifecycle">Server lifecycle</h3>
 <table>
 <thead>

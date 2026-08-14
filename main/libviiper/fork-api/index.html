@@ -13,6 +13,10 @@
       
       
       
+        <link rel="prev" href="../overview/">
+      
+      
+        <link rel="next" href="../../devices/xbox360/">
       
       
         
@@ -23,7 +27,7 @@
     
     
       
-        <title>🔌 USBIP - VIIPER Documentation</title>
+        <title>Fork API and Lifecycle - VIIPER Documentation</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#usbip" class="md-skip">
+        <a href="#fork-specific-libviiper-api" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +117,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              🔌 USBIP
+              Fork API and Lifecycle
             
           </span>
         </div>
@@ -247,7 +251,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../installation/" class="md-tabs__link">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
           
   
   
@@ -303,11 +307,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../libviiper/overview/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../overview/" class="md-tabs__link">
           
   
   
@@ -509,7 +515,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -537,7 +543,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart/" class="md-nav__link">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
         
   
   
@@ -1027,28 +1033,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -1066,7 +1075,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1084,7 +1093,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../libviiper/overview/" class="md-nav__link">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -1109,10 +1118,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../libviiper/fork-api/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1128,6 +1164,153 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#support-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Support matrix
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handles-and-return-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handles and return values
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle order
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lifecycle order">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#server-states" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server states
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bus-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bus ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#close-and-partial-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Close and partial failure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#attachment-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attachment API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#typed-device-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typed device families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#callback-and-teardown-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Callback and teardown contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#minimal-c-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimal C usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build and validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1618,10 +1801,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#arch-linux" class="md-nav__link">
+  <a href="#support-matrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🏹 Arch Linux
+        Support matrix
       
     </span>
   </a>
@@ -1629,10 +1812,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ubuntudebian" class="md-nav__link">
+  <a href="#handles-and-return-values" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🟠 Ubuntu/Debian
+        Handles and return values
       
     </span>
   </a>
@@ -1640,22 +1823,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#linux-kernel-module-setup" class="md-nav__link">
+  <a href="#lifecycle-order" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🧩 Linux Kernel Module Setup
+        Lifecycle order
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🧩 Linux Kernel Module Setup">
+    <nav class="md-nav" aria-label="Lifecycle order">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#one-time-setup" class="md-nav__link">
+  <a href="#server-states" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🧷 One-Time Setup
+        Server states
       
     </span>
   </a>
@@ -1663,10 +1846,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#manual-loading" class="md-nav__link">
+  <a href="#bus-ownership" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🔄 Manual Loading
+        Bus ownership
       
     </span>
   </a>
@@ -1674,10 +1857,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
+  <a href="#close-and-partial-failure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🔎 Verification
+        Close and partial failure
       
     </span>
   </a>
@@ -1686,6 +1869,61 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#attachment-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attachment API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#typed-device-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Typed device families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#callback-and-teardown-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Callback and teardown contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#minimal-c-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimal C usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build and validation
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1709,58 +1947,264 @@
   
 
 
-<h1 id="usbip">🔌 USBIP</h1>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">🪟 Windows</label><label for="__tabbed_1_2">🐧 Linux</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<p><a href="https://github.com/vadimgrn/usbip-win2">usbip-win2</a> is by far the most complete implementation of USBIP for Windows (comes with a <strong>SIGNED</strong> kernel mode driver).</p>
-<p><strong>Install and done 😉</strong></p>
-<div class="admonition warning">
-<p class="admonition-title">USBIP-Win2 security issue</p>
-<p>The releases of usbip-win2 <strong>currently</strong> (at the time of writing) install the publicly available test signing CA as a <em>trusted root CA</em> on your system.<br />
-You can safely remove this CA after installation using <code>certmgr.msc</code> (run as admin) and removing the "USBIP" from the "Trusted Root Certification Authorities" -&gt; "Certificates" list.</p>
-<p><strong>Alternativly</strong>, you can download and istall the <strong>latest pre-release</strong> driver manually from the
-<a href="https://github.com/OSSign/vadimgrn--usbip-win2/releases">OSSign repository</a>, which has this issue fixed already.<br />
-<em>Note</em> that the installer does not work, only the driver <code>.cat,.inf,.sys</code> files.</p>
-</div>
-</div>
-<div class="tabbed-block">
-<h3 id="arch-linux">🏹 Arch Linux</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>sudo<span class="w"> </span>pacman<span class="w"> </span>-S<span class="w"> </span>usbip
+<h1 id="fork-specific-libviiper-api">Fork-specific libVIIPER API</h1>
+<p>This page documents the canonical embedded API used by this fork. It is
+intended for applications that embed <code>libVIIPER.dll</code> directly, especially
+SteamInputAddonforClaw and applications derived from it.</p>
+<p>The canonical API is generated from <code>lib/viiper</code>. Do not use the repository
+root <a href="../../libviiper.h"><code>libviiper.h</code></a> as the canonical header; that file is
+the legacy flat compatibility API. Build the shared library to generate the
+matching header under <code>dist/libVIIPER/</code>.</p>
+<h2 id="support-matrix">Support matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Windows</th>
+<th>Linux/macOS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Typed virtual device creation</td>
+<td>Supported</td>
+<td>Compile-compatible; validate the target USB/IP client separately</td>
+</tr>
+<tr>
+<td>Typed device state and callbacks</td>
+<td>Supported</td>
+<td>Compile-compatible; runtime support depends on the USB/IP client</td>
+</tr>
+<tr>
+<td>Tracked localhost <code>AttachUSBDevice</code> / <code>DetachUSBDevice</code></td>
+<td>Supported with usbip-win2 <code>v0.9.7.7</code></td>
+<td>Not provided by this fork</td>
+</tr>
+<tr>
+<td>Caller-owned bus lifetime</td>
+<td>Supported</td>
+<td>Same canonical lifecycle contract</td>
+</tr>
+</tbody>
+</table>
+<p>The tracked Windows attachment ABI is pinned to usbip-win2 <code>v0.9.7.7</code>, commit
+<code>7c219953101cc5d0ec9a0bcb3eb87259cf72bedd</code>. Version <code>v0.9.7.8</code> is intentionally
+unsupported because the upstream release carried a memory-corruption/BSOD
+warning. Later versions require explicit ABI and runtime validation before
+they can be considered compatible.</p>
+<p>Non-Windows builds remain compile-compatible, but they must fail safely for
+tracked localhost attachment. They must not record a fake attachment token or
+claim that a device is attached.</p>
+<h2 id="handles-and-return-values">Handles and return values</h2>
+<p>All handles are opaque <code>uintptr_t</code> values. Treat them as capability tokens:</p>
+<ul>
+<li>never inspect or persist their internal value;</li>
+<li>pass a handle only to the matching typed API;</li>
+<li>stop using a device handle after its <code>Remove*Device</code> succeeds;</li>
+<li>expect stale, zero, wrong-type, and arbitrary handles to return <code>false</code>;</li>
+<li>keep callback function pointers alive for as long as they are registered.</li>
+</ul>
+<p>The exported functions return <code>true</code> on success and <code>false</code> on failure. Output
+handle and output ID pointers must be non-NULL. Invalid input is rejected
+before device construction, bus registration, attachment, or handle creation.</p>
+<h2 id="lifecycle-order">Lifecycle order</h2>
+<p>The normal ownership order is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>NewUSBServer
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; CreateUSBBus
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  -&gt; Create*Device
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  -&gt; Set*DeviceState / Set*Callback / AttachUSBDevice
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  -&gt; DetachUSBDevice
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  -&gt; Remove*Device
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  -&gt; RemoveUSBBus
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  -&gt; CloseUSBServer
 </code></pre></div>
-<p><a href="https://wiki.archlinux.org/title/USB/IP">Arch Wiki: USBIP</a></p>
-<details class="tip">
-<summary>Steam OS users</summary>
-<p>If you are installing SISR on Steam OS, you have to switch to the desktop mode and enable write access to the root filesystem first:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sudo<span class="w"> </span>steamos-readonly<span class="w"> </span>disable
+<h3 id="server-states">Server states</h3>
+<p>The canonical wrapper uses four states:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>active -&gt; closing -&gt; closed
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>             |
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>             v
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        close-failed -&gt; retry CloseUSBServer -&gt; closed
 </code></pre></div>
-</details>
-<h3 id="ubuntudebian">🟠 Ubuntu/Debian</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>linux-tools-generic
+<p>All server-owned mutations are accepted only in <code>active</code>:</p>
+<ul>
+<li><code>CreateUSBBus</code> / <code>RemoveUSBBus</code>;</li>
+<li>every typed device create operation;</li>
+<li>every typed device remove operation;</li>
+<li>attachment and detachment mutations.</li>
+</ul>
+<p>After <code>closing</code> or <code>close-failed</code>, callers may use only the explicitly safe
+diagnostic/identity operations and retry <code>CloseUSBServer</code> according to the
+failure state. A failed close is fail-closed; callers must not recreate buses,
+retry an unknown attachment outcome, or continue normal mutation.</p>
+<h3 id="bus-ownership">Bus ownership</h3>
+<p>Typed device removal is intentionally <strong>device-only</strong>. A successful
+<code>RemoveXbox360Device</code>, <code>RemoveSteamControllerDevice</code>, or other typed remove:</p>
+<ol>
+<li>clears the device callback;</li>
+<li>detaches a known attachment token, if present;</li>
+<li>drains managed USB/IP work;</li>
+<li>removes the logical device and finalizes its handle;</li>
+<li>leaves the empty bus alive.</li>
+</ol>
+<p>The caller owns that bus until <code>RemoveUSBBus</code> or <code>CloseUSBServer</code>. This differs
+from the upstream timed empty-bus cleanup behavior and is required for a
+long-lived embedded server.</p>
+<h3 id="close-and-partial-failure">Close and partial failure</h3>
+<p><code>CloseUSBServer</code> establishes the lifecycle boundary before taking its bus
+snapshot. Buses are processed in ascending numeric BusID order, and devices
+within a bus use registration order. A successful bus removal is finalized
+immediately; a later failure does not restore or revisit it.</p>
+<p>If transport or logical teardown fails:</p>
+<ul>
+<li>the server enters <code>close-failed</code>;</li>
+<li>already-finalized device handles remain invalid;</li>
+<li>surviving buses and their valid diagnostic handles remain available only as
+  allowed by the failure contract;</li>
+<li>a retry uses a fresh bus snapshot and does not repeat completed teardown;</li>
+<li>an unknown attach/detach outcome blocks destructive cleanup and automatic
+  retry.</li>
+</ul>
+<h2 id="attachment-api">Attachment API</h2>
+<p>The tracked attachment functions operate on a typed device handle:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kt">bool</span><span class="w"> </span><span class="nf">AttachUSBDevice</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kt">bool</span><span class="w"> </span><span class="nf">DetachUSBDevice</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kt">bool</span><span class="w"> </span><span class="nf">GetUSBDeviceIdentity</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">                          </span><span class="kt">uint32_t</span><span class="o">*</span><span class="w"> </span><span class="n">outBusID</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">                          </span><span class="kt">uint32_t</span><span class="o">*</span><span class="w"> </span><span class="n">outDeviceID</span><span class="p">);</span>
 </code></pre></div>
-<p><a href="https://manpages.ubuntu.com/manpages/noble/man8/usbip.8.html">Ubuntu USBIP Manual</a></p>
-<h3 id="linux-kernel-module-setup">🧩 Linux Kernel Module Setup</h3>
-<div class="admonition info">
-<p class="admonition-title">USBIP Client Requirement</p>
-<p>USBIP requires the <code>vhci-hcd</code> (Virtual Host Controller Interface) kernel module on Linux.<br />
-Most Linux distributions include this module but don't load it automatically.</p>
-</div>
-<h4 id="one-time-setup">🧷 One-Time Setup</h4>
-<p>To load the module automatically on boot:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;vhci-hcd&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/modules-load.d/vhci-hcd.conf
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo<span class="w"> </span>modprobe<span class="w"> </span>vhci-hcd
+<p><code>AttachUSBDevice</code> records the verified backend and exact positive import port.
+<code>DetachUSBDevice</code> uses that stored token; it does not rediscover a port or
+blindly retry another backend.</p>
+<p>The attachment result is classified as:</p>
+<ul>
+<li>known failure: safe to report as failure;</li>
+<li>verified success: backend and positive port are recorded;</li>
+<li>unknown outcome: the server enters <code>close-failed</code>, no automatic retry is
+  attempted, and the token is retained only for diagnostics.</li>
+</ul>
+<p>The legacy <code>clib</code> attachment functions are separate compatibility APIs. New
+fork integrations should use the typed canonical functions instead of mixing
+legacy error-only attachment with typed ownership records.</p>
+<h2 id="typed-device-families">Typed device families</h2>
+<p>The canonical wrappers currently include:</p>
+<table>
+<thead>
+<tr>
+<th>Device</th>
+<th>Create</th>
+<th>State/callback</th>
+<th>Remove</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classic Steam Controller (Gordon)</td>
+<td><code>CreateSteamControllerDevice</code></td>
+<td><code>SetSteamControllerDeviceState</code>, <code>SetSteamControllerOutputCallback</code></td>
+<td><code>RemoveSteamControllerDevice</code></td>
+</tr>
+<tr>
+<td>Xbox 360</td>
+<td><code>CreateXbox360Device</code></td>
+<td><code>SetXbox360DeviceState</code>, <code>SetXbox360RumbleCallback</code></td>
+<td><code>RemoveXbox360Device</code></td>
+</tr>
+<tr>
+<td>DualShock 4</td>
+<td><code>CreateDS4Device</code></td>
+<td><code>SetDS4DeviceState</code>, <code>SetDS4OutputCallback</code></td>
+<td><code>RemoveDS4Device</code></td>
+</tr>
+<tr>
+<td>DualSense</td>
+<td><code>CreateDualSenseDevice</code>, <code>CreateDualSenseEdgeDevice</code></td>
+<td><code>SetDualSenseDeviceState</code>, <code>SetDualSenseOutputCallback</code></td>
+<td><code>RemoveDualSenseDevice</code></td>
+</tr>
+<tr>
+<td>Keyboard</td>
+<td><code>CreateKeyboardDevice</code></td>
+<td><code>SetKeyboardDeviceState</code>, <code>SetKeyboardLEDCallback</code></td>
+<td><code>RemoveKeyboardDevice</code></td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td><code>CreateMouseDevice</code></td>
+<td><code>SetMouseDeviceState</code></td>
+<td><code>RemoveMouseDevice</code></td>
+</tr>
+<tr>
+<td>Nintendo Switch 2 Pro</td>
+<td><code>CreateNS2ProDevice</code></td>
+<td><code>SetNS2ProDeviceState</code>, <code>SetNS2ProOutputCallback</code></td>
+<td><code>RemoveNS2ProDevice</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>device/steamdeck</code> exists as a fork device implementation but does not yet
+have a typed <code>lib/viiper</code> wrapper.</p>
+<h2 id="callback-and-teardown-contract">Callback and teardown contract</h2>
+<p>Callbacks are captured under the device callback lock and invoked after that
+lock is released. A callback may therefore re-enter a safe canonical API
+without creating a callback-lock deadlock.</p>
+<p>During typed removal and bus/server teardown, callback clearing occurs before
+detach and logical removal. Already-running callback invocations are allowed
+to finish, but no later dispatch may capture the cleared callback. The public
+remove/close operation returns only after managed USB/IP transport work and
+async non-EP0 IN workers have drained.</p>
+<p>Applications should keep callback code short and avoid blocking unrelated
+application threads. If a callback must wait for application work, ensure the
+application can release it during device removal or server shutdown.</p>
+<h2 id="minimal-c-usage">Minimal C usage</h2>
+<p>The following is a lifecycle sketch. Use the generated
+<code>dist/libVIIPER/libVIIPER.h</code> from the same build as the DLL.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">USBServerConfig</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">USBServerHandle</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">NewUSBServer</span><span class="p">(</span><span class="o">&amp;</span><span class="n">config</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">bus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bus</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">}</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">SteamControllerDeviceHandle</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateSteamControllerDevice</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">}</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="cm">/* State updates and callback registration happen while the server is active. */</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">SetSteamControllerDeviceState</span><span class="p">(</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">);</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="cm">/* Optional Windows-only tracked attachment. */</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">AttachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="n">DetachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="n">RemoveSteamControllerDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
 </code></pre></div>
-<h4 id="manual-loading">🔄 Manual Loading</h4>
-<p>To load the module for the current session only:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>sudo<span class="w"> </span>modprobe<span class="w"> </span>vhci-hcd
+<p>In production code, check every return value and treat a failed close or
+unknown attachment outcome as a lifecycle fault requiring operator or host
+application handling.</p>
+<h2 id="build-and-validation">Build and validation</h2>
+<p>Build the canonical library and generated header with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>just build-libVIIPER Release
 </code></pre></div>
-<h4 id="verification">🔎 Verification</h4>
-<p>Check if the module is loaded:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>lsmod<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>vhci_hcd
+<p>Before consuming a new DLL/header pair, validate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>go test ./...
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>go test -race ./internal/server/usb ./lib/viiper
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>go vet ./...
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>git diff --check
 </code></pre></div>
-</div>
-</div>
-</div>
+<p>CI additionally validates the Windows shared-library build, generated C
+header layout, exported symbols, and canonical lifecycle race tests. The DLL
+and header must come from the same commit; do not mix artifacts from upstream
+VIIPER with this fork's canonical ABI.</p>
 
 
 

@@ -23,7 +23,7 @@
     
     
       
-        <title>🔌 USBIP - VIIPER Documentation</title>
+        <title>Fork architecture and API changes - VIIPER Documentation</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#usbip" class="md-skip">
+        <a href="#fork-architecture-and-api-changes" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              🔌 USBIP
+              Fork architecture and API changes
             
           </span>
         </div>
@@ -247,7 +247,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../installation/" class="md-tabs__link">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
           
   
   
@@ -364,7 +364,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../changelog/" class="md-tabs__link">
+      <a href="../" class="md-tabs__link">
         
   
   
@@ -509,7 +509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -537,7 +537,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart/" class="md-nav__link">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
         
   
   
@@ -1571,7 +1571,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../changelog/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1618,10 +1618,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#arch-linux" class="md-nav__link">
+  <a href="#embedded-api-foundation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🏹 Arch Linux
+        Embedded API foundation
       
     </span>
   </a>
@@ -1629,10 +1629,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ubuntudebian" class="md-nav__link">
+  <a href="#ownership-and-lifecycle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🟠 Ubuntu/Debian
+        Ownership and lifecycle
       
     </span>
   </a>
@@ -1640,52 +1640,35 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#linux-kernel-module-setup" class="md-nav__link">
+  <a href="#windows-usbip-attachment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🧩 Linux Kernel Module Setup
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="🧩 Linux Kernel Module Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#one-time-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🧷 One-Time Setup
+        Windows USB/IP attachment
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#manual-loading" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#transport-and-callback-safety" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🔄 Manual Loading
+        Transport and callback safety
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#integration-guidance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🔎 Verification
+        Integration guidance
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1709,58 +1692,60 @@
   
 
 
-<h1 id="usbip">🔌 USBIP</h1>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">🪟 Windows</label><label for="__tabbed_1_2">🐧 Linux</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<p><a href="https://github.com/vadimgrn/usbip-win2">usbip-win2</a> is by far the most complete implementation of USBIP for Windows (comes with a <strong>SIGNED</strong> kernel mode driver).</p>
-<p><strong>Install and done 😉</strong></p>
-<div class="admonition warning">
-<p class="admonition-title">USBIP-Win2 security issue</p>
-<p>The releases of usbip-win2 <strong>currently</strong> (at the time of writing) install the publicly available test signing CA as a <em>trusted root CA</em> on your system.<br />
-You can safely remove this CA after installation using <code>certmgr.msc</code> (run as admin) and removing the "USBIP" from the "Trusted Root Certification Authorities" -&gt; "Certificates" list.</p>
-<p><strong>Alternativly</strong>, you can download and istall the <strong>latest pre-release</strong> driver manually from the
-<a href="https://github.com/OSSign/vadimgrn--usbip-win2/releases">OSSign repository</a>, which has this issue fixed already.<br />
-<em>Note</em> that the installer does not work, only the driver <code>.cat,.inf,.sys</code> files.</p>
-</div>
-</div>
-<div class="tabbed-block">
-<h3 id="arch-linux">🏹 Arch Linux</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>sudo<span class="w"> </span>pacman<span class="w"> </span>-S<span class="w"> </span>usbip
-</code></pre></div>
-<p><a href="https://wiki.archlinux.org/title/USB/IP">Arch Wiki: USBIP</a></p>
-<details class="tip">
-<summary>Steam OS users</summary>
-<p>If you are installing SISR on Steam OS, you have to switch to the desktop mode and enable write access to the root filesystem first:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sudo<span class="w"> </span>steamos-readonly<span class="w"> </span>disable
-</code></pre></div>
-</details>
-<h3 id="ubuntudebian">🟠 Ubuntu/Debian</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>linux-tools-generic
-</code></pre></div>
-<p><a href="https://manpages.ubuntu.com/manpages/noble/man8/usbip.8.html">Ubuntu USBIP Manual</a></p>
-<h3 id="linux-kernel-module-setup">🧩 Linux Kernel Module Setup</h3>
-<div class="admonition info">
-<p class="admonition-title">USBIP Client Requirement</p>
-<p>USBIP requires the <code>vhci-hcd</code> (Virtual Host Controller Interface) kernel module on Linux.<br />
-Most Linux distributions include this module but don't load it automatically.</p>
-</div>
-<h4 id="one-time-setup">🧷 One-Time Setup</h4>
-<p>To load the module automatically on boot:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;vhci-hcd&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/modules-load.d/vhci-hcd.conf
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo<span class="w"> </span>modprobe<span class="w"> </span>vhci-hcd
-</code></pre></div>
-<h4 id="manual-loading">🔄 Manual Loading</h4>
-<p>To load the module for the current session only:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>sudo<span class="w"> </span>modprobe<span class="w"> </span>vhci-hcd
-</code></pre></div>
-<h4 id="verification">🔎 Verification</h4>
-<p>Check if the module is loaded:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>lsmod<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>vhci_hcd
-</code></pre></div>
-</div>
-</div>
-</div>
+<h1 id="fork-architecture-and-api-changes">Fork architecture and API changes</h1>
+<p>This entry summarizes the fork-specific changes now present on <code>main</code>. It is
+not an upstream VIIPER release note; it describes the contracts that an
+application must follow when consuming this fork.</p>
+<h2 id="embedded-api-foundation">Embedded API foundation</h2>
+<ul>
+<li>Added the canonical typed <code>lib/viiper</code> server, bus, device, callback, and
+  attachment lifecycle.</li>
+<li>Added typed wrappers for Gordon (Classic Steam Controller), Xbox 360,
+  DualSense/Edge, DualShock 4, keyboard, mouse, and Nintendo Switch 2 Pro.</li>
+<li>Added safe opaque-handle validation, identity lookup, null output guards, and
+  exactly-once handle finalization.</li>
+<li>Kept <code>clib/</code> as a compatibility API rather than using it as the new
+  architecture.</li>
+</ul>
+<h2 id="ownership-and-lifecycle">Ownership and lifecycle</h2>
+<ul>
+<li>Buses are caller-owned in canonical <code>lib/viiper</code> and survive typed device
+  removal.</li>
+<li>Server-owned mutations share one per-server lifecycle boundary.</li>
+<li>Close supports partial failure and retry without revisiting finalized buses,
+  devices, or handles.</li>
+<li>Unknown attachment or detachment outcomes fail closed and prevent automatic
+  destructive retry.</li>
+<li>Callback clearing, logical removal, transport drain, and handle finalization
+  have a deterministic order.</li>
+</ul>
+<h2 id="windows-usbip-attachment">Windows USB/IP attachment</h2>
+<ul>
+<li>Added tracked localhost attach/detach with exact backend and positive import
+  port ownership.</li>
+<li>The supported native baseline is usbip-win2 <code>v0.9.7.7</code>, commit
+  <code>7c219953101cc5d0ec9a0bcb3eb87259cf72bedd</code>.</li>
+<li>usbip-win2 <code>v0.9.7.8</code> and later versions are unsupported until explicitly
+  validated for ABI and runtime compatibility.</li>
+<li>Non-Windows builds remain compile-compatible but do not claim tracked
+  localhost attachment support.</li>
+</ul>
+<h2 id="transport-and-callback-safety">Transport and callback safety</h2>
+<ul>
+<li>Canonical embedded servers disable legacy automatic empty-bus cleanup.</li>
+<li>Managed USB/IP connections and async non-EP0 IN workers are drained before
+  public remove/close operations return.</li>
+<li>Callback registration and clear operations are synchronized across all typed
+  devices, while callback invocation occurs outside the callback lock.</li>
+<li>Gordon runtime state has dedicated synchronization for polling, host feature
+  commands, and reset paths.</li>
+</ul>
+<h2 id="integration-guidance">Integration guidance</h2>
+<p>Use the generated <code>dist/libVIIPER/libVIIPER.h</code> and matching DLL from the same
+commit. Start with <a href="../../libviiper/fork-api/">Fork-specific libVIIPER API</a> and
+<a href="../../FORK_ARCHITECTURE.md">Fork Architecture</a>. Do not mix this fork's
+canonical header/DLL with upstream artifacts or assume that Linux attachment
+behavior is equivalent to the tested Windows backend.</p>
 
 
 
