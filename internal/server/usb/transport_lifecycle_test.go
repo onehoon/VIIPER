@@ -60,6 +60,13 @@ func TestBatchingWriterCloseJoinsFlushLoop(t *testing.T) {
 	}
 }
 
+func TestBatchingWriterCloseWithoutFlushWorker(t *testing.T) {
+	bw := newBatchingWriter(io.Discard, 128, 0, 64)
+	if err := bw.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLegacyServerDoesNotTrackManagedConnections(t *testing.T) {
 	s := New(ServerConfig{Addr: "127.0.0.1:0", ConnectionTimeout: time.Hour}, slog.Default(), nil)
 	if s.config.ManagedTransportLifecycle || s.config.DisableAutoBusCleanup {
@@ -81,6 +88,7 @@ func TestManagedDeviceDrainRejectsLateBinding(t *testing.T) {
 	}
 
 	drain := s.BeginDeviceDrain(nil)
+	s.ForgetDeviceTransport(nil)
 
 	secondServer, secondClient := net.Pipe()
 	defer secondClient.Close()

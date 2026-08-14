@@ -24,14 +24,15 @@ import (
 )
 
 type batchingWriter struct {
-	mu           sync.Mutex
-	w            *bufio.Writer
-	flushEvery   time.Duration
-	flushAtBytes int
-	stopCh       chan struct{}
-	doneCh       chan struct{}
-	closeOnce    sync.Once
-	err          error
+	mu            sync.Mutex
+	w             *bufio.Writer
+	flushEvery    time.Duration
+	flushAtBytes  int
+	stopCh        chan struct{}
+	doneCh        chan struct{}
+	workerStarted bool
+	closeOnce     sync.Once
+	err           error
 }
 
 const (
@@ -60,6 +61,7 @@ func newBatchingWriter(dst io.Writer, bufSize int, flushEvery time.Duration, flu
 		doneCh:       make(chan struct{}),
 	}
 	if flushEvery > 0 {
+		bw.workerStarted = true
 		go bw.flushLoop()
 	}
 	return bw
@@ -117,7 +119,9 @@ func (b *batchingWriter) Close() error {
 	b.closeOnce.Do(func() {
 		close(b.stopCh)
 	})
-	<-b.doneCh
+	if b.workerStarted {
+		<-b.doneCh
+	}
 	return b.Flush()
 }
 
@@ -227,6 +231,7 @@ const (
 type managedDeviceTransport struct {
 	device   usb.Device
 	state    managedDeviceState
+	retired  bool
 	bindings map[*managedConnection]struct{}
 	done     chan struct{}
 	doneOnce sync.Once
@@ -501,22 +506,22 @@ func (s *Server) Close() error {
 	}
 	s.transportMu.Unlock()
 
-	var closeErr error
+	var closeErrs []error
 	if ln != nil {
 		if err := ln.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			closeErr = err
+			closeErrs = append(closeErrs, err)
 		}
 	}
 	if acceptDone != nil {
 		<-acceptDone
 	}
 	for _, mc := range connections {
-		if err := mc.conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) && closeErr == nil {
-			closeErr = err
+		if err := mc.conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			closeErrs = append(closeErrs, err)
 		}
 	}
 	s.managedConnectionWG.Wait()
-	return closeErr
+	return errors.Join(closeErrs...)
 }
 
 func (s *Server) managedConnectionFor(conn net.Conn) *managedConnection {
@@ -559,7 +564,7 @@ func (s *Server) bindManagedConnection(conn net.Conn, dev usb.Device) error {
 		dt = &managedDeviceTransport{device: dev, bindings: make(map[*managedConnection]struct{}), done: make(chan struct{})}
 		s.managedDevices[dev] = dt
 	}
-	if dt.state != managedDeviceActive {
+	if dt.retired || dt.state != managedDeviceActive {
 		return fmt.Errorf("device transport is quiescing")
 	}
 	if mc.device != nil {
@@ -622,7 +627,15 @@ func (s *Server) maybeDrainDeviceLocked(dt *managedDeviceTransport) {
 
 func (s *Server) ForgetDeviceTransport(dev usb.Device) {
 	s.transportMu.Lock()
-	delete(s.managedDevices, dev)
+	if dt := s.managedDevices[dev]; dt != nil {
+		dt.retired = true
+		if len(dt.bindings) == 0 {
+			dt.state = managedDeviceDrained
+			dt.doneOnce.Do(func() { close(dt.done) })
+		} else {
+			dt.state = managedDeviceQuiescing
+		}
+	}
 	s.transportMu.Unlock()
 }
 

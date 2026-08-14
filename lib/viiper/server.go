@@ -170,17 +170,20 @@ func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownRes
 	busIDs := hw.s.ListBuses()
 	slices.Sort(busIDs)
 	hw.clearAllCallbacksLocked()
+	var allDrains []*usb.TransportDrain
 	for _, busID := range busIDs {
 		result := hw.removeBusLockedWithDrains(busID)
+		allDrains = append(allDrains, result.drains...)
 		if !result.ok {
 			hw.state = serverCloseFailed
 			hw.logicalCloseInProgress = false
+			result.drains = allDrains
 			return result
 		}
 	}
 	hw.logicalCloseInProgress = false
 	hw.closePhase = transportClosePending
-	return transportTeardownResult{ok: true}
+	return transportTeardownResult{ok: true, drains: allDrains}
 }
 
 func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr) bool {
