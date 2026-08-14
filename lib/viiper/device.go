@@ -26,3 +26,25 @@ func getUSBDeviceIdentity(handle uintptr, outBusID *uint32, outDeviceID *uint32)
 	*outDeviceID = dhw.exportMeta.DevID
 	return true
 }
+
+//export AttachUSBDevice
+func AttachUSBDevice(handle C.uintptr_t) C.bool {
+	return C.bool(attachUSBDevice(uintptr(handle)))
+}
+
+func attachUSBDevice(handle uintptr) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		return dhw.usbServer.attachDeviceLocked(dhw)
+	})
+}
+
+//export DetachUSBDevice
+func DetachUSBDevice(handle C.uintptr_t) C.bool {
+	return C.bool(detachUSBDevice(uintptr(handle)))
+}
+
+func detachUSBDevice(handle uintptr) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		return dhw.usbServer.detachDeviceLocked(dhw)
+	})
+}

@@ -61,6 +61,28 @@ func classifyUSBIPAttachCommandResult(output []byte, err error) (int32, error) {
 	return port, nil
 }
 
+// classifyUSBIPDetachCommandResult distinguishes a command that could not be
+// started from one that ran but did not report a successful detach.
+func classifyUSBIPDetachCommandResult(err error) error {
+	if err == nil {
+		return nil
+	}
+	var startErr *exec.Error
+	if errors.As(err, &startErr) {
+		return err
+	}
+	return fmt.Errorf("%w: usbip detach process started but did not report success: %v", ErrDetachmentOutcomeUnknown, err)
+}
+
+// classifyNativeDetachResult is called only after PLUGOUT_HARDWARE has been
+// submitted. A returned error therefore leaves the outcome unknown.
+func classifyNativeDetachResult(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w: PLUGOUT_HARDWARE DeviceIoControl failed: %v", ErrDetachmentOutcomeUnknown, err)
+}
+
 func usbipAttachCommandArgs(usbipServerPort uint16, busID string) []string {
 	return []string{
 		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),

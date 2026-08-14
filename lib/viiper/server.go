@@ -143,11 +143,19 @@ func (hw *usbServerHandleWrapper) closeLocked() bool {
 	if hw.state == serverCloseFailed {
 		hw.logger.Warn("retrying a previously failed server close", "operation", "CloseUSBServer", "serverState", hw.state.String())
 	}
+	if hw.hasUnknownAttachmentLocked() {
+		hw.state = serverCloseFailed
+		return false
+	}
 	hw.state = serverClosing
 
 	busIDs := hw.s.ListBuses()
 	slices.Sort(busIDs)
 	for _, busID := range busIDs {
+		if !hw.detachBusDevicesLocked(busID) {
+			hw.state = serverCloseFailed
+			return false
+		}
 		if err := hw.ops.removeBus(hw.s, busID); err != nil {
 			if hw.s.GetBus(busID) == nil {
 				hw.finalizeBusLocked(busID)

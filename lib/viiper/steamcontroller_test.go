@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"errors"
+	"log/slog"
 	"reflect"
 	"runtime/cgo"
 	"testing"
@@ -11,6 +13,7 @@ import (
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/mouse"
 	"github.com/Alia5/VIIPER/device/steamcontroller"
+	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/usbip"
 )
 
@@ -208,5 +211,36 @@ func TestSteamControllerWrapperClearsOutputCallback(t *testing.T) {
 	d.HandleTransfer(context.Background(), 3, usbip.DirOut, []byte{0x98})
 	if calls != 1 {
 		t.Fatalf("callback calls = %d, want 1", calls)
+	}
+}
+
+func TestSteamControllerRemovalClearsCallbackBeforeDetachFailure(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9133)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 68}, nil
+	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+		return errors.New("known detach failure")
+	}
+	d, err := steamcontroller.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9133, d, true)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("creation failed")
+	}
+	calls := 0
+	if !setSteamControllerOutputCallback(uintptr(h), func(steamcontroller.OutputState) { calls++ }) {
+		t.Fatal("callback registration failed")
+	}
+	if removeSteamControllerDevice(uintptr(h)) {
+		t.Fatal("removal succeeded despite detach failure")
+	}
+	d.HandleTransfer(context.Background(), 3, usbip.DirOut, []byte{0x99})
+	if calls != 0 || !lookupIdentityExists(uintptr(h)) {
+		t.Fatalf("callback calls=%d record=%t", calls, lookupIdentityExists(uintptr(h)))
 	}
 }

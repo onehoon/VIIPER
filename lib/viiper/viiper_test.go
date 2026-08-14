@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Alia5/VIIPER/device/mouse"
+	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/internal/server/usb"
 	viiperusb "github.com/Alia5/VIIPER/usb"
 	"github.com/Alia5/VIIPER/usbip"
@@ -68,8 +68,8 @@ func addTestMouse(t *testing.T, hw *usbServerHandleWrapper, busID uint32) device
 
 func TestCreateDeviceRollsBackOnlyFailedDevice(t *testing.T) {
 	hw, bus := newLifecycleTestServer(t, 9101)
-	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error {
-		return errors.New("injected attach failure")
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{}, errors.New("injected attach failure")
 	}
 	first, err := mouse.New(nil)
 	if err != nil {
@@ -109,9 +109,9 @@ func TestRollbackFailureTransitionsToCloseFailed(t *testing.T) {
 
 func TestCreateWithoutAutoAttachDoesNotInvokeAttach(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9110)
-	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
 		t.Fatal("auto-attach was invoked when disabled")
-		return nil
+		return api.LocalhostAttachment{}, nil
 	}
 	hw.lifecycleMu.Lock()
 	_ = addTestMouse(t, hw, 9110)
@@ -120,15 +120,25 @@ func TestCreateWithoutAutoAttachDoesNotInvokeAttach(t *testing.T) {
 
 func TestTypedRemovalKeepsCallerOwnedBus(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9111)
+	detachCalls := 0
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: 41}, nil
+	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+		detachCalls++
+		return nil
+	}
 	hw.lifecycleMu.Lock()
 	h := addTestMouse(t, hw, 9111)
 	dhw := hw.deviceHandleRecords[h]
-	if err := hw.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+	if !hw.attachDeviceLocked(dhw) || !hw.removeDeviceLocked(dhw, h) {
 		hw.lifecycleMu.Unlock()
-		t.Fatal(err)
+		t.Fatal("typed removal failed")
 	}
-	hw.finalizeDeviceLocked(h)
 	hw.lifecycleMu.Unlock()
+	if detachCalls != 1 {
+		t.Fatalf("detach calls = %d, want 1", detachCalls)
+	}
 	if hw.s.GetBus(9111) == nil {
 		t.Fatal("typed removal removed the caller-owned bus")
 	}
@@ -208,12 +218,38 @@ func TestDeviceIdentityValidation(t *testing.T) {
 func TestAutoAttachSuccessCreatesUsableHandle(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9115)
 	called := false
-	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error { called = true; return nil }
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		called = true
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 52}, nil
+	}
 	hw.lifecycleMu.Lock()
 	h := addTestMouseWithAutoAttach(t, hw, 9115)
+	dhw := hw.deviceHandleRecords[h]
 	hw.lifecycleMu.Unlock()
-	if !called || !lookupIdentityExists(uintptr(h)) {
+	if !called || !lookupIdentityExists(uintptr(h)) || dhw.attachment.state != attachmentAttached || dhw.attachment.attachment.Port != 52 {
 		t.Fatal("successful auto-attach did not create a usable handle")
+	}
+}
+
+func TestAutoAttachUnknownRetainsLogicalRecordAndFailsClosed(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9117)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9117, mustNewTestMouse(t), true)
+	hw.lifecycleMu.Unlock()
+	if ok || h == 0 || hw.state != serverCloseFailed {
+		t.Fatalf("result = handle %d ok %t state %s", h, ok, hw.state)
+	}
+	if !lookupIdentityExists(uintptr(h)) {
+		t.Fatal("unknown auto-attach discarded the logical record")
+	}
+	hw.lifecycleMu.Lock()
+	closed := hw.closeLocked()
+	hw.lifecycleMu.Unlock()
+	if closed || hw.s.GetBus(9117) == nil || !lookupIdentityExists(uintptr(h)) {
+		t.Fatal("close performed destructive cleanup after unknown auto-attach")
 	}
 }
 
@@ -350,11 +386,12 @@ func TestInFlightCreateAndCloseAreSerializedByLifecycleBoundary(t *testing.T) {
 		ok bool
 	}, 1)
 	closeDone := make(chan bool, 1)
-	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
 		close(attachStarted)
 		<-releaseAttach
-		return nil
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: 77}, nil
 	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
 	hw.ops.close = func(*usb.Server) error { return nil }
 	d := mustNewTestMouse(t)
 

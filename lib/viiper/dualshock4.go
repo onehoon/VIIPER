@@ -74,7 +74,6 @@ static void viiper_call_ds4_output(DS4OutputCallback fn, DS4DeviceHandle handle,
 import "C"
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/dualshock4"
@@ -214,10 +213,6 @@ func SetDS4OutputCallback(handle C.DS4DeviceHandle, cb C.DS4OutputCallback) bool
 //export RemoveDS4Device
 func RemoveDS4Device(handle C.DS4DeviceHandle) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
-		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-			return false
-		}
-		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
-		return true
+		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }
