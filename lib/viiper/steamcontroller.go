@@ -8,6 +8,13 @@ package main
 typedef uintptr_t USBServerHandle;
 typedef uintptr_t SteamControllerDeviceHandle;
 
+typedef enum {
+    VIIPER_REMOVE_SUCCESS = 0,
+    VIIPER_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_REMOVE_INVALID = 3
+} SteamControllerDeviceRemoveResult;
+
 typedef struct {
 	uint8_t A, X, B, Y;
 	uint8_t L1, R1;
@@ -193,5 +200,17 @@ func RemoveSteamControllerDevice(handle C.SteamControllerDeviceHandle) bool {
 }
 
 func removeSteamControllerDevice(handle uintptr) bool {
-	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*steamcontroller.SteamController); return ok })
+	return removeSteamControllerDeviceResult(handle) == typedDeviceRemoveSuccess
+}
+
+// RemoveSteamControllerDeviceEx returns the classified Gordon logical-device removal result.
+// The legacy RemoveSteamControllerDevice bool export remains available for compatibility.
+//
+//export RemoveSteamControllerDeviceEx
+func RemoveSteamControllerDeviceEx(handle C.SteamControllerDeviceHandle) C.SteamControllerDeviceRemoveResult {
+	return C.SteamControllerDeviceRemoveResult(removeSteamControllerDeviceResult(uintptr(handle)))
+}
+
+func removeSteamControllerDeviceResult(handle uintptr) typedDeviceRemoveResult {
+	return removeTypedDeviceResult(handle, func(device any) bool { _, ok := device.(*steamcontroller.SteamController); return ok })
 }
