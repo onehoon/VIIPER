@@ -18,9 +18,9 @@ import (
 )
 
 func TestSteamControllerStateConversion(t *testing.T) {
-	input := steamControllerState{A: true, X: true, B: true, Y: true, L1: true, R1: true, Menu: true, Steam: true, Options: true, DPadDown: true, DPadLeft: true, DPadRight: true, DPadUp: true, L3: true, LGrip: true, RGrip: true, LPadTouch: true, RPadTouch: true, LPadPress: true, RPadPress: true, LPadAndStick: true, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
+	input := steamControllerState{A: true, X: true, B: true, Y: true, L1: true, R1: true, L2: true, R2: true, Menu: true, Steam: true, Options: true, DPadDown: true, DPadLeft: true, DPadRight: true, DPadUp: true, L3: true, LGrip: true, RGrip: true, LPadTouch: true, RPadTouch: true, LPadPress: true, RPadPress: true, LPadAndStick: true, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
 	got := steamControllerInputState(input)
-	want := steamcontroller.InputState{A: true, X: true, B: true, Y: true, L1: true, R1: true, Menu: true, Steam: true, Options: true, DPadDown: true, DPadLeft: true, DPadRight: true, DPadUp: true, L3: true, LGrip: true, RGrip: true, LPadTouch: true, RPadTouch: true, LPadPress: true, RPadPress: true, LPadAndStick: true, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
+	want := steamcontroller.InputState{A: true, X: true, B: true, Y: true, L1: true, R1: true, L2: true, R2: true, Menu: true, Steam: true, Options: true, DPadDown: true, DPadLeft: true, DPadRight: true, DPadUp: true, L3: true, LGrip: true, RGrip: true, LPadTouch: true, RPadTouch: true, LPadPress: true, RPadPress: true, LPadAndStick: true, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
 	if !reflect.DeepEqual(*got, want) {
 		t.Fatalf("state conversion lost fields: %#v", got)
 	}
@@ -35,6 +35,7 @@ func TestSteamControllerStateConversion(t *testing.T) {
 type steamControllerDeviceStateABI struct {
 	A, X, B, Y                                               uint8
 	L1, R1                                                   uint8
+	L2, R2                                                   uint8
 	Menu, Steam, Options                                     uint8
 	DPadDown, DPadLeft, DPadRight, DPadUp                    uint8
 	L3                                                       uint8
@@ -51,14 +52,63 @@ type steamControllerDeviceStateABI struct {
 }
 
 func TestSteamControllerABIStateBoundaryConversion(t *testing.T) {
-	raw := steamControllerDeviceStateABI{A: 2, X: 3, B: 4, Y: 5, L1: 6, R1: 7, Menu: 8, Steam: 9, Options: 10, DPadDown: 11, DPadLeft: 12, DPadRight: 13, DPadUp: 14, L3: 15, LGrip: 16, RGrip: 17, LPadTouch: 18, RPadTouch: 19, LPadPress: 20, RPadPress: 21, LPadAndStick: 22, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
+	raw := steamControllerDeviceStateABI{A: 2, X: 3, B: 4, Y: 5, L1: 6, R1: 7, L2: 8, R2: 9, Menu: 10, Steam: 11, Options: 12, DPadDown: 13, DPadLeft: 14, DPadRight: 15, DPadUp: 16, L3: 17, LGrip: 18, RGrip: 19, LPadTouch: 20, RPadTouch: 21, LPadPress: 22, RPadPress: 23, LPadAndStick: 24, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
 	if unsafe.Sizeof(raw) != steamControllerDeviceStateSize() {
 		t.Fatalf("Go ABI size = %d, C ABI size = %d", unsafe.Sizeof(raw), steamControllerDeviceStateSize())
 	}
 	got := steamControllerStateFromPointer(unsafe.Pointer(&raw))
-	want := steamControllerState{A: true, X: true, B: true, Y: true, L1: true, R1: true, Menu: true, Steam: true, Options: true, DPadDown: true, DPadLeft: true, DPadRight: true, DPadUp: true, L3: true, LGrip: true, RGrip: true, LPadTouch: true, RPadTouch: true, LPadPress: true, RPadPress: true, LPadAndStick: true, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
+	want := steamControllerState{A: true, X: true, B: true, Y: true, L1: true, R1: true, L2: true, R2: true, Menu: true, Steam: true, Options: true, DPadDown: true, DPadLeft: true, DPadRight: true, DPadUp: true, L3: true, LGrip: true, RGrip: true, LPadTouch: true, RPadTouch: true, LPadPress: true, RPadPress: true, LPadAndStick: true, LPadX: 1111, LPadY: -2222, RPadX: 3333, RPadY: -4444, LTrigger: 12345, RTrigger: 23456, LStickX: -5555, LStickY: 6666, AccelX: -7777, AccelY: 8888, AccelZ: -9999, GyroX: 1010, GyroY: -2020, GyroZ: 3030, GyroQuatW: 4040, GyroQuatX: -5050, GyroQuatY: 6060, GyroQuatZ: -7070, BatteryMilliVolts: 4321}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("C ABI boundary conversion lost fields: %#v", got)
+	}
+}
+
+func TestSteamControllerABITriggerFieldOrder(t *testing.T) {
+	cOffsets := steamControllerDeviceStateABIOffsets()
+	type fieldOffset struct {
+		name            string
+		c, mirror, want uintptr
+	}
+	fields := []fieldOffset{
+		{"L1", cOffsets.L1, unsafe.Offsetof(steamControllerDeviceStateABI{}.L1), 4},
+		{"R1", cOffsets.R1, unsafe.Offsetof(steamControllerDeviceStateABI{}.R1), 5},
+		{"L2", cOffsets.L2, unsafe.Offsetof(steamControllerDeviceStateABI{}.L2), 6},
+		{"R2", cOffsets.R2, unsafe.Offsetof(steamControllerDeviceStateABI{}.R2), 7},
+		{"Menu", cOffsets.Menu, unsafe.Offsetof(steamControllerDeviceStateABI{}.Menu), 8},
+		{"LPadX", cOffsets.LPadX, unsafe.Offsetof(steamControllerDeviceStateABI{}.LPadX), 24},
+	}
+	for _, field := range fields {
+		if field.c != field.mirror || field.c != field.want {
+			t.Fatalf("%s offsets: C=%d, Go mirror=%d, want=%d", field.name, field.c, field.mirror, field.want)
+		}
+	}
+	if got, want := cOffsets.L2, cOffsets.R1+1; got != want {
+		t.Fatalf("C L2 offset = %d, want immediately after R1 at %d", got, want)
+	}
+	if got, want := cOffsets.R2, cOffsets.L2+1; got != want {
+		t.Fatalf("C R2 offset = %d, want immediately after L2 at %d", got, want)
+	}
+	if got, want := steamControllerDeviceStateSize(), uintptr(62); got != want {
+		t.Fatalf("C ABI size = %d, want %d", got, want)
+	}
+}
+
+func TestSteamControllerABITriggerByteBooleans(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		l2, r2         uint8
+		wantL2, wantR2 bool
+	}{
+		{name: "zero", l2: 0, r2: 0},
+		{name: "nonzero", l2: 2, r2: 0xff, wantL2: true, wantR2: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := steamControllerDeviceStateABI{L2: tc.l2, R2: tc.r2}
+			got := steamControllerStateFromPointer(unsafe.Pointer(&raw))
+			if got.L2 != tc.wantL2 || got.R2 != tc.wantR2 {
+				t.Fatalf("trigger booleans = (%t, %t), want (%t, %t)", got.L2, got.R2, tc.wantL2, tc.wantR2)
+			}
+		})
 	}
 }
 
