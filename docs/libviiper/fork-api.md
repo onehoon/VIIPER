@@ -42,6 +42,27 @@ The exported functions return `true` on success and `false` on failure. Output
 handle and output ID pointers must be non-NULL. Invalid input is rejected
 before device construction, bus registration, attachment, or handle creation.
 
+## Classic Steam Controller trigger state
+
+The generated `SteamControllerDeviceState` contains independent digital
+trigger flags immediately after `L1` and `R1`:
+
+```c
+uint8_t L1, R1, L2, R2;
+```
+
+`LTrigger` and `RTrigger` remain the independent analog travel values. Setting
+`L2` or `R2` does not change either analog value. The report layer sets the
+corresponding digital full-pull bit when the explicit flag is true **or** when
+the analog value reaches the existing full-pull threshold (`26000`). This lets
+an application represent a digital click at any analog travel, including zero,
+without losing the physical trigger position.
+
+The `L2`/`R2` fields are part of the canonical C ABI and generated client
+contract. Always consume `dist/libVIIPER/libVIIPER.h` and the DLL produced from
+the same commit. Do not mix a header or generated client from before this
+field-layout change with a newer DLL (or vice versa).
+
 ## Lifecycle order
 
 The normal ownership order is:
