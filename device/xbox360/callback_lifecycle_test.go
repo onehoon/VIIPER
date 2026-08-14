@@ -38,7 +38,9 @@ func TestRumbleCallbackClearDoesNotDrainInFlightCallback(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	var once sync.Once
+	var calls atomic.Int64
 	dev.SetRumbleCallback(func(XRumbleState) {
+		calls.Add(1)
 		once.Do(func() { close(entered) })
 		<-release
 	})
@@ -53,6 +55,9 @@ func TestRumbleCallbackClearDoesNotDrainInFlightCallback(t *testing.T) {
 	close(release)
 	<-done
 	dev.HandleTransfer(context.Background(), 1, usbip.DirOut, packet)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("callback calls after clear = %d, want 1", got)
+	}
 }
 
 func TestRumbleCallbackSetterRaceWithTransfer(t *testing.T) {

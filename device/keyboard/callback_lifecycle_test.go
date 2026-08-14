@@ -37,7 +37,9 @@ func TestLEDCallbackClearDoesNotDrainInFlightCallback(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	var once sync.Once
+	var calls atomic.Int64
 	dev.SetLEDCallback(func(LEDState) {
+		calls.Add(1)
 		once.Do(func() { close(entered) })
 		<-release
 	})
@@ -51,6 +53,9 @@ func TestLEDCallbackClearDoesNotDrainInFlightCallback(t *testing.T) {
 	close(release)
 	<-done
 	dev.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{LEDCapsLock})
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("callback calls after clear = %d, want 1", got)
+	}
 }
 
 func TestLEDCallbackSetterRaceWithTransfer(t *testing.T) {

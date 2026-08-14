@@ -242,6 +242,60 @@ func TestRemoveUSBBusUnknownPreflightPreservesCallback(t *testing.T) {
 	}
 }
 
+func TestRemoveUSBBusKnownDetachFailureKeepsCallbacksCleared(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9221)
+	var clearCalls atomic.Int64
+	hw.onCallbackCleared = func(*deviceHandleWrapper) { clearCalls.Add(1) }
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 95}, nil
+	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+		return errors.New("known detach failure")
+	}
+	dev, err := steamcontroller.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9221, dev, true)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("device creation failed")
+	}
+	var callbacks atomic.Int64
+	dev.SetOutputCallback(func(steamcontroller.OutputState) { callbacks.Add(1) })
+
+	hw.lifecycleMu.Lock()
+	removed := hw.removeBusLocked(9221)
+	state := hw.state
+	hw.lifecycleMu.Unlock()
+	if removed {
+		t.Fatal("bus removal unexpectedly succeeded")
+	}
+	if state != serverActive {
+		t.Fatalf("server state = %s, want active", state)
+	}
+	if hw.s.GetBus(9221) == nil || hw.deviceHandleRecords[h] == nil {
+		t.Fatal("known detach failure lost surviving bus or device ownership")
+	}
+	if got := clearCalls.Load(); got != 1 {
+		t.Fatalf("callback clear calls = %d, want 1", got)
+	}
+	dev.HandleTransfer(context.Background(), 3, usbip.DirOut, []byte{0x99})
+	if got := callbacks.Load(); got != 0 {
+		t.Fatalf("callbacks after clear = %d, want 0", got)
+	}
+
+	// Complete cleanup so the retained test handle and bus do not escape the test.
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
+	hw.lifecycleMu.Lock()
+	if !hw.removeBusLocked(9221) {
+		hw.lifecycleMu.Unlock()
+		t.Fatal("cleanup bus removal failed")
+	}
+	hw.lifecycleMu.Unlock()
+}
+
 func TestWrongTypedRemoveDoesNotClearCallback(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9215)
 	dev, err := steamcontroller.New(nil)

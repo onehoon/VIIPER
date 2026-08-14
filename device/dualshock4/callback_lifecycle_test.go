@@ -51,7 +51,9 @@ func TestOutputCallbackClearDoesNotDrainInFlightCallback(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	var once sync.Once
+	var calls atomic.Int64
 	dev.SetOutputCallback(func(OutputState) {
+		calls.Add(1)
 		once.Do(func() { close(entered) })
 		<-release
 	})
@@ -66,6 +68,9 @@ func TestOutputCallbackClearDoesNotDrainInFlightCallback(t *testing.T) {
 	close(release)
 	<-done
 	dev.HandleControl(0x21, 0x09, 0x0205, 0, 0, report)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("callback calls after clear = %d, want 1", got)
+	}
 }
 
 func TestOutputCallbackSetterRaceWithTransferAndControl(t *testing.T) {
