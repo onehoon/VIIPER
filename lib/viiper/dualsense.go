@@ -257,10 +257,5 @@ func RemoveDualSenseDevice(handle C.DSDeviceHandle) bool {
 }
 
 func removeDualSenseDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		if _, ok := dhw.device.(*dualsense.DualSense); !ok {
-			return false
-		}
-		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
-	})
+	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*dualsense.DualSense); return ok })
 }

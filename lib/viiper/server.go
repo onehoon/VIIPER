@@ -82,10 +82,12 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 	slog.SetDefault(logger)
 
 	s := usb.New(usb.ServerConfig{
-		Addr:                    addr,
-		ConnectionTimeout:       connectionTimeout,
-		BusCleanupTimeout:       busCleanupTimeout,
-		WriteBatchFlushInterval: writeBatchFlushInterval,
+		Addr:                      addr,
+		ConnectionTimeout:         connectionTimeout,
+		BusCleanupTimeout:         busCleanupTimeout,
+		WriteBatchFlushInterval:   writeBatchFlushInterval,
+		DisableAutoBusCleanup:     true,
+		ManagedTransportLifecycle: true,
 	}, logger, nil)
 
 	readyChan := s.Ready()
@@ -132,56 +134,98 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 		return false
 	}
 	hw.lifecycleMu.Lock()
-	defer hw.lifecycleMu.Unlock()
-	if !hw.closeLocked() {
+	if hw.closePhase == transportClosePending {
+		if hw.state != serverCloseFailed {
+			hw.lifecycleMu.Unlock()
+			return false
+		}
+		hw.state = serverClosing
+		hw.lifecycleMu.Unlock()
+		return hw.finishTransportClose(uintptr(handle))
+	}
+	result := hw.beginLogicalCloseLocked()
+	hw.lifecycleMu.Unlock()
+	waitTransportDrains(result.drains)
+	if !result.ok {
 		return false
 	}
-	serverHandleRecords.Delete(uintptr(handle))
-	cgo.Handle(handle).Delete()
-	return true
+	return hw.finishTransportClose(uintptr(handle))
 }
 
-// closeLocked tears down a server while lifecycleMu is held.
-func (hw *usbServerHandleWrapper) closeLocked() bool {
+func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownResult {
 	if hw.state != serverActive && hw.state != serverCloseFailed {
 		hw.warnMutationRejectedLocked("CloseUSBServer")
-		return false
+		return transportTeardownResult{}
 	}
 	if hw.state == serverCloseFailed {
 		hw.logger.Warn("retrying a previously failed server close", "operation", "CloseUSBServer", "serverState", hw.state.String())
 	}
 	if hw.hasUnknownAttachmentLocked() {
 		hw.state = serverCloseFailed
-		return false
+		return transportTeardownResult{}
 	}
 	hw.state = serverClosing
+	hw.logicalCloseInProgress = true
 
 	busIDs := hw.s.ListBuses()
 	slices.Sort(busIDs)
 	hw.clearAllCallbacksLocked()
+	var allDrains []*usb.TransportDrain
 	for _, busID := range busIDs {
-		if !hw.detachBusDevicesLocked(busID) {
+		result := hw.removeBusLockedWithDrains(busID)
+		allDrains = append(allDrains, result.drains...)
+		if !result.ok {
 			hw.state = serverCloseFailed
-			return false
+			hw.logicalCloseInProgress = false
+			result.drains = allDrains
+			return result
 		}
-		if err := hw.ops.removeBus(hw.s, busID); err != nil {
-			if hw.s.GetBus(busID) == nil {
-				hw.finalizeBusLocked(busID)
-				continue
-			}
-			hw.state = serverCloseFailed
-			hw.logger.Error("failed to remove bus during server close", "operation", "CloseUSBServer", "serverState", hw.state.String(), "busID", busID, "remainingBusCount", len(hw.s.ListBuses()), "error", err)
-			return false
-		}
-		hw.finalizeBusLocked(busID)
 	}
+	hw.logicalCloseInProgress = false
+	hw.closePhase = transportClosePending
+	return transportTeardownResult{ok: true, drains: allDrains}
+}
 
-	if err := hw.ops.close(hw.s); err != nil {
+func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr) bool {
+	err := hw.ops.close(hw.s)
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if err != nil {
 		hw.state = serverCloseFailed
 		hw.logger.Error("failed to close USB server", "operation", "CloseUSBServer", "serverState", hw.state.String(), "remainingBusCount", len(hw.s.ListBuses()), "error", err)
 		return false
 	}
 	hw.state = serverClosed
+	hw.closePhase = closeComplete
+	serverHandleRecords.Delete(handle)
+	cgo.Handle(handle).Delete()
+	hw.logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", hw.state.String())
+	return true
+}
+
+// closeLocked is retained as an internal synchronous test seam. Public
+// CloseUSBServer uses the two-phase path above so transport waits occur after
+// lifecycleMu is released.
+func (hw *usbServerHandleWrapper) closeLocked() bool {
+	if hw.closePhase == transportClosePending {
+		if err := hw.ops.close(hw.s); err != nil {
+			hw.state = serverCloseFailed
+			return false
+		}
+		hw.state = serverClosed
+		hw.closePhase = closeComplete
+		return true
+	}
+	result := hw.beginLogicalCloseLocked()
+	if !result.ok {
+		return false
+	}
+	if err := hw.ops.close(hw.s); err != nil {
+		hw.state = serverCloseFailed
+		return false
+	}
+	hw.state = serverClosed
+	hw.closePhase = closeComplete
 	hw.logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", hw.state.String())
 	return true
 }

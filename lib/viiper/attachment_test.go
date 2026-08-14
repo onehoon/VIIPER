@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Alia5/VIIPER/internal/server/api"
+	serverusb "github.com/Alia5/VIIPER/internal/server/usb"
 	"github.com/Alia5/VIIPER/usbip"
 )
 
@@ -43,6 +44,47 @@ func TestAttachmentLifecycleKeepsSameLogicalHandle(t *testing.T) {
 	identity, ok := lookupDeviceIdentity(uintptr(h))
 	if !ok || identity.exportMeta.BusID != 9140 {
 		t.Fatal("logical handle changed after reattach")
+	}
+}
+
+func TestDrainedTransportCannotBeReactivatedAfterLogicalRemoveFailure(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9146)
+	attachCalls, detachCalls, removeCalls := 0, 0, 0
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		attachCalls++
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 77}, nil
+	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+		detachCalls++
+		return nil
+	}
+	hw.ops.removeDevice = func(s *serverusb.Server, busID uint32, deviceID string) error {
+		removeCalls++
+		if removeCalls == 1 {
+			return errors.New("injected logical removal failure")
+		}
+		return s.RemoveDeviceByIDWithoutBusCleanup(busID, deviceID)
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9146, mustNewTestMouse(t), false)
+	hw.lifecycleMu.Unlock()
+	if !ok || !attachUSBDevice(uintptr(h)) {
+		t.Fatal("setup attach failed")
+	}
+	if removeMouseDevice(uintptr(h)) {
+		t.Fatal("logical removal unexpectedly succeeded")
+	}
+	if attachUSBDevice(uintptr(h)) {
+		t.Fatal("drained transport was reactivated")
+	}
+	if attachCalls != 1 || detachCalls != 1 {
+		t.Fatalf("attachCalls=%d detachCalls=%d, want 1/1", attachCalls, detachCalls)
+	}
+	if !removeMouseDevice(uintptr(h)) {
+		t.Fatal("logical removal retry failed")
+	}
+	if detachCalls != 1 || removeCalls != 2 {
+		t.Fatalf("retry calls attach=%d detach=%d remove=%d, want detach=1 remove=2", attachCalls, detachCalls, removeCalls)
 	}
 }
 

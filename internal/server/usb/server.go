@@ -24,13 +24,15 @@ import (
 )
 
 type batchingWriter struct {
-	mu           sync.Mutex
-	w            *bufio.Writer
-	flushEvery   time.Duration
-	flushAtBytes int
-	stopCh       chan struct{}
-	closeOnce    sync.Once
-	err          error
+	mu            sync.Mutex
+	w             *bufio.Writer
+	flushEvery    time.Duration
+	flushAtBytes  int
+	stopCh        chan struct{}
+	doneCh        chan struct{}
+	workerStarted bool
+	closeOnce     sync.Once
+	err           error
 }
 
 const (
@@ -56,8 +58,10 @@ func newBatchingWriter(dst io.Writer, bufSize int, flushEvery time.Duration, flu
 		flushEvery:   flushEvery,
 		flushAtBytes: flushAtBytes,
 		stopCh:       make(chan struct{}),
+		doneCh:       make(chan struct{}),
 	}
 	if flushEvery > 0 {
+		bw.workerStarted = true
 		go bw.flushLoop()
 	}
 	return bw
@@ -66,6 +70,7 @@ func newBatchingWriter(dst io.Writer, bufSize int, flushEvery time.Duration, flu
 func (b *batchingWriter) flushLoop() {
 	t := time.NewTicker(b.flushEvery)
 	defer t.Stop()
+	defer close(b.doneCh)
 	for {
 		select {
 		case <-t.C:
@@ -114,6 +119,9 @@ func (b *batchingWriter) Close() error {
 	b.closeOnce.Do(func() {
 		close(b.stopCh)
 	})
+	if b.workerStarted {
+		<-b.doneCh
+	}
 	return b.Flush()
 }
 
@@ -188,23 +196,65 @@ const (
 )
 
 type Server struct {
-	config    *ServerConfig
-	logger    *slog.Logger
-	rawLogger log.RawLogger
-	busses    map[uint32]*virtualbus.VirtualBus
-	busesMu   sync.Mutex
-	ready     chan struct{}
-	readyOnce sync.Once
-	ln        net.Listener
+	config                      *ServerConfig
+	logger                      *slog.Logger
+	rawLogger                   log.RawLogger
+	busses                      map[uint32]*virtualbus.VirtualBus
+	busesMu                     sync.Mutex
+	ready                       chan struct{}
+	readyOnce                   sync.Once
+	ln                          net.Listener
+	transportMu                 sync.Mutex
+	managedClosing              bool
+	managedConnections          map[*managedConnection]struct{}
+	managedConnectionWG         sync.WaitGroup
+	acceptLoopDone              chan struct{}
+	managedDevices              map[usb.Device]*managedDeviceTransport
+	managedConnectionRegistered chan struct{}
+}
+
+type managedConnection struct {
+	conn         net.Conn
+	device       *managedDeviceTransport
+	transportCtx context.Context
+	cancel       context.CancelFunc
+}
+
+type managedDeviceState uint8
+
+const (
+	managedDeviceActive managedDeviceState = iota
+	managedDeviceQuiescing
+	managedDeviceDrained
+)
+
+type managedDeviceTransport struct {
+	device   usb.Device
+	state    managedDeviceState
+	retired  bool
+	bindings map[*managedConnection]struct{}
+	done     chan struct{}
+	doneOnce sync.Once
+}
+
+type TransportDrain struct{ done <-chan struct{} }
+
+func (d *TransportDrain) Wait() {
+	if d != nil && d.done != nil {
+		<-d.done
+	}
 }
 
 func New(config ServerConfig, logger *slog.Logger, rawLogger log.RawLogger) *Server {
 	return &Server{
-		config:    &config,
-		logger:    logger,
-		rawLogger: rawLogger,
-		busses:    make(map[uint32]*virtualbus.VirtualBus),
-		ready:     make(chan struct{}),
+		config:                      &config,
+		logger:                      logger,
+		rawLogger:                   rawLogger,
+		busses:                      make(map[uint32]*virtualbus.VirtualBus),
+		ready:                       make(chan struct{}),
+		managedConnections:          make(map[*managedConnection]struct{}),
+		managedDevices:              make(map[usb.Device]*managedDeviceTransport),
+		managedConnectionRegistered: make(chan struct{}, 1),
 	}
 }
 
@@ -276,6 +326,9 @@ func (s *Server) removeDeviceByID(busID uint32, deviceID string, scheduleBusClea
 	if !scheduleBusCleanup {
 		return nil
 	}
+	if s.config.DisableAutoBusCleanup {
+		return nil
+	}
 
 	if emptyCtx := bus.GetBusEmptyContext(); emptyCtx != nil {
 		go func() {
@@ -339,6 +392,8 @@ func (s *Server) NextFreeBusID() uint32 {
 }
 
 func (s *Server) Addr() string {
+	s.transportMu.Lock()
+	defer s.transportMu.Unlock()
 	if s.ln != nil {
 		return s.ln.Addr().String()
 	}
@@ -354,10 +409,24 @@ func (s *Server) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
+	s.transportMu.Lock()
+	if s.config.ManagedTransportLifecycle && s.managedClosing {
+		s.transportMu.Unlock()
+		_ = ln.Close()
+		s.readyOnce.Do(func() { close(s.ready) })
+		return net.ErrClosed
+	}
 	s.ln = ln
 	s.config.Addr = ln.Addr().String()
+	if s.config.ManagedTransportLifecycle {
+		s.acceptLoopDone = make(chan struct{})
+	}
+	s.transportMu.Unlock()
 	s.readyOnce.Do(func() { close(s.ready) })
 	s.logger.Info("USBIP server listening", "addr", s.config.Addr)
+	if s.config.ManagedTransportLifecycle {
+		defer close(s.acceptLoopDone)
+	}
 	for {
 		c, err := ln.Accept()
 		if err != nil {
@@ -374,6 +443,34 @@ func (s *Server) ListenAndServe() error {
 			}
 		}
 		s.logger.Info("Client connected", "remote", c.RemoteAddr())
+		if s.config.ManagedTransportLifecycle {
+			s.transportMu.Lock()
+			if s.managedClosing {
+				s.transportMu.Unlock()
+				_ = c.Close()
+				continue
+			}
+			mc := &managedConnection{conn: c}
+			s.managedConnections[mc] = struct{}{}
+			s.managedConnectionWG.Add(1)
+			s.transportMu.Unlock()
+			select {
+			case s.managedConnectionRegistered <- struct{}{}:
+			default:
+			}
+			go func(mc *managedConnection) {
+				defer s.managedConnectionWG.Done()
+				defer s.unbindManagedConnection(mc)
+				if err := s.handleConn(mc.conn); err != nil {
+					if isClientDisconnect(err) {
+						s.logger.Info("Client disconnected", "error", err)
+					} else {
+						s.logger.Error("Connection handler error", "error", err)
+					}
+				}
+			}(mc)
+			continue
+		}
 		go func() {
 			if err := s.handleConn(c); err != nil {
 				if isClientDisconnect(err) {
@@ -392,10 +489,193 @@ func (s *Server) Ready() <-chan struct{} { return s.ready }
 
 // Close stops the USB server by closing its listener.
 func (s *Server) Close() error {
-	if s.ln != nil {
-		return s.ln.Close()
+	s.transportMu.Lock()
+	ln := s.ln
+	if !s.config.ManagedTransportLifecycle {
+		s.transportMu.Unlock()
+		if ln != nil {
+			return ln.Close()
+		}
+		return nil
+	}
+	s.managedClosing = true
+	acceptDone := s.acceptLoopDone
+	connections := make([]*managedConnection, 0, len(s.managedConnections))
+	for mc := range s.managedConnections {
+		connections = append(connections, mc)
+	}
+	s.transportMu.Unlock()
+
+	var closeErrs []error
+	if ln != nil {
+		if err := ln.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			closeErrs = append(closeErrs, err)
+		}
+	}
+	if acceptDone != nil {
+		<-acceptDone
+	}
+	for _, mc := range connections {
+		if err := mc.conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			closeErrs = append(closeErrs, err)
+		}
+	}
+	s.managedConnectionWG.Wait()
+	return errors.Join(closeErrs...)
+}
+
+func (s *Server) managedConnectionFor(conn net.Conn) *managedConnection {
+	s.transportMu.Lock()
+	defer s.transportMu.Unlock()
+	conn = rawConn(conn)
+	for mc := range s.managedConnections {
+		if mc.conn == conn {
+			return mc
+		}
 	}
 	return nil
+}
+
+func (s *Server) unbindManagedConnection(mc *managedConnection) {
+	s.transportMu.Lock()
+	if mc.device != nil {
+		dt := mc.device
+		delete(dt.bindings, mc)
+		s.maybeDrainDeviceLocked(dt)
+		if dt.retired && len(dt.bindings) == 0 {
+			delete(s.managedDevices, dt.device)
+		}
+	}
+	delete(s.managedConnections, mc)
+	s.transportMu.Unlock()
+	if mc.cancel != nil {
+		mc.cancel()
+	}
+}
+
+func (s *Server) bindManagedConnection(conn net.Conn, dev usb.Device) error {
+	s.transportMu.Lock()
+	defer s.transportMu.Unlock()
+	return s.bindManagedConnectionLocked(conn, dev)
+}
+
+// bindManagedConnectionByBusID resolves the requested device and reserves its
+// managed transport while holding transportMu. This makes import resolution
+// and binding a single lifecycle boundary with BeginDeviceDrain.
+func (s *Server) bindManagedConnectionByBusID(conn net.Conn, reqBus string) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, error) {
+	s.transportMu.Lock()
+	defer s.transportMu.Unlock()
+	if s.managedClosing {
+		return nil, nil, nil, net.ErrClosed
+	}
+	s.busesMu.Lock()
+	chosen, meta, desc, ok := s.resolveImportDeviceLocked(reqBus)
+	if !ok {
+		s.busesMu.Unlock()
+		return nil, nil, nil, fmt.Errorf("no device matches busid %s", reqBus)
+	}
+	if err := s.bindManagedConnectionLocked(conn, chosen); err != nil {
+		s.busesMu.Unlock()
+		return nil, nil, nil, fmt.Errorf("bind imported device: %w", err)
+	}
+	s.busesMu.Unlock()
+	return chosen, meta, desc, nil
+}
+
+func (s *Server) bindManagedConnectionLocked(conn net.Conn, dev usb.Device) error {
+	if s.managedClosing {
+		return net.ErrClosed
+	}
+	mc := s.findManagedConnectionLocked(rawConn(conn))
+	if mc == nil {
+		return fmt.Errorf("connection is not managed")
+	}
+	dt := s.managedDevices[dev]
+	if dt == nil {
+		dt = &managedDeviceTransport{device: dev, bindings: make(map[*managedConnection]struct{}), done: make(chan struct{})}
+		s.managedDevices[dev] = dt
+	}
+	if dt.retired || dt.state != managedDeviceActive {
+		return fmt.Errorf("device transport is quiescing")
+	}
+	if mc.device != nil {
+		return fmt.Errorf("connection already bound")
+	}
+	mc.device = dt
+	mc.transportCtx, mc.cancel = context.WithCancel(context.Background())
+	dt.bindings[mc] = struct{}{}
+	return nil
+}
+
+func (s *Server) findManagedConnectionLocked(conn net.Conn) *managedConnection {
+	conn = rawConn(conn)
+	for mc := range s.managedConnections {
+		if mc.conn == conn {
+			return mc
+		}
+	}
+	return nil
+}
+
+func rawConn(conn net.Conn) net.Conn {
+	if lc, ok := conn.(*logConn); ok {
+		return lc.Conn
+	}
+	return conn
+}
+
+func (s *Server) BeginDeviceDrain(dev usb.Device) *TransportDrain {
+	s.transportMu.Lock()
+	defer s.transportMu.Unlock()
+	dt := s.managedDevices[dev]
+	if dt == nil {
+		dt = &managedDeviceTransport{device: dev, bindings: make(map[*managedConnection]struct{}), done: make(chan struct{})}
+		s.managedDevices[dev] = dt
+	}
+	if dt.state == managedDeviceDrained {
+		return &TransportDrain{done: dt.done}
+	}
+	if dt.state == managedDeviceQuiescing {
+		return &TransportDrain{done: dt.done}
+	}
+	dt.state = managedDeviceQuiescing
+	for mc := range dt.bindings {
+		if mc.cancel != nil {
+			mc.cancel()
+		}
+		_ = mc.conn.Close()
+	}
+	s.maybeDrainDeviceLocked(dt)
+	return &TransportDrain{done: dt.done}
+}
+
+func (s *Server) maybeDrainDeviceLocked(dt *managedDeviceTransport) {
+	if dt.state == managedDeviceQuiescing && len(dt.bindings) == 0 {
+		dt.state = managedDeviceDrained
+		dt.doneOnce.Do(func() { close(dt.done) })
+	}
+}
+
+func (s *Server) ForgetDeviceTransport(dev usb.Device) {
+	s.transportMu.Lock()
+	if dt := s.managedDevices[dev]; dt != nil {
+		dt.retired = true
+		if len(dt.bindings) == 0 {
+			dt.state = managedDeviceDrained
+			dt.doneOnce.Do(func() { close(dt.done) })
+			delete(s.managedDevices, dev)
+		} else {
+			dt.state = managedDeviceQuiescing
+		}
+	}
+	s.transportMu.Unlock()
+}
+
+func (s *Server) DeviceTransportCanAccept(dev usb.Device) bool {
+	s.transportMu.Lock()
+	defer s.transportMu.Unlock()
+	dt := s.managedDevices[dev]
+	return dt == nil || dt.state == managedDeviceActive
 }
 
 // GetListenPort extracts and returns the port number from the server's listen address.
@@ -437,7 +717,13 @@ func (s *Server) handleConn(conn net.Conn) error {
 			return s.handleDevList(conn)
 		case usbip.OpReqImport:
 			s.logger.Info("OP_REQ_IMPORT")
-			dev, err := s.handleImport(conn)
+			var dev usb.Device
+			var err error
+			if s.config.ManagedTransportLifecycle {
+				dev, err = s.handleManagedImport(conn)
+			} else {
+				dev, err = s.handleImport(conn)
+			}
 			if err != nil {
 				return fmt.Errorf("handle import: %w", err)
 			}
@@ -491,29 +777,87 @@ func (s *Server) handleDevList(conn net.Conn) error {
 }
 
 func (s *Server) handleImport(conn net.Conn) (usb.Device, error) {
+	chosen, meta, desc, err := s.readImportDevice(conn)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.writeImportReply(conn, meta, desc); err != nil {
+		return nil, err
+	}
+	return chosen, nil
+}
+
+func (s *Server) handleManagedImport(conn net.Conn) (usb.Device, error) {
+	reqBus, err := s.readImportBusID(conn)
+	if err != nil {
+		return nil, err
+	}
+	chosen, meta, desc, err := s.bindManagedConnectionByBusID(conn, reqBus)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.writeImportReply(conn, meta, desc); err != nil {
+		return nil, err
+	}
+	return chosen, nil
+}
+
+func (s *Server) readImportDevice(conn net.Conn) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, error) {
+	reqBus, err := s.readImportBusID(conn)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	chosen, chosenMeta, chosenDesc, ok := s.resolveImportDevice(reqBus)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("no device matches busid %s", reqBus)
+	}
+	return chosen, chosenMeta, chosenDesc, nil
+}
+
+func (s *Server) readImportBusID(conn net.Conn) (string, error) {
 	var rest [busIDSize]byte
 	if err := usbip.ReadExactly(conn, rest[:]); err != nil {
-		return nil, fmt.Errorf("read import busid: %w", err)
+		return "", fmt.Errorf("read import busid: %w", err)
 	}
-	reqBus := string(rest[:bytes.IndexByte(rest[:], 0)])
+	end := bytes.IndexByte(rest[:], 0)
+	if end < 0 {
+		end = len(rest)
+	}
+	reqBus := string(rest[:end])
 	s.logger.Info("Import request", "busid", reqBus)
+	return reqBus, nil
+}
+
+func (s *Server) resolveImportDevice(reqBus string) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, bool) {
+	s.busesMu.Lock()
+	defer s.busesMu.Unlock()
+	return s.resolveImportDeviceLocked(reqBus)
+}
+
+func (s *Server) resolveImportDeviceLocked(reqBus string) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, bool) {
 	var chosen usb.Device
 	var chosenMeta *usbip.ExportMeta
 	var chosenDesc *usb.Descriptor
-	for _, m := range s.getAllDeviceMetas() {
-		meta := m.Meta
-		end := bytes.IndexByte(meta.USBBusID[:], 0)
-		bid := string(meta.USBBusID[:end])
-		if bid == reqBus {
-			chosen = m.Dev
-			chosenMeta = &meta
-			chosenDesc = m.Dev.GetDescriptor()
-			break
+	for _, bus := range s.busses {
+		for _, m := range bus.GetAllDeviceMetas() {
+			meta := m.Meta
+			end := bytes.IndexByte(meta.USBBusID[:], 0)
+			if end < 0 {
+				end = len(meta.USBBusID)
+			}
+			bid := string(meta.USBBusID[:end])
+			if bid == reqBus {
+				chosen = m.Dev
+				chosenMeta = &meta
+				chosenDesc = m.Dev.GetDescriptor()
+				return chosen, chosenMeta, chosenDesc, true
+			}
 		}
 	}
-	if chosen == nil || chosenMeta == nil || chosenDesc == nil {
-		return nil, fmt.Errorf("no device matches busid %s", reqBus)
-	}
+	return chosen, chosenMeta, chosenDesc, chosen != nil && chosenMeta != nil && chosenDesc != nil
+}
+
+func (s *Server) writeImportReply(conn net.Conn, chosenMeta *usbip.ExportMeta, chosenDesc *usb.Descriptor) error {
 	var buf bytes.Buffer
 	rep := usbip.MgmtHeader{Version: usbip.Version, Command: usbip.OpRepImport, Status: 0}
 	_ = rep.Write(&buf)
@@ -539,9 +883,9 @@ func (s *Server) handleImport(conn net.Conn) (usb.Device, error) {
 	}
 	_ = exp.WriteImport(&buf)
 	if _, err := conn.Write(buf.Bytes()); err != nil {
-		return nil, fmt.Errorf("write import reply failed: %w", err)
+		return fmt.Errorf("write import reply failed: %w", err)
 	}
-	return chosen, nil
+	return nil
 }
 
 // getAllDeviceMetas aggregates device metas from all registered busses.
@@ -590,6 +934,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	}
 
 	var owningBus *virtualbus.VirtualBus
+	s.busesMu.Lock()
 	for _, b := range s.busses {
 		devices := b.Devices()
 		if slices.Contains(devices, dev) {
@@ -599,6 +944,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			break
 		}
 	}
+	s.busesMu.Unlock()
 	if owningBus == nil {
 		return fmt.Errorf("device does not belong to any bus")
 	}
@@ -606,6 +952,12 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	ctx := owningBus.GetDeviceContext(dev)
 	if ctx == nil {
 		return fmt.Errorf("no device context available from bus")
+	}
+	if mc := s.managedConnectionFor(conn); mc != nil && mc.transportCtx != nil {
+		streamCtx, cancel := context.WithCancel(ctx)
+		stop := context.AfterFunc(mc.transportCtx, cancel)
+		defer func() { cancel(); stop() }()
+		ctx = streamCtx
 	}
 
 	var writeMu sync.Mutex
@@ -644,12 +996,18 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 
 	var pendingMu sync.Mutex
 	pending := map[uint32]context.CancelFunc{}
+	var workerWG sync.WaitGroup
 	defer func() {
+		var cancels []context.CancelFunc
 		pendingMu.Lock()
 		for _, cancel := range pending {
-			cancel()
+			cancels = append(cancels, cancel)
 		}
 		pendingMu.Unlock()
+		for _, cancel := range cancels {
+			cancel()
+		}
+		workerWG.Wait()
 	}()
 
 	var respMu sync.Mutex
@@ -661,6 +1019,9 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 		select {
 		case <-ctx.Done():
 			s.logger.Info("device removed, closing URB stream")
+			if s.config.DisableAutoBusCleanup {
+				return nil
+			}
 			busID := owningBus.BusID()
 			if emptyCtx := owningBus.GetBusEmptyContext(); emptyCtx != nil {
 				go func() {
@@ -752,7 +1113,9 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			pendingMu.Unlock()
 			interval := endpointInterval(dev.GetDescriptor(), ep)
 
+			workerWG.Add(1)
 			go func(seq, ep, dir uint32) {
+				defer workerWG.Done()
 				defer urbCancel()
 				var respData []byte
 				for {
