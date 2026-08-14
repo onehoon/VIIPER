@@ -113,6 +113,22 @@ func steamControllerStateFromPointer(pointer unsafe.Pointer) steamControllerStat
 
 func steamControllerDeviceStateSize() uintptr { return unsafe.Sizeof(C.SteamControllerDeviceState{}) }
 
+type steamControllerDeviceStateCOffsets struct {
+	L1, R1, L2, R2, Menu uintptr
+	LPadX                uintptr
+}
+
+func steamControllerDeviceStateABIOffsets() steamControllerDeviceStateCOffsets {
+	return steamControllerDeviceStateCOffsets{
+		L1:    unsafe.Offsetof(C.SteamControllerDeviceState{}.L1),
+		R1:    unsafe.Offsetof(C.SteamControllerDeviceState{}.R1),
+		L2:    unsafe.Offsetof(C.SteamControllerDeviceState{}.L2),
+		R2:    unsafe.Offsetof(C.SteamControllerDeviceState{}.R2),
+		Menu:  unsafe.Offsetof(C.SteamControllerDeviceState{}.Menu),
+		LPadX: unsafe.Offsetof(C.SteamControllerDeviceState{}.LPadX),
+	}
+}
+
 func setSteamControllerDeviceState(handle uintptr, state steamControllerState) bool {
 	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		d, ok := dhw.device.(*steamcontroller.SteamController)

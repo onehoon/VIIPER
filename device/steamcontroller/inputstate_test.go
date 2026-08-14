@@ -15,6 +15,7 @@ func TestInputStateIndependentDigitalTriggers(t *testing.T) {
 	}{
 		{name: "mid no digital", left: mid, right: mid},
 		{name: "mid left digital", left: mid, right: mid, l2: true, wantL2: true},
+		{name: "mid right digital", left: mid, right: mid, r2: true, wantR2: true},
 		{name: "max analog", left: MaxAnalogTriggerRaw, right: MaxAnalogTriggerRaw, wantL2: true, wantR2: true},
 		{name: "max plus explicit", left: MaxAnalogTriggerRaw, right: MaxAnalogTriggerRaw, l2: true, r2: true, wantL2: true, wantR2: true},
 		{name: "zero explicit", l2: true, r2: true, wantL2: true, wantR2: true},

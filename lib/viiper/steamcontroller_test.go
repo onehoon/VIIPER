@@ -64,29 +64,51 @@ func TestSteamControllerABIStateBoundaryConversion(t *testing.T) {
 }
 
 func TestSteamControllerABITriggerFieldOrder(t *testing.T) {
+	cOffsets := steamControllerDeviceStateABIOffsets()
 	type fieldOffset struct {
-		name string
-		got  uintptr
-		want uintptr
+		name            string
+		c, mirror, want uintptr
 	}
 	fields := []fieldOffset{
-		{"L1", unsafe.Offsetof(steamControllerDeviceStateABI{}.L1), 4},
-		{"R1", unsafe.Offsetof(steamControllerDeviceStateABI{}.R1), 5},
-		{"L2", unsafe.Offsetof(steamControllerDeviceStateABI{}.L2), 6},
-		{"R2", unsafe.Offsetof(steamControllerDeviceStateABI{}.R2), 7},
-		{"Menu", unsafe.Offsetof(steamControllerDeviceStateABI{}.Menu), 8},
-		{"LPadX", unsafe.Offsetof(steamControllerDeviceStateABI{}.LPadX), 24},
+		{"L1", cOffsets.L1, unsafe.Offsetof(steamControllerDeviceStateABI{}.L1), 4},
+		{"R1", cOffsets.R1, unsafe.Offsetof(steamControllerDeviceStateABI{}.R1), 5},
+		{"L2", cOffsets.L2, unsafe.Offsetof(steamControllerDeviceStateABI{}.L2), 6},
+		{"R2", cOffsets.R2, unsafe.Offsetof(steamControllerDeviceStateABI{}.R2), 7},
+		{"Menu", cOffsets.Menu, unsafe.Offsetof(steamControllerDeviceStateABI{}.Menu), 8},
+		{"LPadX", cOffsets.LPadX, unsafe.Offsetof(steamControllerDeviceStateABI{}.LPadX), 24},
 	}
 	for _, field := range fields {
-		if field.got != field.want {
-			t.Fatalf("%s offset = %d, Go mirror offset = %d", field.name, field.got, field.want)
+		if field.c != field.mirror || field.c != field.want {
+			t.Fatalf("%s offsets: C=%d, Go mirror=%d, want=%d", field.name, field.c, field.mirror, field.want)
 		}
 	}
-	if got, want := unsafe.Offsetof(steamControllerDeviceStateABI{}.L2), unsafe.Offsetof(steamControllerDeviceStateABI{}.R1)+1; got != want {
-		t.Fatalf("L2 offset = %d, want immediately after R1 at %d", got, want)
+	if got, want := cOffsets.L2, cOffsets.R1+1; got != want {
+		t.Fatalf("C L2 offset = %d, want immediately after R1 at %d", got, want)
 	}
-	if got, want := unsafe.Offsetof(steamControllerDeviceStateABI{}.R2), unsafe.Offsetof(steamControllerDeviceStateABI{}.L2)+1; got != want {
-		t.Fatalf("R2 offset = %d, want immediately after L2 at %d", got, want)
+	if got, want := cOffsets.R2, cOffsets.L2+1; got != want {
+		t.Fatalf("C R2 offset = %d, want immediately after L2 at %d", got, want)
+	}
+	if got, want := steamControllerDeviceStateSize(), uintptr(62); got != want {
+		t.Fatalf("C ABI size = %d, want %d", got, want)
+	}
+}
+
+func TestSteamControllerABITriggerByteBooleans(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		l2, r2         uint8
+		wantL2, wantR2 bool
+	}{
+		{name: "zero", l2: 0, r2: 0},
+		{name: "nonzero", l2: 2, r2: 0xff, wantL2: true, wantR2: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := steamControllerDeviceStateABI{L2: tc.l2, R2: tc.r2}
+			got := steamControllerStateFromPointer(unsafe.Pointer(&raw))
+			if got.L2 != tc.wantL2 || got.R2 != tc.wantR2 {
+				t.Fatalf("trigger booleans = (%t, %t), want (%t, %t)", got.L2, got.R2, tc.wantL2, tc.wantR2)
+			}
+		})
 	}
 }
 
