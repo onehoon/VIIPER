@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"reflect"
 	"runtime/cgo"
 	"testing"
 	"unsafe"
@@ -55,6 +56,85 @@ func TestRequiredCreatePointersRejectBeforeLookup(t *testing.T) {
 	if CreateNS2ProDevice(0, nil, 1, false, 0, 0, nil) {
 		t.Fatal("CreateNS2ProDevice accepted nil output")
 	}
+}
+
+func TestTypedCreateNilOutputsRejectBeforeMutationOnValidServer(t *testing.T) {
+	hw, bus := newLifecycleTestServer(t, 9210)
+	serverHandle := cgo.NewHandle(hw)
+	serverHandleRecords.Store(uintptr(serverHandle), hw)
+	t.Cleanup(func() {
+		serverHandleRecords.Delete(uintptr(serverHandle))
+		serverHandle.Delete()
+	})
+	attachCalls := 0
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		attachCalls++
+		return api.LocalhostAttachment{}, errors.New("attach must not be reached")
+	}
+
+	if invokeTypedCreateWithNilOutput(t, "CreateXbox360Device", CreateXbox360Device, uintptr(serverHandle), 9210, true, uint16(0), uint16(0), uint8(0)) {
+		t.Fatal("CreateXbox360Device accepted nil output")
+	}
+	if invokeTypedCreateWithNilOutput(t, "CreateDualSenseDevice", CreateDualSenseDevice, uintptr(serverHandle), 9210, true, uint16(0), uint16(0), nil) {
+		t.Fatal("CreateDualSenseDevice accepted nil output")
+	}
+	if invokeTypedCreateWithNilOutput(t, "CreateDualSenseEdgeDevice", CreateDualSenseEdgeDevice, uintptr(serverHandle), 9210, true, uint16(0), uint16(0), nil) {
+		t.Fatal("CreateDualSenseEdgeDevice accepted nil output")
+	}
+	if invokeTypedCreateWithNilOutput(t, "CreateDS4Device", CreateDS4Device, uintptr(serverHandle), 9210, true, uint16(0), uint16(0), nil) {
+		t.Fatal("CreateDS4Device accepted nil output")
+	}
+	if invokeTypedCreateWithNilOutput(t, "CreateKeyboardDevice", CreateKeyboardDevice, uintptr(serverHandle), 9210, true, uint16(0), uint16(0)) {
+		t.Fatal("CreateKeyboardDevice accepted nil output")
+	}
+	if invokeTypedCreateWithNilOutput(t, "CreateMouseDevice", CreateMouseDevice, uintptr(serverHandle), 9210, true, uint16(0), uint16(0)) {
+		t.Fatal("CreateMouseDevice accepted nil output")
+	}
+	if invokeTypedCreateWithNilOutput(t, "CreateNS2ProDevice", CreateNS2ProDevice, uintptr(serverHandle), 9210, true, uint16(0), uint16(0), nil) {
+		t.Fatal("CreateNS2ProDevice accepted nil output")
+	}
+
+	if got := len(bus.Devices()); got != 0 {
+		t.Fatalf("nil-output creates mutated bus: devices=%d", got)
+	}
+	if got := len(hw.deviceHandleRecords); got != 0 {
+		t.Fatalf("nil-output creates registered handles: records=%d", got)
+	}
+	if attachCalls != 0 {
+		t.Fatalf("nil-output creates reached attach path %d times", attachCalls)
+	}
+	if hw.state != serverActive {
+		t.Fatalf("nil-output creates changed server state to %s", hw.state)
+	}
+}
+
+func invokeTypedCreateWithNilOutput(t *testing.T, name string, create any, serverHandle uintptr, args ...any) bool {
+	t.Helper()
+	fn := reflect.ValueOf(create)
+	fnType := fn.Type()
+	if fnType.Kind() != reflect.Func || fnType.NumIn() != len(args)+2 || fnType.NumOut() != 1 {
+		t.Fatalf("%s has unexpected signature %s", name, fnType)
+	}
+
+	serverArg := reflect.New(fnType.In(0)).Elem()
+	serverArg.SetUint(uint64(serverHandle))
+	callArgs := []reflect.Value{serverArg, reflect.Zero(fnType.In(1))}
+	for i, arg := range args {
+		paramType := fnType.In(i + 2)
+		if arg == nil {
+			callArgs = append(callArgs, reflect.Zero(paramType))
+			continue
+		}
+		value := reflect.ValueOf(arg)
+		if !value.Type().AssignableTo(paramType) {
+			if !value.Type().ConvertibleTo(paramType) {
+				t.Fatalf("%s argument %d has type %s, want %s", name, i, value.Type(), paramType)
+			}
+			value = value.Convert(paramType)
+		}
+		callArgs = append(callArgs, value)
+	}
+	return fn.Call(callArgs)[0].Bool()
 }
 
 func TestTypedRemoveRejectsEveryWrongConcreteType(t *testing.T) {
