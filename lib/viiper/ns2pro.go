@@ -202,7 +202,7 @@ func RemoveNS2ProDevice(handle C.NS2ProDeviceHandle) bool {
 }
 
 func removeNS2ProDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		if _, ok := dhw.device.(*ns2pro.NS2Pro); !ok {
 			return false
 		}

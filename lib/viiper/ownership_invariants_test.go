@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"runtime/cgo"
 	"testing"
+	"unsafe"
 
 	"github.com/Alia5/VIIPER/device/dualsense"
 	"github.com/Alia5/VIIPER/device/dualshock4"
@@ -17,10 +18,18 @@ import (
 	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/internal/server/usb"
 	viiperusb "github.com/Alia5/VIIPER/usb"
+	"github.com/Alia5/VIIPER/usbip"
 	"github.com/Alia5/VIIPER/virtualbus"
 )
 
 func TestRequiredCreatePointersRejectBeforeLookup(t *testing.T) {
+	var configMarker, outputMarker byte
+	if hasRequiredUSBServerPointers(nil, unsafe.Pointer(&outputMarker)) {
+		t.Fatal("nil config was accepted")
+	}
+	if hasRequiredUSBServerPointers(unsafe.Pointer(&configMarker), nil) {
+		t.Fatal("nil output was accepted")
+	}
 	if NewUSBServer(nil, nil, nil) {
 		t.Fatal("NewUSBServer accepted nil config and output")
 	}
@@ -168,13 +177,41 @@ func TestKnownAttachRollbackFailureRetainsRegisteredOwnership(t *testing.T) {
 		hw.lifecycleMu.Unlock()
 		t.Fatal("registered device does not implement the USB device contract")
 	}
-	if hw.rollbackCreatedDeviceLocked(9203, registered.exportMeta.DevID, failingRollbackBus{}, dev, "injected rollback failure") {
+	if hw.rollbackCreatedDeviceLocked(9203, registered.exportMeta.DevID, failingRollbackBus{}.Remove, dev, "injected rollback failure") {
 		hw.lifecycleMu.Unlock()
 		t.Fatal("rollback unexpectedly succeeded")
 	}
 	hw.lifecycleMu.Unlock()
 	if hw.state != serverCloseFailed || hw.deviceHandleRecords[h] != registered || !lookupIdentityExists(uintptr(h)) {
 		t.Fatalf("rollback failure lost ownership: state=%s record=%v identity=%t", hw.state, hw.deviceHandleRecords[h] != nil, lookupIdentityExists(uintptr(h)))
+	}
+	hw.lifecycleMu.Lock()
+	if !hw.closeLocked() {
+		hw.lifecycleMu.Unlock()
+		t.Fatal("cleanup close failed")
+	}
+	hw.lifecycleMu.Unlock()
+}
+
+func TestCreateKnownAttachRollbackFailureRetainsRegisteredOwnership(t *testing.T) {
+	hw, bus := newLifecycleTestServer(t, 9209)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{}, errors.New("injected known attach failure")
+	}
+	hw.ops.rollbackDevice = func(*virtualbus.VirtualBus, viiperusb.Device) error {
+		return errors.New("injected rollback failure")
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9209, mustNewTestMouse(t), true)
+	hw.lifecycleMu.Unlock()
+	if ok || h == 0 {
+		t.Fatalf("create result = (%v, %v), want (nonzero handle, false)", h, ok)
+	}
+	if hw.state != serverCloseFailed || hw.deviceHandleRecords[h] == nil || !lookupIdentityExists(uintptr(h)) {
+		t.Fatalf("create rollback lost ownership: state=%s record=%v identity=%t", hw.state, hw.deviceHandleRecords[h] != nil, lookupIdentityExists(uintptr(h)))
+	}
+	if len(bus.Devices()) != 1 {
+		t.Fatalf("failed rollback removed logical device: devices=%d", len(bus.Devices()))
 	}
 	hw.lifecycleMu.Lock()
 	if !hw.closeLocked() {

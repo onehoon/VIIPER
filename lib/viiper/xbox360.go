@@ -141,7 +141,7 @@ func RemoveXbox360Device(handle C.Xbox360DeviceHandle) bool {
 }
 
 func removeXbox360Device(handle uintptr) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		if _, ok := dhw.device.(*xbox360.Xbox360); !ok {
 			return false
 		}

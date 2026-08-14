@@ -16,6 +16,7 @@ import (
 	"github.com/Alia5/VIIPER/internal/server/usb"
 	viiperusb "github.com/Alia5/VIIPER/usb"
 	"github.com/Alia5/VIIPER/usbip"
+	"github.com/Alia5/VIIPER/virtualbus"
 )
 
 func main() {}
@@ -41,6 +42,7 @@ const (
 type serverOperations struct {
 	attachLocalhostTracked func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error)
 	detachLocalhost        func(context.Context, api.LocalhostAttachment, *slog.Logger) error
+	rollbackDevice         func(*virtualbus.VirtualBus, viiperusb.Device) error
 	removeBus              func(*usb.Server, uint32) error
 	close                  func(*usb.Server) error
 	deleteHandle           func(cgo.Handle)
@@ -50,6 +52,7 @@ func defaultServerOperations() serverOperations {
 	return serverOperations{
 		attachLocalhostTracked: api.AttachLocalhostClientTracked,
 		detachLocalhost:        api.DetachLocalhostClient,
+		rollbackDevice:         func(bus *virtualbus.VirtualBus, dev viiperusb.Device) error { return bus.Remove(dev) },
 		removeBus:              func(s *usb.Server, busID uint32) error { return s.RemoveBus(busID) },
 		close:                  func(s *usb.Server) error { return s.Close() },
 		deleteHandle:           func(h cgo.Handle) { h.Delete() },
@@ -158,7 +161,7 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 	}
 	exportMeta := device.GetDeviceMeta(devCtx)
 	if exportMeta == nil {
-		hw.rollbackCreatedDeviceLocked(busID, 0, bus, dev, "device metadata was unavailable")
+		hw.rollbackCreatedDeviceLocked(busID, 0, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "device metadata was unavailable")
 		return 0, false
 	}
 	dhw := &deviceHandleWrapper{device: dev, exportMeta: exportMeta, usbServer: hw, attachment: deviceAttachmentRecord{state: attachmentDetached}}
@@ -169,7 +172,7 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 				hw.state = serverCloseFailed
 				return h, false
 			}
-			if !hw.rollbackCreatedDeviceLocked(exportMeta.BusID, exportMeta.DevID, bus, dev, "auto-attach failure") {
+			if !hw.rollbackCreatedDeviceLocked(exportMeta.BusID, exportMeta.DevID, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "auto-attach failure") {
 				return h, false
 			}
 			hw.finalizeDeviceLocked(h)
@@ -272,8 +275,8 @@ func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) bool {
 	return true
 }
 
-func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, bus interface{ Remove(viiperusb.Device) error }, dev viiperusb.Device, reason string) bool {
-	if err := bus.Remove(dev); err == nil {
+func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, rollback func(viiperusb.Device) error, dev viiperusb.Device, reason string) bool {
+	if err := rollback(dev); err == nil {
 		return true
 	} else {
 		hw.state = serverCloseFailed

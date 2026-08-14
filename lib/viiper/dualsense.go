@@ -257,7 +257,7 @@ func RemoveDualSenseDevice(handle C.DSDeviceHandle) bool {
 }
 
 func removeDualSenseDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		if _, ok := dhw.device.(*dualsense.DualSense); !ok {
 			return false
 		}

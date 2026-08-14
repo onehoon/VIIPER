@@ -256,7 +256,7 @@ func RemoveKeyboardDevice(handle C.KeyboardDeviceHandle) bool {
 }
 
 func removeKeyboardDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		if _, ok := dhw.device.(*keyboard.Keyboard); !ok {
 			return false
 		}

@@ -107,7 +107,7 @@ func RemoveMouseDevice(handle C.MouseDeviceHandle) bool {
 }
 
 func removeMouseDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		if _, ok := dhw.device.(*mouse.Mouse); !ok {
 			return false
 		}
