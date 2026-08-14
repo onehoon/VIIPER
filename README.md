@@ -24,6 +24,9 @@
 > [!NOTE]
 > This fork includes additional device and embedded-library work for SteamInputAddonforClaw. Fork-specific decisions are documented in [FORK_ARCHITECTURE.md](./FORK_ARCHITECTURE.md).
 
+> [!IMPORTANT]
+> Applications embedding this fork's canonical `libVIIPER` API should read the [fork-specific API and lifecycle guide](./docs/libviiper/fork-api.md). It documents the typed device handles, caller-owned bus lifetime, Windows-only tracked USB/IP attachment, and the pinned usbip-win2 `v0.9.7.7` compatibility baseline.
+
 **Virtual** **I**nput over **IP** **E**mulato**R**
 
 A **cross-platform virtual USB input framework** for creating virtual USB input devices (game controllers, keyboards, mice and more)

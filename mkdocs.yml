@@ -76,6 +76,7 @@ nav:
   - Generator Documentation: clients/generator.md
 - libVIIPER:
   - Overview: libviiper/overview.md
+  - Fork API and Lifecycle: libviiper/fork-api.md
   - Xbox 360 Controller: devices/xbox360.md
   - DualShock 4: devices/dualshock4.md
   - DualSense: devices/dualsense.md

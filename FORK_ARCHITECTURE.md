@@ -4,6 +4,11 @@
 
 This fork carries additional embedded-library and device work for SteamInputAddonforClaw. It retains upstream VIIPER structure where practical and keeps the Handheld Companion-compatible API available for existing integrations.
 
+For consumer-facing function lists, lifecycle examples, platform limits, and
+integration guidance, see [`docs/libviiper/fork-api.md`](docs/libviiper/fork-api.md).
+This file is the architectural source of truth; the API guide translates the
+same contracts for applications embedding the generated C ABI.
+
 ## Current embedded architecture
 
 - `lib/viiper` is the canonical embedded C ABI for new fork development.
@@ -58,6 +63,16 @@ The intended virtual outputs are a persistent Classic Steam Controller (Gordon, 
 ## Server lifecycle
 
 Canonical server wrappers use the `active`, `closing`, `close-failed`, and `closed` lifecycle states. Server-owned mutation APIs share one per-server lifecycle boundary; partial close is fail-closed.
+
+The lifecycle boundary covers every server-owned mutation, including bus
+creation/removal, typed device creation/removal, attachment, detachment, and
+server close. `CloseUSBServer` establishes the closing boundary before taking
+its authoritative bus snapshot, tears down buses in ascending BusID order,
+and waits for callback and managed USB/IP transport work before returning.
+
+Successful logical teardown is not rolled back when a later bus or transport
+operation fails. A retry processes only the remaining authoritative buses and
+does not finalize an already completed device or attachment twice.
 
 An attached typed device stores its exact attachment backend and positive
 usbip-win2 import port. Detach uses that stored token only. If attach or detach
