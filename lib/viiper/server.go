@@ -158,6 +158,7 @@ func (hw *usbServerHandleWrapper) closeLocked() bool {
 
 	busIDs := hw.s.ListBuses()
 	slices.Sort(busIDs)
+	hw.clearAllCallbacksLocked()
 	for _, busID := range busIDs {
 		if !hw.detachBusDevicesLocked(busID) {
 			hw.state = serverCloseFailed

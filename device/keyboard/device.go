@@ -18,6 +18,7 @@ type Keyboard struct {
 	inputCh     chan InputState
 	stateMu     sync.Mutex
 	ledState    uint8
+	callbackMu  sync.RWMutex
 	ledCallback func(LEDState)
 	descriptor  usb.Descriptor
 }
@@ -42,7 +43,9 @@ func New(o *device.CreateOptions) (*Keyboard, error) {
 
 // SetLEDCallback sets a callback that will be invoked when LED state changes.
 func (k *Keyboard) SetLEDCallback(f func(LEDState)) {
+	k.callbackMu.Lock()
 	k.ledCallback = f
+	k.callbackMu.Unlock()
 }
 
 // GetLEDState returns the current LED state from the host.
@@ -90,8 +93,11 @@ func (k *Keyboard) HandleTransfer(ctx context.Context, ep uint32, dir uint32, ou
 			k.ledState = out[0]
 			k.stateMu.Unlock()
 
-			if k.ledCallback != nil {
-				k.ledCallback(LEDState{
+			k.callbackMu.RLock()
+			callback := k.ledCallback
+			k.callbackMu.RUnlock()
+			if callback != nil {
+				callback(LEDState{
 					NumLock:    out[0]&LEDNumLock != 0,
 					CapsLock:   out[0]&LEDCapsLock != 0,
 					ScrollLock: out[0]&LEDScrollLock != 0,

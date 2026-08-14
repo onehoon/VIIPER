@@ -69,6 +69,7 @@ type usbServerHandleWrapper struct {
 	ops                 serverOperations
 	logger              *slog.Logger
 	rejectionWarnings   map[string]bool
+	onCallbackCleared   func(*deviceHandleWrapper)
 }
 
 type deviceHandleWrapper struct {
@@ -241,6 +242,7 @@ func (hw *usbServerHandleWrapper) detachDeviceLocked(dhw *deviceHandleWrapper) b
 }
 
 func (hw *usbServerHandleWrapper) removeDeviceLocked(dhw *deviceHandleWrapper, h deviceHandle) bool {
+	hw.clearDeviceCallbackLocked(dhw)
 	if !hw.detachDeviceLocked(dhw) {
 		return false
 	}
@@ -260,12 +262,19 @@ func (hw *usbServerHandleWrapper) hasUnknownAttachmentLocked() bool {
 	return false
 }
 
-func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) bool {
+func (hw *usbServerHandleWrapper) preflightBusDevicesLocked(busID uint32) bool {
 	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
 		dhw := hw.deviceHandleRecords[h]
 		if dhw == nil || dhw.attachment.state == attachmentOutcomeUnknown {
 			return false
 		}
+	}
+	return true
+}
+
+func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) bool {
+	if !hw.preflightBusDevicesLocked(busID) {
+		return false
 	}
 	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
 		if dhw := hw.deviceHandleRecords[h]; dhw != nil && !hw.detachDeviceLocked(dhw) {

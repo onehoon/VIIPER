@@ -75,6 +75,13 @@ func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 	if hw.s.GetBus(busID) == nil {
 		return false
 	}
+	if !hw.preflightBusDevicesLocked(busID) {
+		if hw.hasUnknownAttachmentLocked() {
+			hw.state = serverCloseFailed
+		}
+		return false
+	}
+	hw.clearBusCallbacksLocked(busID)
 	if !hw.detachBusDevicesLocked(busID) {
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed

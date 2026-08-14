@@ -23,6 +23,7 @@ type DualShock4 struct {
 
 	outputFunc func(OutputState)
 	descriptor usb.Descriptor
+	callbackMu sync.RWMutex
 
 	probeSelector       [3]byte
 	telemetrySubcommand byte
@@ -104,7 +105,9 @@ func (d *DualShock4) SetMetaState(meta MetaState) {
 }
 
 func (d *DualShock4) SetOutputCallback(f func(OutputState)) {
+	d.callbackMu.Lock()
 	d.outputFunc = f
+	d.callbackMu.Unlock()
 }
 
 func (d *DualShock4) UpdateInputState(state *InputState) {
@@ -165,8 +168,11 @@ func (d *DualShock4) HandleTransfer(ctx context.Context, ep uint32, dir uint32, 
 
 	if dir == usbip.DirOut && ep == 3 {
 		if len(out) >= 11 && out[0] == ReportIDOutput {
-			if d.outputFunc != nil {
-				d.outputFunc(parseOutputReport(out))
+			d.callbackMu.RLock()
+			callback := d.outputFunc
+			d.callbackMu.RUnlock()
+			if callback != nil {
+				callback(parseOutputReport(out))
 			}
 		}
 	}
@@ -227,8 +233,11 @@ func (d *DualShock4) HandleControl(bmRequestType, bRequest uint8, wValue, wIndex
 				}
 				return nil, true
 			case reportType == reportTypeOutput && reportID == ReportIDOutput && len(data) >= 11:
-				if d.outputFunc != nil {
-					d.outputFunc(parseOutputReport(data))
+				d.callbackMu.RLock()
+				callback := d.outputFunc
+				d.callbackMu.RUnlock()
+				if callback != nil {
+					callback(parseOutputReport(data))
 				}
 				return nil, true
 			}

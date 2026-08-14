@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	"github.com/Alia5/VIIPER/device"
@@ -15,6 +16,7 @@ import (
 type Xbox360 struct {
 	tick       uint64
 	inputCh    chan InputState
+	callbackMu sync.RWMutex
 	rumbleFunc func(XRumbleState)
 	descriptor usb.Descriptor
 }
@@ -53,7 +55,9 @@ func New(o *device.CreateOptions) (*Xbox360, error) {
 
 // SetRumbleCallback sets a callback that will be invoked when rumble commands arrive.
 func (x *Xbox360) SetRumbleCallback(f func(XRumbleState)) {
+	x.callbackMu.Lock()
 	x.rumbleFunc = f
+	x.callbackMu.Unlock()
 }
 
 // UpdateInputState updates the device's current input state (thread-safe).
@@ -92,8 +96,11 @@ func (x *Xbox360) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out
 				LeftMotor:  out[3], // big / low-frequency motor
 				RightMotor: out[4], // small / high-frequency motor
 			}
-			if x.rumbleFunc != nil {
-				x.rumbleFunc(rumble)
+			x.callbackMu.RLock()
+			callback := x.rumbleFunc
+			x.callbackMu.RUnlock()
+			if callback != nil {
+				callback(rumble)
 			}
 		}
 	}

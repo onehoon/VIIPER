@@ -24,6 +24,7 @@ type DualSense struct {
 
 	outputFunc func(OutputState)
 	descriptor usb.Descriptor
+	callbackMu sync.RWMutex
 
 	subcommand [2]byte
 
@@ -126,7 +127,9 @@ func (d *DualSense) SetMetaState(meta MetaState) {
 }
 
 func (d *DualSense) SetOutputCallback(f func(OutputState)) {
+	d.callbackMu.Lock()
 	d.outputFunc = f
+	d.callbackMu.Unlock()
 }
 
 func (d *DualSense) UpdateInputState(state *InputState) {
@@ -187,8 +190,11 @@ func (d *DualSense) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 
 	if dir == usbip.DirOut && ep == 3 {
 		if len(out) >= 48 && out[0] == ReportIDOutput {
-			if d.outputFunc != nil {
-				d.outputFunc(parseOutputReport(out))
+			d.callbackMu.RLock()
+			callback := d.outputFunc
+			d.callbackMu.RUnlock()
+			if callback != nil {
+				callback(parseOutputReport(out))
 			}
 		}
 	}
@@ -239,8 +245,11 @@ func (d *DualSense) HandleControl(bmRequestType, bRequest uint8, wValue, wIndex,
 			case reportType == reportTypeFeature:
 				return nil, true
 			case reportType == reportTypeOutput && reportID == ReportIDOutput && len(data) >= 48:
-				if d.outputFunc != nil {
-					d.outputFunc(parseOutputReport(data))
+				d.callbackMu.RLock()
+				callback := d.outputFunc
+				d.callbackMu.RUnlock()
+				if callback != nil {
+					callback(parseOutputReport(data))
 				}
 				return nil, true
 			}
