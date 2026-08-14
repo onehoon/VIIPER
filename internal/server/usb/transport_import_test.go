@@ -33,6 +33,11 @@ func TestManagedImportRepliesOnlyForBoundDevice(t *testing.T) {
 	if err := server.AddBus(bus); err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := server.RemoveBus(3021); err != nil {
+			t.Errorf("remove test bus: %v", err)
+		}
+	}()
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- server.ListenAndServe() }()
 	<-server.Ready()

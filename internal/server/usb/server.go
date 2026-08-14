@@ -539,8 +539,12 @@ func (s *Server) managedConnectionFor(conn net.Conn) *managedConnection {
 func (s *Server) unbindManagedConnection(mc *managedConnection) {
 	s.transportMu.Lock()
 	if mc.device != nil {
-		delete(mc.device.bindings, mc)
-		s.maybeDrainDeviceLocked(mc.device)
+		dt := mc.device
+		delete(dt.bindings, mc)
+		s.maybeDrainDeviceLocked(dt)
+		if dt.retired && len(dt.bindings) == 0 {
+			delete(s.managedDevices, dt.device)
+		}
 	}
 	delete(s.managedConnections, mc)
 	s.transportMu.Unlock()
@@ -552,6 +556,33 @@ func (s *Server) unbindManagedConnection(mc *managedConnection) {
 func (s *Server) bindManagedConnection(conn net.Conn, dev usb.Device) error {
 	s.transportMu.Lock()
 	defer s.transportMu.Unlock()
+	return s.bindManagedConnectionLocked(conn, dev)
+}
+
+// bindManagedConnectionByBusID resolves the requested device and reserves its
+// managed transport while holding transportMu. This makes import resolution
+// and binding a single lifecycle boundary with BeginDeviceDrain.
+func (s *Server) bindManagedConnectionByBusID(conn net.Conn, reqBus string) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, error) {
+	s.transportMu.Lock()
+	defer s.transportMu.Unlock()
+	if s.managedClosing {
+		return nil, nil, nil, net.ErrClosed
+	}
+	s.busesMu.Lock()
+	chosen, meta, desc, ok := s.resolveImportDeviceLocked(reqBus)
+	if !ok {
+		s.busesMu.Unlock()
+		return nil, nil, nil, fmt.Errorf("no device matches busid %s", reqBus)
+	}
+	if err := s.bindManagedConnectionLocked(conn, chosen); err != nil {
+		s.busesMu.Unlock()
+		return nil, nil, nil, fmt.Errorf("bind imported device: %w", err)
+	}
+	s.busesMu.Unlock()
+	return chosen, meta, desc, nil
+}
+
+func (s *Server) bindManagedConnectionLocked(conn net.Conn, dev usb.Device) error {
 	if s.managedClosing {
 		return net.ErrClosed
 	}
@@ -632,6 +663,7 @@ func (s *Server) ForgetDeviceTransport(dev usb.Device) {
 		if len(dt.bindings) == 0 {
 			dt.state = managedDeviceDrained
 			dt.doneOnce.Do(func() { close(dt.done) })
+			delete(s.managedDevices, dev)
 		} else {
 			dt.state = managedDeviceQuiescing
 		}
@@ -756,12 +788,13 @@ func (s *Server) handleImport(conn net.Conn) (usb.Device, error) {
 }
 
 func (s *Server) handleManagedImport(conn net.Conn) (usb.Device, error) {
-	chosen, meta, desc, err := s.readImportDevice(conn)
+	reqBus, err := s.readImportBusID(conn)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.bindManagedConnection(conn, chosen); err != nil {
-		return nil, fmt.Errorf("bind imported device: %w", err)
+	chosen, meta, desc, err := s.bindManagedConnectionByBusID(conn, reqBus)
+	if err != nil {
+		return nil, err
 	}
 	if err := s.writeImportReply(conn, meta, desc); err != nil {
 		return nil, err
@@ -770,9 +803,21 @@ func (s *Server) handleManagedImport(conn net.Conn) (usb.Device, error) {
 }
 
 func (s *Server) readImportDevice(conn net.Conn) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, error) {
+	reqBus, err := s.readImportBusID(conn)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	chosen, chosenMeta, chosenDesc, ok := s.resolveImportDevice(reqBus)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("no device matches busid %s", reqBus)
+	}
+	return chosen, chosenMeta, chosenDesc, nil
+}
+
+func (s *Server) readImportBusID(conn net.Conn) (string, error) {
 	var rest [busIDSize]byte
 	if err := usbip.ReadExactly(conn, rest[:]); err != nil {
-		return nil, nil, nil, fmt.Errorf("read import busid: %w", err)
+		return "", fmt.Errorf("read import busid: %w", err)
 	}
 	end := bytes.IndexByte(rest[:], 0)
 	if end < 0 {
@@ -780,24 +825,36 @@ func (s *Server) readImportDevice(conn net.Conn) (usb.Device, *usbip.ExportMeta,
 	}
 	reqBus := string(rest[:end])
 	s.logger.Info("Import request", "busid", reqBus)
+	return reqBus, nil
+}
+
+func (s *Server) resolveImportDevice(reqBus string) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, bool) {
+	s.busesMu.Lock()
+	defer s.busesMu.Unlock()
+	return s.resolveImportDeviceLocked(reqBus)
+}
+
+func (s *Server) resolveImportDeviceLocked(reqBus string) (usb.Device, *usbip.ExportMeta, *usb.Descriptor, bool) {
 	var chosen usb.Device
 	var chosenMeta *usbip.ExportMeta
 	var chosenDesc *usb.Descriptor
-	for _, m := range s.getAllDeviceMetas() {
-		meta := m.Meta
-		end := bytes.IndexByte(meta.USBBusID[:], 0)
-		bid := string(meta.USBBusID[:end])
-		if bid == reqBus {
-			chosen = m.Dev
-			chosenMeta = &meta
-			chosenDesc = m.Dev.GetDescriptor()
-			break
+	for _, bus := range s.busses {
+		for _, m := range bus.GetAllDeviceMetas() {
+			meta := m.Meta
+			end := bytes.IndexByte(meta.USBBusID[:], 0)
+			if end < 0 {
+				end = len(meta.USBBusID)
+			}
+			bid := string(meta.USBBusID[:end])
+			if bid == reqBus {
+				chosen = m.Dev
+				chosenMeta = &meta
+				chosenDesc = m.Dev.GetDescriptor()
+				return chosen, chosenMeta, chosenDesc, true
+			}
 		}
 	}
-	if chosen == nil || chosenMeta == nil || chosenDesc == nil {
-		return nil, nil, nil, fmt.Errorf("no device matches busid %s", reqBus)
-	}
-	return chosen, chosenMeta, chosenDesc, nil
+	return chosen, chosenMeta, chosenDesc, chosen != nil && chosenMeta != nil && chosenDesc != nil
 }
 
 func (s *Server) writeImportReply(conn net.Conn, chosenMeta *usbip.ExportMeta, chosenDesc *usb.Descriptor) error {
