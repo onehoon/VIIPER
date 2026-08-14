@@ -71,6 +71,12 @@ func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		return false
 	}
+	if !hw.detachBusDevicesLocked(busID) {
+		if hw.hasUnknownAttachmentLocked() {
+			hw.state = serverCloseFailed
+		}
+		return false
+	}
 	if err := hw.s.RemoveBus(busID); err != nil {
 		return false
 	}

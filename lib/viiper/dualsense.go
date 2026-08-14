@@ -101,7 +101,6 @@ static void viiper_call_ds_output(DSOutputCallback fn, DSDeviceHandle handle, ui
 import "C"
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/dualsense"
@@ -252,10 +251,6 @@ func SetDualSenseOutputCallback(handle C.DSDeviceHandle, cb C.DSOutputCallback) 
 //export RemoveDualSenseDevice
 func RemoveDualSenseDevice(handle C.DSDeviceHandle) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
-		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-			return false
-		}
-		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
-		return true
+		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

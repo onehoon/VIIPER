@@ -136,8 +136,6 @@ static void viiper_call_kb_led(KeyboardLEDCallback fn, KeyboardDeviceHandle hand
 */
 import "C"
 import (
-	"fmt"
-
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/keyboard"
 )
@@ -252,10 +250,6 @@ func SetKeyboardLEDCallback(handle C.KeyboardDeviceHandle, cb C.KeyboardLEDCallb
 //export RemoveKeyboardDevice
 func RemoveKeyboardDevice(handle C.KeyboardDeviceHandle) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
-		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-			return false
-		}
-		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
-		return true
+		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

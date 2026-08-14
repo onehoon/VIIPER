@@ -9,8 +9,16 @@ This fork carries additional embedded-library and device work for SteamInputAddo
 - `lib/viiper` is the canonical embedded C ABI for new fork development.
 - Typed libVIIPER device handles are the preferred ownership model.
 - `lib/viiper` currently exposes the Classic Steam Controller (Gordon) through a typed ABI.
-- Current local Windows attachment uses existing `autoAttachLocalhost` behavior.
-- Explicit attach/detach APIs are not implemented yet.
+- `AttachUSBDevice` and `DetachUSBDevice` provide tracked localhost USB/IP
+  attachment lifecycle for typed device handles on Windows.
+- The tracked native ABI is deliberately pinned to usbip-win2 `v0.9.7.7`
+  (`7c219953101cc5d0ec9a0bcb3eb87259cf72bedd`). This is the established
+  SteamInputAddonforClaw baseline; usbip-win2 `v0.9.7.8` and later versions
+  are unsupported until their ABI and runtime behavior are explicitly
+  validated.
+- Non-Windows builds remain ABI-compatible, but do not support tracked
+  localhost attachment. They fail safely without recording attachment
+  ownership.
 - `clib/` remains a compatibility and historical flat API for Handheld Companion-derived integration.
 
 New SteamInputAddonforClaw integration must not use `clib` as its architectural base. Do not remove or casually break `clib` compatibility behavior.
@@ -31,11 +39,13 @@ embedded server close lifecycle.
 process lifetime        -> libVIIPER module/runtime
 USB server/bus lifetime -> long-lived embedded runtime
 logical device lifetime -> typed Gordon/Xbox360 objects
-Windows attachment      -> explicit USB/IP attach/detach
+Windows attachment      -> explicit USB/IP attach/detach (implemented for localhost)
 report-routing lifetime -> neutral/live routing
 ```
 
-This is a target design, not a statement that explicit attach/detach is currently available.
+This is a target design. The Windows localhost attachment primitive is
+implemented; explicit attachment policy, including host/device routing and
+suspend/resume revalidation, remains future work.
 
 ## Fork-added devices
 
@@ -48,6 +58,11 @@ The intended virtual outputs are a persistent Classic Steam Controller (Gordon, 
 ## Server lifecycle
 
 Canonical server wrappers use the `active`, `closing`, `close-failed`, and `closed` lifecycle states. Server-owned mutation APIs share one per-server lifecycle boundary; partial close is fail-closed.
+
+An attached typed device stores its exact attachment backend and positive
+usbip-win2 import port. Detach uses that stored token only. If attach or detach
+has an unknown outcome, the owning server transitions to `close-failed`; no
+automatic retry or destructive logical cleanup is attempted for that record.
 
 ## Build and CI
 

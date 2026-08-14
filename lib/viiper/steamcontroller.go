@@ -35,7 +35,6 @@ static void viiper_call_steamcontroller_output(SteamControllerOutputCallback fn,
 import "C"
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
@@ -183,10 +182,6 @@ func removeSteamControllerDevice(handle uintptr) bool {
 			return false
 		}
 		d.SetOutputCallback(nil)
-		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-			return false
-		}
-		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
-		return true
+		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

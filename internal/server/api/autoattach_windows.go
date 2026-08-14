@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -284,7 +285,7 @@ func detachViaIOCTL(_ context.Context, port int32, logger *slog.Logger) error {
 
 	var bytesReturned uint32
 	if err := windows.DeviceIoControl(handle, ioctlPlugoutHardware, (*byte)(unsafe.Pointer(&request)), uint32(unsafe.Sizeof(request)), nil, 0, &bytesReturned, nil); err != nil {
-		return fmt.Errorf("IOControl: PLUGOUT_HARDWARE failed: %w", err)
+		return fmt.Errorf("%w: PLUGOUT_HARDWARE DeviceIoControl failed: %v", ErrDetachmentOutcomeUnknown, err)
 	}
 	logger.Info("Successfully detached device via IOCTL", "usbPort", port)
 	return nil
@@ -304,7 +305,11 @@ func detachViaCommand(ctx context.Context, port int32, logger *slog.Logger) erro
 	}
 	output, err := exec.CommandContext(ctx, "usbip", args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("usbip detach failed: %w: %s", err, output)
+		var startErr *exec.Error
+		if errors.As(err, &startErr) {
+			return err
+		}
+		return fmt.Errorf("%w: usbip detach process started but did not report success: %v: %s", ErrDetachmentOutcomeUnknown, err, output)
 	}
 	logger.Info("Successfully detached device via usbip command", "usbPort", port)
 	return nil

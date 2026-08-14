@@ -3,6 +3,7 @@ package main
 import "C"
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"runtime/cgo"
@@ -38,18 +39,23 @@ const (
 )
 
 type serverOperations struct {
-	attachLocalhost func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error
-	removeBus       func(*usb.Server, uint32) error
-	close           func(*usb.Server) error
-	deleteHandle    func(cgo.Handle)
+	// attachLocalhost remains a test-only compatibility seam for the PR1
+	// lifecycle tests. Canonical production uses attachLocalhostTracked.
+	attachLocalhost        func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error
+	attachLocalhostTracked func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error)
+	detachLocalhost        func(context.Context, api.LocalhostAttachment, *slog.Logger) error
+	removeBus              func(*usb.Server, uint32) error
+	close                  func(*usb.Server) error
+	deleteHandle           func(cgo.Handle)
 }
 
 func defaultServerOperations() serverOperations {
 	return serverOperations{
-		attachLocalhost: api.AttachLocalhostClient,
-		removeBus:       func(s *usb.Server, busID uint32) error { return s.RemoveBus(busID) },
-		close:           func(s *usb.Server) error { return s.Close() },
-		deleteHandle:    func(h cgo.Handle) { h.Delete() },
+		attachLocalhostTracked: api.AttachLocalhostClientTracked,
+		detachLocalhost:        api.DetachLocalhostClient,
+		removeBus:              func(s *usb.Server, busID uint32) error { return s.RemoveBus(busID) },
+		close:                  func(s *usb.Server) error { return s.Close() },
+		deleteHandle:           func(h cgo.Handle) { h.Delete() },
 	}
 }
 
@@ -69,6 +75,20 @@ type deviceHandleWrapper struct {
 	device     any
 	exportMeta *usbip.ExportMeta
 	usbServer  *usbServerHandleWrapper
+	attachment deviceAttachmentRecord
+}
+
+type deviceAttachmentState uint8
+
+const (
+	attachmentDetached deviceAttachmentState = iota
+	attachmentAttached
+	attachmentOutcomeUnknown
+)
+
+type deviceAttachmentRecord struct {
+	state      deviceAttachmentState
+	attachment api.LocalhostAttachment
 }
 
 var serverHandleRecords sync.Map // map[uintptr]*usbServerHandleWrapper
@@ -144,20 +164,104 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 		hw.rollbackCreatedDeviceLocked(busID, 0, bus, dev, "device metadata was unavailable")
 		return 0, false
 	}
+	dhw := &deviceHandleWrapper{device: dev, exportMeta: exportMeta, usbServer: hw, attachment: deviceAttachmentRecord{state: attachmentDetached}}
+	h := hw.registerDeviceLocked(dhw)
 	if autoAttach {
-		if err := hw.ops.attachLocalhost(context.Background(), exportMeta, hw.s.GetListenPort(), true, hw.logger); err != nil {
-			hw.logger.Warn("localhost auto-attach failed; rolling back logical device", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", exportMeta.BusID, "deviceID", exportMeta.DevID, "error", err)
+		if !hw.attachDeviceLocked(dhw) {
+			if dhw.attachment.state == attachmentOutcomeUnknown {
+				hw.state = serverCloseFailed
+				return h, false
+			}
 			hw.rollbackCreatedDeviceLocked(exportMeta.BusID, exportMeta.DevID, bus, dev, "auto-attach failure")
+			hw.finalizeDeviceLocked(h)
 			return 0, false
 		}
 	}
+	return h, true
+}
 
-	dhw := &deviceHandleWrapper{device: dev, exportMeta: exportMeta, usbServer: hw}
+func (hw *usbServerHandleWrapper) registerDeviceLocked(dhw *deviceHandleWrapper) deviceHandle {
 	h := deviceHandle(cgo.NewHandle(dhw))
-	hw.deviceHandles[busID] = append(hw.deviceHandles[busID], h)
+	hw.deviceHandles[dhw.exportMeta.BusID] = append(hw.deviceHandles[dhw.exportMeta.BusID], h)
 	hw.deviceHandleRecords[h] = dhw
 	deviceHandleRecords.Store(uintptr(h), dhw)
-	return h, true
+	return h
+}
+
+func (hw *usbServerHandleWrapper) attachDeviceLocked(dhw *deviceHandleWrapper) bool {
+	switch dhw.attachment.state {
+	case attachmentAttached:
+		return true
+	case attachmentOutcomeUnknown:
+		return false
+	}
+	if hw.ops.attachLocalhost != nil {
+		return hw.ops.attachLocalhost(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.logger) == nil
+	}
+	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.logger)
+	if err == nil && attachment.Port > 0 {
+		dhw.attachment = deviceAttachmentRecord{state: attachmentAttached, attachment: attachment}
+		return true
+	}
+	if err == nil || errors.Is(err, api.ErrAttachmentOutcomeUnknown) {
+		dhw.attachment.state = attachmentOutcomeUnknown
+		hw.state = serverCloseFailed
+	}
+	return false
+}
+
+func (hw *usbServerHandleWrapper) detachDeviceLocked(dhw *deviceHandleWrapper) bool {
+	switch dhw.attachment.state {
+	case attachmentDetached:
+		return true
+	case attachmentOutcomeUnknown:
+		return false
+	}
+	err := hw.ops.detachLocalhost(context.Background(), dhw.attachment.attachment, hw.logger)
+	if err == nil {
+		dhw.attachment = deviceAttachmentRecord{state: attachmentDetached}
+		return true
+	}
+	if errors.Is(err, api.ErrDetachmentOutcomeUnknown) {
+		dhw.attachment.state = attachmentOutcomeUnknown
+		hw.state = serverCloseFailed
+	}
+	return false
+}
+
+func (hw *usbServerHandleWrapper) removeDeviceLocked(dhw *deviceHandleWrapper, h deviceHandle) bool {
+	if !hw.detachDeviceLocked(dhw) {
+		return false
+	}
+	if err := hw.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+		return false
+	}
+	hw.finalizeDeviceLocked(h)
+	return true
+}
+
+func (hw *usbServerHandleWrapper) hasUnknownAttachmentLocked() bool {
+	for _, dhw := range hw.deviceHandleRecords {
+		if dhw.attachment.state == attachmentOutcomeUnknown {
+			return true
+		}
+	}
+	return false
+}
+
+func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) bool {
+	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
+		dhw := hw.deviceHandleRecords[h]
+		if dhw == nil || dhw.attachment.state == attachmentOutcomeUnknown {
+			return false
+		}
+	}
+	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
+		if dhw := hw.deviceHandleRecords[h]; dhw != nil && !hw.detachDeviceLocked(dhw) {
+			return false
+		}
+	}
+	return true
 }
 
 func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, bus interface{ Remove(viiperusb.Device) error }, dev viiperusb.Device, reason string) {

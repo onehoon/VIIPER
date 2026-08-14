@@ -48,7 +48,6 @@ static void viiper_call_rumble(Xbox360RumbleCallback fn, Xbox360DeviceHandle han
 import "C"
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/xbox360"
@@ -136,11 +135,7 @@ func SetXbox360DeviceState(handle C.Xbox360DeviceHandle, state C.Xbox360DeviceSt
 //export RemoveXbox360Device
 func RemoveXbox360Device(handle C.Xbox360DeviceHandle) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
-		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-			return false
-		}
-		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
-		return true
+		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }
 

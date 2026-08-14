@@ -32,14 +32,18 @@ type LocalhostAttachment struct {
 // attachment that can no longer be safely owned or detached.
 var ErrAttachmentOutcomeUnknown = errors.New("usbip attachment outcome unknown")
 
+// ErrDetachmentOutcomeUnknown means an exact-port detach may have reached the
+// operating system but its final effect is not known. The old port must never
+// be reused for another automatic detach attempt.
+var ErrDetachmentOutcomeUnknown = errors.New("usbip detachment outcome unknown")
+
 func AttachLocalhostClient(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) error {
 	return attachLocalhostClientImpl(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger)
 }
 
 // AttachLocalhostClientTracked returns the exact Windows USB/IP attachment
-// token required for a later ownership-specific detach. It is an internal
-// backend primitive; public libVIIPER attach/detach APIs are intentionally not
-// exposed yet.
+// token required for a later ownership-specific detach. libVIIPER owns the
+// public typed-device lifecycle that uses this backend primitive.
 func AttachLocalhostClientTracked(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) (LocalhostAttachment, error) {
 	return attachLocalhostClientTrackedImpl(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger)
 }

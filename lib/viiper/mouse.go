@@ -25,8 +25,6 @@ typedef struct {
 */
 import "C"
 import (
-	"fmt"
-
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/mouse"
 )
@@ -103,10 +101,6 @@ func SetMouseDeviceState(handle C.MouseDeviceHandle, state C.MouseDeviceState) b
 //export RemoveMouseDevice
 func RemoveMouseDevice(handle C.MouseDeviceHandle) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
-		if err := dhw.usbServer.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-			return false
-		}
-		dhw.usbServer.finalizeDeviceLocked(deviceHandle(handle))
-		return true
+		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }
