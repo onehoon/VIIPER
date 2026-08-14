@@ -238,6 +238,38 @@ func TestSteamControllerTypedHandleSafetyAndRemoval(t *testing.T) {
 	}
 }
 
+func TestSteamControllerClassifiedRemovalUsesGordonTypeGuard(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9134)
+	gordon, err := steamcontroller.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	gordonHandle, ok := hw.createDeviceLocked(9134, gordon, false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("Gordon creation failed")
+	}
+
+	mouseDevice, err := mouse.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	mouseHandle, ok := hw.createDeviceLocked(9134, mouseDevice, false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("mouse creation failed")
+	}
+
+	if got := removeSteamControllerDeviceResult(uintptr(gordonHandle)); got != typedDeviceRemoveSuccess {
+		t.Fatalf("Gordon removal result = %d, want success", got)
+	}
+	if got := removeSteamControllerDeviceResult(uintptr(mouseHandle)); got != typedDeviceRemoveInvalid {
+		t.Fatalf("mouse removal result = %d, want invalid", got)
+	}
+}
+
 func TestSteamControllerWrapperClearsOutputCallback(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9131)
 	d, err := steamcontroller.New(nil)
