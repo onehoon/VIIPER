@@ -79,6 +79,12 @@ usbip-win2 import port. Detach uses that stored token only. If attach or detach
 has an unknown outcome, the owning server transitions to `close-failed`; no
 automatic retry or destructive logical cleanup is attempted for that record.
 
+Gordon consumers that need to classify typed removal failures may use the
+additive `RemoveSteamControllerDeviceEx` result export. It distinguishes
+successful finalization, known retryable failure, unsafe unknown ownership,
+and invalid handle/lifecycle use. The legacy bool removal export remains
+available and reports success only when the typed handle was finalized.
+
 ## Build and CI
 
 Build the canonical embedded library with `just build-libVIIPER Release`.

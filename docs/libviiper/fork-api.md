@@ -166,7 +166,7 @@ The canonical wrappers currently include:
 
 | Device | Create | State/callback | Remove |
 | --- | --- | --- | --- |
-| Classic Steam Controller (Gordon) | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice` |
+| Classic Steam Controller (Gordon) | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice`, `RemoveSteamControllerDeviceEx` |
 | Xbox 360 | `CreateXbox360Device` | `SetXbox360DeviceState`, `SetXbox360RumbleCallback` | `RemoveXbox360Device` |
 | DualShock 4 | `CreateDS4Device` | `SetDS4DeviceState`, `SetDS4OutputCallback` | `RemoveDS4Device` |
 | DualSense | `CreateDualSenseDevice`, `CreateDualSenseEdgeDevice` | `SetDualSenseDeviceState`, `SetDualSenseOutputCallback` | `RemoveDualSenseDevice` |
@@ -176,6 +176,39 @@ The canonical wrappers currently include:
 
 `device/steamdeck` exists as a fork device implementation but does not yet
 have a typed `lib/viiper` wrapper.
+
+### Classified Gordon removal
+
+`RemoveSteamControllerDevice` remains the compatibility bool API. New
+consumers that must preserve native ownership semantics should use:
+
+```c
+typedef enum {
+    VIIPER_REMOVE_SUCCESS = 0,
+    VIIPER_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_REMOVE_INVALID = 3
+} SteamControllerDeviceRemoveResult;
+
+SteamControllerDeviceRemoveResult RemoveSteamControllerDeviceEx(
+    uintptr_t deviceHandle);
+```
+
+The result is returned by the same removal operation; do not pair removal
+with a process-global or thread-local last-status query.
+
+- `VIIPER_REMOVE_SUCCESS`: the typed device handle was finalized.
+- `VIIPER_REMOVE_RETRYABLE_FAILURE`: ownership remains known and the same
+  handle may be retried explicitly. This includes a known detach failure or a
+  known logical-removal failure after detach completed.
+- `VIIPER_REMOVE_UNSAFE_OUTCOME_UNKNOWN`: attachment/detachment ownership is
+  not safely known. Do not retry Remove, Detach, or Attach destructively, and
+  preserve the server's fail-closed recovery evidence.
+- `VIIPER_REMOVE_INVALID`: the handle, device type, or server lifecycle is
+  invalid for this operation.
+
+The legacy bool export returns `true` only for `VIIPER_REMOVE_SUCCESS` and
+`false` for every other result.
 
 ## Callback and teardown contract
 

@@ -255,6 +255,81 @@ func TestTypedRemovalHonorsDetachFailureAndDoesNotFinalize(t *testing.T) {
 	}
 }
 
+func TestClassifiedGordonRemovalDistinguishesKnownAndUnknownFailures(t *testing.T) {
+	t.Run("known detach failure is retryable", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9149)
+		calls := 0
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 65}, nil
+		}
+		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+			calls++
+			if calls == 1 {
+				return errors.New("known failure")
+			}
+			return nil
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9149, mustNewTestMouse(t), true)
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("setup failed")
+		}
+		if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return true }); got != typedDeviceRemoveRetryableFailure {
+			t.Fatalf("first result = %d, want retryable", got)
+		}
+		if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return true }); got != typedDeviceRemoveSuccess {
+			t.Fatalf("second result = %d, want success", got)
+		}
+	})
+
+	t.Run("unknown detach outcome is unsafe and never retried", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9152)
+		calls := 0
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 66}, nil
+		}
+		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+			calls++
+			return api.ErrDetachmentOutcomeUnknown
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9152, mustNewTestMouse(t), true)
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("setup failed")
+		}
+		if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return true }); got != typedDeviceRemoveUnsafeOutcomeUnknown {
+			t.Fatalf("first result = %d, want unsafe", got)
+		}
+		if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return true }); got != typedDeviceRemoveUnsafeOutcomeUnknown || calls != 1 {
+			t.Fatalf("second result = %d calls=%d, want unsafe and one detach", got, calls)
+		}
+	})
+
+	t.Run("logical removal failure is retryable after detach", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9155)
+		hw.ops.removeDevice = func(*serverusb.Server, uint32, string) error { return errors.New("logical remove failure") }
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 67}, nil
+		}
+		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9155, mustNewTestMouse(t), true)
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("setup failed")
+		}
+		if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return true }); got != typedDeviceRemoveRetryableFailure {
+			t.Fatalf("result = %d, want retryable", got)
+		}
+	})
+
+	if got := removeTypedDeviceResult(0, func(any) bool { return true }); got != typedDeviceRemoveInvalid {
+		t.Fatalf("invalid handle result = %d, want invalid", got)
+	}
+}
+
 func TestLogicalRemoveFailureDoesNotRepeatSuccessfulDetach(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9146)
 	detachCalls := 0

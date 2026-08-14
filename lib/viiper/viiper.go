@@ -91,6 +91,15 @@ type transportTeardownResult struct {
 	drains []*usb.TransportDrain
 }
 
+type typedDeviceRemoveResult uint8
+
+const (
+	typedDeviceRemoveSuccess typedDeviceRemoveResult = iota
+	typedDeviceRemoveRetryableFailure
+	typedDeviceRemoveUnsafeOutcomeUnknown
+	typedDeviceRemoveInvalid
+)
+
 func waitTransportDrains(drains []*usb.TransportDrain) {
 	for _, drain := range drains {
 		if drain != nil {
@@ -291,24 +300,43 @@ func (hw *usbServerHandleWrapper) removeDeviceLockedWithDrain(dhw *deviceHandleW
 }
 
 func removeTypedDevice(handle uintptr, valid func(any) bool) bool {
+	return removeTypedDeviceResult(handle, valid) == typedDeviceRemoveSuccess
+}
+
+func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRemoveResult {
 	v, ok := deviceHandleRecords.Load(handle)
 	if !ok {
-		return false
+		return typedDeviceRemoveInvalid
 	}
 	dhw, ok := v.(*deviceHandleWrapper)
 	if !ok {
-		return false
+		return typedDeviceRemoveInvalid
 	}
 	hw := dhw.usbServer
 	hw.lifecycleMu.Lock()
-	if hw.state != serverActive || hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
+	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
 		hw.lifecycleMu.Unlock()
-		return false
+		return typedDeviceRemoveInvalid
+	}
+	if dhw.attachment.state == attachmentOutcomeUnknown {
+		hw.lifecycleMu.Unlock()
+		return typedDeviceRemoveUnsafeOutcomeUnknown
+	}
+	if hw.state != serverActive {
+		hw.lifecycleMu.Unlock()
+		return typedDeviceRemoveInvalid
 	}
 	result := hw.removeDeviceLockedWithDrain(dhw, deviceHandle(handle))
+	unsafeOutcome := dhw.attachment.state == attachmentOutcomeUnknown || hw.state == serverCloseFailed
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
-	return result.ok
+	if result.ok {
+		return typedDeviceRemoveSuccess
+	}
+	if unsafeOutcome {
+		return typedDeviceRemoveUnsafeOutcomeUnknown
+	}
+	return typedDeviceRemoveRetryableFailure
 }
 
 func (hw *usbServerHandleWrapper) hasUnknownAttachmentLocked() bool {
