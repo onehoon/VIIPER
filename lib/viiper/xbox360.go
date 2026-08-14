@@ -72,6 +72,9 @@ func CreateXbox360Device(
 	idProduct uint16,
 	xinputSubType uint8,
 ) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
 
 	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
@@ -134,7 +137,14 @@ func SetXbox360DeviceState(handle C.Xbox360DeviceHandle, state C.Xbox360DeviceSt
 //
 //export RemoveXbox360Device
 func RemoveXbox360Device(handle C.Xbox360DeviceHandle) bool {
+	return removeXbox360Device(uintptr(handle))
+}
+
+func removeXbox360Device(handle uintptr) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		if _, ok := dhw.device.(*xbox360.Xbox360); !ok {
+			return false
+		}
 		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

@@ -41,6 +41,7 @@ func (hw *usbServerHandleWrapper) createBusLocked(busID *uint32) bool {
 		return false
 	}
 	if err := hw.s.AddBus(b); err != nil {
+		_ = b.Close()
 		return false
 	}
 	hw.mtx.Lock()
@@ -71,13 +72,20 @@ func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		return false
 	}
+	if hw.s.GetBus(busID) == nil {
+		return false
+	}
 	if !hw.detachBusDevicesLocked(busID) {
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
 		}
 		return false
 	}
-	if err := hw.s.RemoveBus(busID); err != nil {
+	if err := hw.ops.removeBus(hw.s, busID); err != nil {
+		if hw.s.GetBus(busID) == nil {
+			hw.finalizeBusLocked(busID)
+			return true
+		}
 		return false
 	}
 	hw.finalizeBusLocked(busID)

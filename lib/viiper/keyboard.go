@@ -157,6 +157,9 @@ func CreateKeyboardDevice(
 	idVendor uint16,
 	idProduct uint16,
 ) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
 	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
 		return false
@@ -249,7 +252,14 @@ func SetKeyboardLEDCallback(handle C.KeyboardDeviceHandle, cb C.KeyboardLEDCallb
 //
 //export RemoveKeyboardDevice
 func RemoveKeyboardDevice(handle C.KeyboardDeviceHandle) bool {
+	return removeKeyboardDevice(uintptr(handle))
+}
+
+func removeKeyboardDevice(handle uintptr) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		if _, ok := dhw.device.(*keyboard.Keyboard); !ok {
+			return false
+		}
 		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

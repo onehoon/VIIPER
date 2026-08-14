@@ -160,6 +160,9 @@ func createDualSenseDevice(
 	meta *C.DSMetaState,
 	edge bool,
 ) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
 	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
 		return false
@@ -250,7 +253,14 @@ func SetDualSenseOutputCallback(handle C.DSDeviceHandle, cb C.DSOutputCallback) 
 //
 //export RemoveDualSenseDevice
 func RemoveDualSenseDevice(handle C.DSDeviceHandle) bool {
+	return removeDualSenseDevice(uintptr(handle))
+}
+
+func removeDualSenseDevice(handle uintptr) bool {
 	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+		if _, ok := dhw.device.(*dualsense.DualSense); !ok {
+			return false
+		}
 		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

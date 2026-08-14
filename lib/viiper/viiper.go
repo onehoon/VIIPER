@@ -169,7 +169,9 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 				hw.state = serverCloseFailed
 				return h, false
 			}
-			hw.rollbackCreatedDeviceLocked(exportMeta.BusID, exportMeta.DevID, bus, dev, "auto-attach failure")
+			if !hw.rollbackCreatedDeviceLocked(exportMeta.BusID, exportMeta.DevID, bus, dev, "auto-attach failure") {
+				return h, false
+			}
 			hw.finalizeDeviceLocked(h)
 			return 0, false
 		}
@@ -270,12 +272,13 @@ func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) bool {
 	return true
 }
 
-func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, bus interface{ Remove(viiperusb.Device) error }, dev viiperusb.Device, reason string) {
+func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, bus interface{ Remove(viiperusb.Device) error }, dev viiperusb.Device, reason string) bool {
 	if err := bus.Remove(dev); err == nil {
-		return
+		return true
 	} else {
 		hw.state = serverCloseFailed
 		hw.logger.Error("failed to roll back logical device", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", busID, "deviceID", deviceID, "reason", reason, "error", err)
+		return false
 	}
 }
 
