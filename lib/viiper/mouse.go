@@ -46,6 +46,9 @@ func CreateMouseDevice(
 	idVendor uint16,
 	idProduct uint16,
 ) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
 	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
 		return false
@@ -100,7 +103,14 @@ func SetMouseDeviceState(handle C.MouseDeviceHandle, state C.MouseDeviceState) b
 //
 //export RemoveMouseDevice
 func RemoveMouseDevice(handle C.MouseDeviceHandle) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return removeMouseDevice(uintptr(handle))
+}
+
+func removeMouseDevice(handle uintptr) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		if _, ok := dhw.device.(*mouse.Mouse); !ok {
+			return false
+		}
 		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

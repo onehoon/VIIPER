@@ -100,7 +100,7 @@ func TestCreateDeviceRollsBackOnlyFailedDevice(t *testing.T) {
 func TestRollbackFailureTransitionsToCloseFailed(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9109)
 	hw.lifecycleMu.Lock()
-	hw.rollbackCreatedDeviceLocked(9109, 1, failingRemovalBus{}, mustNewTestMouse(t), "injected rollback failure")
+	hw.rollbackCreatedDeviceLocked(9109, 1, failingRemovalBus{}.Remove, mustNewTestMouse(t), "injected rollback failure")
 	hw.lifecycleMu.Unlock()
 	if hw.state != serverCloseFailed {
 		t.Fatalf("state = %s, want close-failed", hw.state)

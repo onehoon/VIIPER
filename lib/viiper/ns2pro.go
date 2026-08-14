@@ -104,6 +104,9 @@ func CreateNS2ProDevice(
 	idProduct uint16,
 	meta *C.NS2ProMetaState,
 ) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
 	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
 		return false
@@ -195,7 +198,14 @@ func SetNS2ProOutputCallback(handle C.NS2ProDeviceHandle, cb C.NS2ProOutputCallb
 //
 //export RemoveNS2ProDevice
 func RemoveNS2ProDevice(handle C.NS2ProDeviceHandle) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return removeNS2ProDevice(uintptr(handle))
+}
+
+func removeNS2ProDevice(handle uintptr) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		if _, ok := dhw.device.(*ns2pro.NS2Pro); !ok {
+			return false
+		}
 		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }

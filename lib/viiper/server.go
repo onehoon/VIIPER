@@ -46,6 +46,9 @@ import (
 //
 //export NewUSBServer
 func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCallback C.VIIPERLogCallback) bool {
+	if !hasRequiredUSBServerPointers(unsafe.Pointer(config), unsafe.Pointer(outHandle)) {
+		return false
+	}
 	addr := C.GoString(config.addr)
 	connectionTimeout := time.Duration(config.connection_timeout_ms) * time.Millisecond
 	busCleanupTimeout := time.Duration(config.device_handler_connect_timeout_ms) * time.Millisecond
@@ -112,6 +115,10 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 		logger.Error("NewUSBServer: ListenAndServe failed", "error", err)
 		return false
 	}
+}
+
+func hasRequiredUSBServerPointers(config, outHandle unsafe.Pointer) bool {
+	return config != nil && outHandle != nil
 }
 
 // CloseUSBServer closes the USB server associated with the given handle.

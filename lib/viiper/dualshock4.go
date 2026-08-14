@@ -98,6 +98,9 @@ func CreateDS4Device(
 	idProduct uint16,
 	meta *C.DS4MetaState,
 ) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
 	shw, ok := lookupServerHandle(uintptr(serverHandle))
 	if !ok {
 		return false
@@ -212,7 +215,14 @@ func SetDS4OutputCallback(handle C.DS4DeviceHandle, cb C.DS4OutputCallback) bool
 //
 //export RemoveDS4Device
 func RemoveDS4Device(handle C.DS4DeviceHandle) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	return removeDS4Device(uintptr(handle))
+}
+
+func removeDS4Device(handle uintptr) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		if _, ok := dhw.device.(*dualshock4.DualShock4); !ok {
+			return false
+		}
 		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }
