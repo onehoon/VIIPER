@@ -26,11 +26,15 @@ func TestPublicRemoveWaitsForRealImportedCallbackAndAllowsReentry(t *testing.T) 
 	}
 
 	entered := make(chan struct{})
+	allowReentry := make(chan struct{})
+	clearStarted := make(chan struct{})
 	release := make(chan struct{})
 	reentryDone := make(chan struct{})
 	var once sync.Once
+	hw.onCallbackCleared = func(*deviceHandleWrapper) { close(clearStarted) }
 	if !setSteamControllerOutputCallback(uintptr(h), func(steamcontroller.OutputState) {
 		once.Do(func() { close(entered) })
+		<-allowReentry
 		_ = setSteamControllerOutputCallback(uintptr(h), nil)
 		close(reentryDone)
 		<-release
@@ -82,18 +86,23 @@ func TestPublicRemoveWaitsForRealImportedCallbackAndAllowsReentry(t *testing.T) 
 	case <-time.After(time.Second):
 		t.Fatal("real imported callback did not start")
 	}
-	select {
-	case <-reentryDone:
-	case <-time.After(time.Second):
-		t.Fatal("callback re-entry deadlocked")
-	}
-
 	removeDone := make(chan bool, 1)
 	go func() { removeDone <- removeSteamControllerDevice(uintptr(h)) }()
 	select {
+	case <-clearStarted:
+	case <-time.After(time.Second):
+		t.Fatal("RemoveSteamControllerDevice did not clear the callback")
+	}
+	close(allowReentry)
+	select {
+	case <-reentryDone:
+	case <-time.After(time.Second):
+		t.Fatal("callback re-entry deadlocked while Remove held lifecycle state")
+	}
+	select {
 	case <-removeDone:
 		t.Fatal("RemoveSteamControllerDevice returned while callback was blocked")
-	case <-time.After(25 * time.Millisecond):
+	default:
 	}
 	close(release)
 	select {
