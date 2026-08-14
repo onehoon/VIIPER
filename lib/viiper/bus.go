@@ -7,7 +7,13 @@ package main
 typedef uintptr_t USBServerHandle;
 */
 import "C"
-import "github.com/Alia5/VIIPER/virtualbus"
+import (
+	"slices"
+
+	"github.com/Alia5/VIIPER/internal/server/usb"
+	viiperusb "github.com/Alia5/VIIPER/usb"
+	"github.com/Alia5/VIIPER/virtualbus"
+)
 
 // CreateUSBBus creates a new USB bus on the server associated with the given handle.
 // @param handle Handle to the USB server.
@@ -63,39 +69,70 @@ func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
 		return false
 	}
 	hw.lifecycleMu.Lock()
-	defer hw.lifecycleMu.Unlock()
-	return hw.removeBusLocked(busID)
+	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("RemoveUSBBus")
+		hw.lifecycleMu.Unlock()
+		return false
+	}
+	result := hw.removeBusLockedWithDrains(busID)
+	hw.lifecycleMu.Unlock()
+	waitTransportDrains(result.drains)
+	return result.ok
 }
 
 func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 	if hw.state != serverActive {
-		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		return false
 	}
+	return hw.removeBusLockedWithDrains(busID).ok
+}
+
+func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transportTeardownResult {
+	if hw.state != serverActive && hw.state != serverClosing {
+		hw.warnMutationRejectedLocked("RemoveUSBBus")
+		return transportTeardownResult{}
+	}
 	if hw.s.GetBus(busID) == nil {
-		return false
+		return transportTeardownResult{}
 	}
 	if !hw.preflightBusDevicesLocked(busID) {
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
 		}
-		return false
+		return transportTeardownResult{}
 	}
-	hw.clearBusCallbacksLocked(busID)
+	if !hw.logicalCloseInProgress {
+		hw.clearBusCallbacksLocked(busID)
+	}
 	if !hw.detachBusDevicesLocked(busID) {
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
 		}
-		return false
+		return transportTeardownResult{}
+	}
+	var drains []*usb.TransportDrain
+	var devices []viiperusb.Device
+	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
+		if dhw := hw.deviceHandleRecords[h]; dhw != nil {
+			dev := dhw.device.(viiperusb.Device)
+			devices = append(devices, dev)
+			drains = append(drains, hw.s.BeginDeviceDrain(dev))
+		}
 	}
 	if err := hw.ops.removeBus(hw.s, busID); err != nil {
 		if hw.s.GetBus(busID) == nil {
 			hw.finalizeBusLocked(busID)
-			return true
+			for _, dev := range devices {
+				hw.s.ForgetDeviceTransport(dev)
+			}
+			return transportTeardownResult{ok: true, drains: drains}
 		}
-		return false
+		return transportTeardownResult{drains: drains}
 	}
 	hw.finalizeBusLocked(busID)
+	for _, dev := range devices {
+		hw.s.ForgetDeviceTransport(dev)
+	}
 
-	return true
+	return transportTeardownResult{ok: true, drains: drains}
 }

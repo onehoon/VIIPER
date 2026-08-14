@@ -107,10 +107,5 @@ func RemoveMouseDevice(handle C.MouseDeviceHandle) bool {
 }
 
 func removeMouseDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		if _, ok := dhw.device.(*mouse.Mouse); !ok {
-			return false
-		}
-		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
-	})
+	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*mouse.Mouse); return ok })
 }

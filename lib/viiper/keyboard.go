@@ -256,10 +256,5 @@ func RemoveKeyboardDevice(handle C.KeyboardDeviceHandle) bool {
 }
 
 func removeKeyboardDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		if _, ok := dhw.device.(*keyboard.Keyboard); !ok {
-			return false
-		}
-		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
-	})
+	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*keyboard.Keyboard); return ok })
 }

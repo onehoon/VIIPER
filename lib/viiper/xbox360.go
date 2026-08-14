@@ -141,12 +141,7 @@ func RemoveXbox360Device(handle C.Xbox360DeviceHandle) bool {
 }
 
 func removeXbox360Device(handle uintptr) bool {
-	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		if _, ok := dhw.device.(*xbox360.Xbox360); !ok {
-			return false
-		}
-		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
-	})
+	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*xbox360.Xbox360); return ok })
 }
 
 // SetXbox360RumbleCallback sets a callback to be invoked when the host sends rumble/motor commands to the device.

@@ -22,7 +22,7 @@ import (
 
 func newLifecycleTestServer(t *testing.T, busID uint32) (*usbServerHandleWrapper, *virtualbus.VirtualBus) {
 	t.Helper()
-	s := usb.New(usb.ServerConfig{Addr: "127.0.0.1:0", BusCleanupTimeout: time.Hour}, slog.Default(), nil)
+	s := usb.New(usb.ServerConfig{Addr: "127.0.0.1:0", BusCleanupTimeout: time.Hour, DisableAutoBusCleanup: true, ManagedTransportLifecycle: true}, slog.Default(), nil)
 	b, err := virtualbus.NewWithBusID(busID)
 	if err != nil {
 		t.Fatal(err)

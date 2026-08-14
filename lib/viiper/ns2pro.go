@@ -202,10 +202,5 @@ func RemoveNS2ProDevice(handle C.NS2ProDeviceHandle) bool {
 }
 
 func removeNS2ProDevice(handle uintptr) bool {
-	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		if _, ok := dhw.device.(*ns2pro.NS2Pro); !ok {
-			return false
-		}
-		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
-	})
+	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*ns2pro.NS2Pro); return ok })
 }

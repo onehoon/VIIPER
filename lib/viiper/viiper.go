@@ -43,6 +43,7 @@ type serverOperations struct {
 	attachLocalhostTracked func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error)
 	detachLocalhost        func(context.Context, api.LocalhostAttachment, *slog.Logger) error
 	rollbackDevice         func(*virtualbus.VirtualBus, viiperusb.Device) error
+	removeDevice           func(*usb.Server, uint32, string) error
 	removeBus              func(*usb.Server, uint32) error
 	close                  func(*usb.Server) error
 	deleteHandle           func(cgo.Handle)
@@ -53,23 +54,49 @@ func defaultServerOperations() serverOperations {
 		attachLocalhostTracked: api.AttachLocalhostClientTracked,
 		detachLocalhost:        api.DetachLocalhostClient,
 		rollbackDevice:         func(bus *virtualbus.VirtualBus, dev viiperusb.Device) error { return bus.Remove(dev) },
-		removeBus:              func(s *usb.Server, busID uint32) error { return s.RemoveBus(busID) },
-		close:                  func(s *usb.Server) error { return s.Close() },
-		deleteHandle:           func(h cgo.Handle) { h.Delete() },
+		removeDevice: func(s *usb.Server, busID uint32, deviceID string) error {
+			return s.RemoveDeviceByIDWithoutBusCleanup(busID, deviceID)
+		},
+		removeBus:    func(s *usb.Server, busID uint32) error { return s.RemoveBus(busID) },
+		close:        func(s *usb.Server) error { return s.Close() },
+		deleteHandle: func(h cgo.Handle) { h.Delete() },
 	}
 }
 
 type usbServerHandleWrapper struct {
-	s                   *usb.Server
-	lifecycleMu         sync.Mutex
-	mtx                 sync.Mutex // Legacy wrapper synchronization; lifecycleMu gates mutations.
-	state               serverLifecycleState
-	deviceHandles       map[uint32][]deviceHandle
-	deviceHandleRecords map[deviceHandle]*deviceHandleWrapper
-	ops                 serverOperations
-	logger              *slog.Logger
-	rejectionWarnings   map[string]bool
-	onCallbackCleared   func(*deviceHandleWrapper)
+	s                      *usb.Server
+	lifecycleMu            sync.Mutex
+	mtx                    sync.Mutex // Legacy wrapper synchronization; lifecycleMu gates mutations.
+	state                  serverLifecycleState
+	deviceHandles          map[uint32][]deviceHandle
+	deviceHandleRecords    map[deviceHandle]*deviceHandleWrapper
+	ops                    serverOperations
+	logger                 *slog.Logger
+	rejectionWarnings      map[string]bool
+	onCallbackCleared      func(*deviceHandleWrapper)
+	closePhase             canonicalClosePhase
+	logicalCloseInProgress bool
+}
+
+type canonicalClosePhase uint8
+
+const (
+	logicalTeardownPending canonicalClosePhase = iota
+	transportClosePending
+	closeComplete
+)
+
+type transportTeardownResult struct {
+	ok     bool
+	drains []*usb.TransportDrain
+}
+
+func waitTransportDrains(drains []*usb.TransportDrain) {
+	for _, drain := range drains {
+		if drain != nil {
+			drain.Wait()
+		}
+	}
 }
 
 type deviceHandleWrapper struct {
@@ -192,6 +219,9 @@ func (hw *usbServerHandleWrapper) registerDeviceLocked(dhw *deviceHandleWrapper)
 }
 
 func (hw *usbServerHandleWrapper) attachDeviceLocked(dhw *deviceHandleWrapper) bool {
+	if !hw.s.DeviceTransportCanAccept(dhw.device.(viiperusb.Device)) {
+		return false
+	}
 	switch dhw.attachment.state {
 	case attachmentAttached:
 		return true
@@ -242,15 +272,43 @@ func (hw *usbServerHandleWrapper) detachDeviceLocked(dhw *deviceHandleWrapper) b
 }
 
 func (hw *usbServerHandleWrapper) removeDeviceLocked(dhw *deviceHandleWrapper, h deviceHandle) bool {
+	result := hw.removeDeviceLockedWithDrain(dhw, h)
+	return result.ok
+}
+
+func (hw *usbServerHandleWrapper) removeDeviceLockedWithDrain(dhw *deviceHandleWrapper, h deviceHandle) transportTeardownResult {
 	hw.clearDeviceCallbackLocked(dhw)
 	if !hw.detachDeviceLocked(dhw) {
-		return false
+		return transportTeardownResult{}
 	}
-	if err := hw.s.RemoveDeviceByIDWithoutBusCleanup(dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-		return false
+	drain := hw.s.BeginDeviceDrain(dhw.device.(viiperusb.Device))
+	if err := hw.ops.removeDevice(hw.s, dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
+		return transportTeardownResult{drains: []*usb.TransportDrain{drain}}
 	}
 	hw.finalizeDeviceLocked(h)
-	return true
+	hw.s.ForgetDeviceTransport(dhw.device.(viiperusb.Device))
+	return transportTeardownResult{ok: true, drains: []*usb.TransportDrain{drain}}
+}
+
+func removeTypedDevice(handle uintptr, valid func(any) bool) bool {
+	v, ok := deviceHandleRecords.Load(handle)
+	if !ok {
+		return false
+	}
+	dhw, ok := v.(*deviceHandleWrapper)
+	if !ok {
+		return false
+	}
+	hw := dhw.usbServer
+	hw.lifecycleMu.Lock()
+	if hw.state != serverActive || hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
+		hw.lifecycleMu.Unlock()
+		return false
+	}
+	result := hw.removeDeviceLockedWithDrain(dhw, deviceHandle(handle))
+	hw.lifecycleMu.Unlock()
+	waitTransportDrains(result.drains)
+	return result.ok
 }
 
 func (hw *usbServerHandleWrapper) hasUnknownAttachmentLocked() bool {
