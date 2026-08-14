@@ -177,11 +177,10 @@ func RemoveSteamControllerDevice(handle C.SteamControllerDeviceHandle) bool {
 
 func removeSteamControllerDevice(handle uintptr) bool {
 	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		d, ok := dhw.device.(*steamcontroller.SteamController)
+		_, ok := dhw.device.(*steamcontroller.SteamController)
 		if !ok {
 			return false
 		}
-		d.SetOutputCallback(nil)
 		return dhw.usbServer.removeDeviceLocked(dhw, deviceHandle(handle))
 	})
 }
