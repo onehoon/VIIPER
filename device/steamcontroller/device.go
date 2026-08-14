@@ -48,8 +48,12 @@ const (
 )
 
 type SteamController struct {
-	inputState          *InputState
-	mtx                 sync.Mutex
+	inputState *InputState
+	mtx        sync.Mutex
+	// stateMu protects controller and imuBias runtime state, including the
+	// controller.settings map. It is intentionally separate from the input,
+	// feature-response, and callback locks below.
+	stateMu             sync.RWMutex
 	featureMtx          sync.Mutex
 	callbackMu          sync.RWMutex
 	outputFunc          func(OutputState)
@@ -131,16 +135,16 @@ func New(o *device.CreateOptions) (*SteamController, error) {
 	return d, nil
 }
 
-func (d *SteamController) lizardModeEnabled() bool {
+func (d *SteamController) lizardModeEnabledLocked() bool {
 	return d.controller.digitalMaps && d.controller.settings[SettingLizardMode] != uint16(LizardModeOff)
 }
 
-func (d *SteamController) imuMode() uint16 {
+func (d *SteamController) imuModeLocked() uint16 {
 	return d.controller.settings[SettingIMUMode]
 }
 
-func (d *SteamController) reportedControllerMode() byte {
-	if d.lizardModeEnabled() {
+func (d *SteamController) reportedControllerModeLocked() byte {
+	if d.lizardModeEnabledLocked() {
 		return byte(LizardModeOn)
 	}
 	return byte(LizardModeOff)
@@ -175,16 +179,20 @@ func (d *SteamController) snapshotInputState() InputState {
 }
 
 func (d *SteamController) buildInputReport(st InputState, frame uint32) []byte {
-	if d.imuBias.valid {
-		st.AccelX -= d.imuBias.accelX
-		st.AccelY -= d.imuBias.accelY
-		st.AccelZ -= d.imuBias.accelZ
-		st.GyroX -= d.imuBias.gyroX
-		st.GyroY -= d.imuBias.gyroY
-		st.GyroZ -= d.imuBias.gyroZ
+	d.stateMu.RLock()
+	imuBias := d.imuBias
+	imuMode := d.imuModeLocked()
+	d.stateMu.RUnlock()
+
+	if imuBias.valid {
+		st.AccelX -= imuBias.accelX
+		st.AccelY -= imuBias.accelY
+		st.AccelZ -= imuBias.accelZ
+		st.GyroX -= imuBias.gyroX
+		st.GyroY -= imuBias.gyroY
+		st.GyroZ -= imuBias.gyroZ
 	}
 	report := st.buildReport(frame)
-	imuMode := d.imuMode()
 	if imuMode&GyroModeSendRawAccel == 0 {
 		copy(report[28:34], []byte{0, 0, 0, 0, 0, 0})
 	}
@@ -220,7 +228,10 @@ func (d *SteamController) HandleTransfer(ctx context.Context, ep uint32, dir uin
 }
 
 func (d *SteamController) buildLizardKeyboardReport(st InputState) []byte {
-	if !d.lizardKeyboardEnabled() {
+	d.stateMu.RLock()
+	lizardEnabled := d.lizardKeyboardEnabledLocked()
+	d.stateMu.RUnlock()
+	if !lizardEnabled {
 		return append([]byte(nil), zeroKeyboardReport...)
 	}
 
@@ -244,11 +255,11 @@ func (d *SteamController) buildLizardKeyboardReport(st InputState) []byte {
 	return report
 }
 
-func (d *SteamController) lizardKeyboardEnabled() bool {
+func (d *SteamController) lizardKeyboardEnabledLocked() bool {
 	if !d.controller.digitalMaps {
 		return false
 	}
-	return d.lizardModeEnabled()
+	return d.lizardModeEnabledLocked()
 }
 
 func (d *SteamController) HandleControl(bmRequestType, bRequest uint8, wValue, wIndex, wLength uint16, data []byte) ([]byte, bool) {
@@ -320,20 +331,28 @@ func (d *SteamController) handleHostCommand(data []byte) {
 	if len(data) > 1 && data[0] == 0x00 {
 		data = data[1:]
 	}
+	var inputSnapshot InputState
+	if data[0] == FeatureResetIMU {
+		// Snapshot input state before taking stateMu so the input and runtime
+		// state locks are never held together.
+		inputSnapshot = d.snapshotInputState()
+	}
+
+	d.stateMu.Lock()
 	switch data[0] {
 	case FeatureSetControllerMode:
 		if len(data) >= 3 {
 			d.controller.mode = data[2]
 		}
 	case FeatureSetSettingsValues:
-		d.applySettings(data)
+		d.applySettingsLocked(data)
 	case FeatureLoadDefaultSettings:
-		d.resetSettings()
+		d.resetSettingsLocked()
 	case FeatureFactoryReset:
 		d.controller = newControllerState()
 		d.imuBias = imuBiasState{}
 	case FeatureClearSettingsValues:
-		d.resetSettings()
+		d.resetSettingsLocked()
 	case FeatureClearDigitalMappings:
 		d.controller.digitalMaps = false
 	case FeatureSetDefaultMappings:
@@ -341,17 +360,18 @@ func (d *SteamController) handleHostCommand(data []byte) {
 	case FeatureSetDigitalMappings:
 		d.controller.digitalMaps = true
 	case FeatureResetIMU:
-		st := d.snapshotInputState()
 		d.imuBias = imuBiasState{
 			valid:  true,
-			accelX: st.AccelX,
-			accelY: st.AccelY,
-			accelZ: st.AccelZ,
-			gyroX:  st.GyroX,
-			gyroY:  st.GyroY,
-			gyroZ:  st.GyroZ,
+			accelX: inputSnapshot.AccelX,
+			accelY: inputSnapshot.AccelY,
+			accelZ: inputSnapshot.AccelZ,
+			gyroX:  inputSnapshot.GyroX,
+			gyroY:  inputSnapshot.GyroY,
+			gyroZ:  inputSnapshot.GyroZ,
 		}
 	}
+	d.stateMu.Unlock()
+
 	d.callbackMu.RLock()
 	callback := d.outputFunc
 	d.callbackMu.RUnlock()
@@ -371,14 +391,14 @@ func cloneSettings(src map[uint8]uint16) map[uint8]uint16 {
 	return dst
 }
 
-func (d *SteamController) resetSettings() {
+func (d *SteamController) resetSettingsLocked() {
 	state := newControllerState()
 	d.controller.settings = cloneSettings(state.settings)
 	d.controller.mode = state.mode
 	d.imuBias = imuBiasState{}
 }
 
-func (d *SteamController) applySettings(data []byte) {
+func (d *SteamController) applySettingsLocked(data []byte) {
 	if len(data) < 2 {
 		return
 	}
@@ -437,7 +457,9 @@ func (d *SteamController) featureResponse(request []byte) []byte {
 		binary.LittleEndian.PutUint16(resp[4:6], d.descriptor.Device.IDVendor)
 		binary.LittleEndian.PutUint16(resp[6:8], d.descriptor.Device.IDProduct)
 		resp[8] = 0x01
-		resp[9] = d.reportedControllerMode()
+		d.stateMu.RLock()
+		resp[9] = d.reportedControllerModeLocked()
+		d.stateMu.RUnlock()
 		copy(resp[16:], []byte("Wired Controller"))
 		return resp
 	case FeatureGetChipID:
@@ -445,16 +467,24 @@ func (d *SteamController) featureResponse(request []byte) []byte {
 		copy(resp[4:], []byte("STEAMCTRL-0001"))
 		return resp
 	case FeatureGetAttributesValues:
-		resp[1] = d.fillAttributes(resp[2:])
+		d.stateMu.RLock()
+		resp[1] = d.fillAttributesLocked(resp[2:])
+		d.stateMu.RUnlock()
 		return resp
 	case FeatureGetStringAttribute:
-		resp[1] = d.fillStringAttribute(resp[2:], request)
+		d.stateMu.RLock()
+		resp[1] = d.fillStringAttributeLocked(resp[2:], request)
+		d.stateMu.RUnlock()
 		return resp
 	case FeatureGetDigitalMappings:
-		resp[1] = d.fillDigitalMappings(resp[2:])
+		d.stateMu.RLock()
+		resp[1] = d.fillDigitalMappingsLocked(resp[2:])
+		d.stateMu.RUnlock()
 		return resp
 	case FeatureGetSettingsValues:
+		d.stateMu.RLock()
 		resp[1] = fillSettings(resp[2:], d.controller.settings)
+		d.stateMu.RUnlock()
 		return resp
 	case FeatureGetSettingsDefaults:
 		resp[1] = fillSettings(resp[2:], firmwareDefaultSettings)
@@ -467,7 +497,7 @@ func (d *SteamController) featureResponse(request []byte) []byte {
 	}
 }
 
-func (d *SteamController) fillDigitalMappings(buf []byte) byte {
+func (d *SteamController) fillDigitalMappingsLocked(buf []byte) byte {
 	if len(buf) == 0 {
 		return 0
 	}
@@ -493,7 +523,7 @@ func fillSettings(buf []byte, settings map[uint8]uint16) byte {
 	return byte(offset)
 }
 
-func (d *SteamController) fillAttributes(buf []byte) byte {
+func (d *SteamController) fillAttributesLocked(buf []byte) byte {
 	entries := []struct {
 		tag   byte
 		value uint32
@@ -518,7 +548,7 @@ func (d *SteamController) fillAttributes(buf []byte) byte {
 	return byte(offset)
 }
 
-func (d *SteamController) fillStringAttribute(buf []byte, request []byte) byte {
+func (d *SteamController) fillStringAttributeLocked(buf []byte, request []byte) byte {
 	if len(buf) < 2 {
 		return 0
 	}
