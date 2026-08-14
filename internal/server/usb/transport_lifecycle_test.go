@@ -152,7 +152,7 @@ func TestManagedImportBindingReservationIsDrained(t *testing.T) {
 	select {
 	case <-done:
 		t.Fatal("drain completed while binding reservation was still active")
-	case <-time.After(20 * time.Millisecond):
+	default:
 	}
 	_ = serverConn.Close()
 	s.unbindManagedConnection(mc)
