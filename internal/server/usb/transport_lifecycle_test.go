@@ -1,12 +1,26 @@
 package usb
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net"
 	"testing"
 	"time"
+
+	rootusb "github.com/Alia5/VIIPER/usb"
+	"github.com/Alia5/VIIPER/virtualbus"
 )
+
+type transportTestDevice struct{}
+
+func (transportTestDevice) HandleTransfer(context.Context, uint32, uint32, []byte) []byte {
+	return nil
+}
+
+func (transportTestDevice) GetDescriptor() *rootusb.Descriptor { return &rootusb.Descriptor{} }
+
+func (transportTestDevice) GetDeviceSpecificArgs() map[string]any { return nil }
 
 func TestManagedCloseDrainsAcceptedConnections(t *testing.T) {
 	s := New(ServerConfig{Addr: "127.0.0.1:0", ConnectionTimeout: time.Hour, ManagedTransportLifecycle: true}, slog.Default(), nil)
@@ -104,4 +118,47 @@ func TestManagedDeviceDrainRejectsLateBinding(t *testing.T) {
 	go s.unbindManagedConnection(first)
 	drain.Wait()
 	s.unbindManagedConnection(second)
+}
+
+func TestManagedImportBindingReservationIsDrained(t *testing.T) {
+	s := New(ServerConfig{ManagedTransportLifecycle: true}, slog.Default(), nil)
+	bus, err := virtualbus.NewWithBusID(3043)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.RemoveBus(3043)
+	dev := transportTestDevice{}
+	if _, err := bus.Add(dev); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddBus(bus); err != nil {
+		t.Fatal(err)
+	}
+	serverConn, clientConn := net.Pipe()
+	defer clientConn.Close()
+	mc := &managedConnection{conn: serverConn}
+	s.transportMu.Lock()
+	s.managedConnections[mc] = struct{}{}
+	s.transportMu.Unlock()
+	defer s.unbindManagedConnection(mc)
+
+	chosen, _, _, err := s.bindManagedConnectionByBusID(serverConn, "3043-1")
+	if err != nil || chosen != dev {
+		t.Fatalf("managed import binding = %v, %v", chosen, err)
+	}
+	drain := s.BeginDeviceDrain(dev)
+	done := make(chan struct{})
+	go func() { drain.Wait(); close(done) }()
+	select {
+	case <-done:
+		t.Fatal("drain completed while binding reservation was still active")
+	case <-time.After(20 * time.Millisecond):
+	}
+	_ = serverConn.Close()
+	s.unbindManagedConnection(mc)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("drain did not complete after binding unbound")
+	}
 }
