@@ -122,3 +122,21 @@ func TestClassifyUSBIPAttachCommandResult(t *testing.T) {
 		t.Fatalf("started process failure error = %v, want unknown", err)
 	}
 }
+
+func TestDetachOutcomeClassification(t *testing.T) {
+	if err := classifyUSBIPDetachCommandResult(nil); err != nil {
+		t.Fatalf("successful detach classification = %v", err)
+	}
+	startErr := &exec.Error{Name: "usbip", Err: errors.New("not found")}
+	if err := classifyUSBIPDetachCommandResult(startErr); errors.Is(err, ErrDetachmentOutcomeUnknown) {
+		t.Fatalf("process-start failure must remain known: %v", err)
+	}
+	for _, err := range []error{&exec.ExitError{}, context.Canceled} {
+		if got := classifyUSBIPDetachCommandResult(err); !errors.Is(got, ErrDetachmentOutcomeUnknown) {
+			t.Fatalf("started command error %T = %v, want unknown", err, got)
+		}
+	}
+	if got := classifyNativeDetachResult(errors.New("ioctl failed")); !errors.Is(got, ErrDetachmentOutcomeUnknown) {
+		t.Fatalf("submitted IOCTL error = %v, want unknown", got)
+	}
+}

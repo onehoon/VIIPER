@@ -39,9 +39,6 @@ const (
 )
 
 type serverOperations struct {
-	// attachLocalhost remains a test-only compatibility seam for the PR1
-	// lifecycle tests. Canonical production uses attachLocalhostTracked.
-	attachLocalhost        func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error
 	attachLocalhostTracked func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error)
 	detachLocalhost        func(context.Context, api.LocalhostAttachment, *slog.Logger) error
 	removeBus              func(*usb.Server, uint32) error
@@ -195,11 +192,8 @@ func (hw *usbServerHandleWrapper) attachDeviceLocked(dhw *deviceHandleWrapper) b
 	case attachmentOutcomeUnknown:
 		return false
 	}
-	if hw.ops.attachLocalhost != nil {
-		return hw.ops.attachLocalhost(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.logger) == nil
-	}
 	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.logger)
-	if err == nil && attachment.Port > 0 {
+	if err == nil && isValidLocalhostAttachment(attachment) {
 		dhw.attachment = deviceAttachmentRecord{state: attachmentAttached, attachment: attachment}
 		return true
 	}
@@ -208,6 +202,18 @@ func (hw *usbServerHandleWrapper) attachDeviceLocked(dhw *deviceHandleWrapper) b
 		hw.state = serverCloseFailed
 	}
 	return false
+}
+
+func isValidLocalhostAttachment(attachment api.LocalhostAttachment) bool {
+	if attachment.Port <= 0 {
+		return false
+	}
+	switch attachment.Backend {
+	case api.LocalhostAttachmentBackendNativeIOCTL, api.LocalhostAttachmentBackendCommand:
+		return true
+	default:
+		return false
+	}
 }
 
 func (hw *usbServerHandleWrapper) detachDeviceLocked(dhw *deviceHandleWrapper) bool {

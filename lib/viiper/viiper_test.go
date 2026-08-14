@@ -68,8 +68,8 @@ func addTestMouse(t *testing.T, hw *usbServerHandleWrapper, busID uint32) device
 
 func TestCreateDeviceRollsBackOnlyFailedDevice(t *testing.T) {
 	hw, bus := newLifecycleTestServer(t, 9101)
-	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error {
-		return errors.New("injected attach failure")
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{}, errors.New("injected attach failure")
 	}
 	first, err := mouse.New(nil)
 	if err != nil {
@@ -109,9 +109,9 @@ func TestRollbackFailureTransitionsToCloseFailed(t *testing.T) {
 
 func TestCreateWithoutAutoAttachDoesNotInvokeAttach(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9110)
-	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
 		t.Fatal("auto-attach was invoked when disabled")
-		return nil
+		return api.LocalhostAttachment{}, nil
 	}
 	hw.lifecycleMu.Lock()
 	_ = addTestMouse(t, hw, 9110)
@@ -386,11 +386,12 @@ func TestInFlightCreateAndCloseAreSerializedByLifecycleBoundary(t *testing.T) {
 		ok bool
 	}, 1)
 	closeDone := make(chan bool, 1)
-	hw.ops.attachLocalhost = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) error {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
 		close(attachStarted)
 		<-releaseAttach
-		return nil
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: 77}, nil
 	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
 	hw.ops.close = func(*usb.Server) error { return nil }
 	d := mustNewTestMouse(t)
 
