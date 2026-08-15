@@ -145,6 +145,66 @@ func TestLogDPadReportTransitionIfChanged_WarnsOnInvariantMismatch(t *testing.T)
 	}
 }
 
+func TestLogDPadReportTransitionIfChanged_SustainedMismatchWarnsOnlyOnce(t *testing.T) {
+	handler := withCapturingLogger(t)
+	d, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A held button press polled at production rate would call this ~250 times/sec; a real
+	// serialization bug held for even one second must not flood the log with one Warning per
+	// call.
+	report := make([]byte, InputReportLen)
+	for i := 0; i < 100; i++ {
+		d.logDPadReportTransitionIfChanged(InputState{DPadUp: true}, report)
+	}
+
+	if got := handler.countAtLevel(slog.LevelWarn); got != 1 {
+		t.Fatalf("Warn count for 100 identical sustained mismatches = %d, want 1", got)
+	}
+}
+
+func TestLogDPadReportTransitionIfChanged_RecurrenceOfSameMismatchAfterRecoveryWarnsAgain(t *testing.T) {
+	handler := withCapturingLogger(t)
+	d, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mismatched := make([]byte, InputReportLen) // report says neutral
+	matched := make([]byte, InputReportLen)
+	matched[9] = buttonByte9Up // report agrees with InputState{DPadUp: true}
+
+	d.logDPadReportTransitionIfChanged(InputState{DPadUp: true}, mismatched) // Warn 1
+	d.logDPadReportTransitionIfChanged(InputState{DPadUp: true}, matched)    // recovers, no Warn
+	d.logDPadReportTransitionIfChanged(InputState{DPadUp: true}, mismatched) // same mismatch recurs -> Warn 2
+
+	if got := handler.countAtLevel(slog.LevelWarn); got != 2 {
+		t.Fatalf("Warn count for mismatch -> recovery -> same mismatch = %d, want 2", got)
+	}
+}
+
+func TestLogDPadReportTransitionIfChanged_DifferentMismatchWhileActualStaysStuckWarnsAgain(t *testing.T) {
+	handler := withCapturingLogger(t)
+	d, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Actual report byte is stuck at neutral (0x00) throughout, but the expected mask (from
+	// InputState) changes -- a different mismatch pair, even without ever recovering to
+	// agreement in between, must still produce a new Warning.
+	stuckAtNeutral := make([]byte, InputReportLen)
+	d.logDPadReportTransitionIfChanged(InputState{DPadUp: true}, stuckAtNeutral)    // expected=0x01 actual=0x00 -> Warn 1
+	d.logDPadReportTransitionIfChanged(InputState{DPadUp: true}, stuckAtNeutral)    // same pair -> no Warn
+	d.logDPadReportTransitionIfChanged(InputState{DPadRight: true}, stuckAtNeutral) // expected=0x02 actual=0x00 -> Warn 2
+
+	if got := handler.countAtLevel(slog.LevelWarn); got != 2 {
+		t.Fatalf("Warn count for changing expected mask against a stuck actual byte = %d, want 2", got)
+	}
+}
+
 func TestLogDPadReportTransitionIfChanged_NoWarningOnAgreement(t *testing.T) {
 	handler := withCapturingLogger(t)
 	d, err := New(nil)

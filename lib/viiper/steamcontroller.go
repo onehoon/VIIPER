@@ -100,9 +100,7 @@ func createSteamControllerDevice(serverHandle uintptr, outDeviceHandle *deviceHa
 //
 //export SetSteamControllerDeviceState
 func SetSteamControllerDeviceState(handle C.SteamControllerDeviceHandle, state C.SteamControllerDeviceState) bool {
-	decoded := steamControllerStateFromC(state)
-	logDPadABIDecodedIfChanged(uintptr(handle), decoded)
-	return setSteamControllerDeviceState(uintptr(handle), decoded)
+	return setSteamControllerDeviceState(uintptr(handle), steamControllerStateFromC(state))
 }
 
 // D-pad runtime diagnostic (Boundary A): mask bits match the Gordon report byte[9]
@@ -129,30 +127,6 @@ func dpadDiagMaskFromState(state steamControllerState) uint8 {
 		mask |= dpadDiagDownMask
 	}
 	return mask
-}
-
-// logDPadABIDecodedIfChanged emits a Debug-only diagnostic proving the D-pad fields
-// survived native C ABI decoding (Boundary A of the D-pad runtime diagnostic task),
-// gated on an actual change of the decoded D-pad mask for this device handle. Production
-// callers publish state at up to ~250Hz; without transition gating this would flood the
-// log. Silently no-ops for an unknown/inactive handle -- diagnostics must never affect
-// SetSteamControllerDeviceState's own return value or behavior.
-func logDPadABIDecodedIfChanged(handle uintptr, state steamControllerState) {
-	mask := dpadDiagMaskFromState(state)
-	withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		dhw.dpadDiagMu.Lock()
-		changed := !dhw.dpadDiagLogged || dhw.dpadDiagMask != mask
-		dhw.dpadDiagMask = mask
-		dhw.dpadDiagLogged = true
-		dhw.dpadDiagMu.Unlock()
-		if changed {
-			slog.Debug("VIIPER.DPad", "Stage", "ABIDecoded",
-				"Up", boolToDigit(state.DPadUp), "Right", boolToDigit(state.DPadRight),
-				"Left", boolToDigit(state.DPadLeft), "Down", boolToDigit(state.DPadDown),
-				"Mask", fmt.Sprintf("0x%02X", mask))
-		}
-		return true
-	})
 }
 
 func boolToDigit(b bool) int {
@@ -197,15 +171,44 @@ func steamControllerDeviceStateABIOffsets() steamControllerDeviceStateCOffsets {
 	}
 }
 
+// setSteamControllerDeviceState performs the actual UpdateInputState mutation and, in the same
+// single lifecycleMu critical section (via withActiveDeviceHandle), computes whether the
+// Boundary-A D-pad diagnostic transitioned -- it does not take a second lock or lifecycle lookup
+// for the diagnostic, and it does not invoke the (potentially callback-routed) slog.Debug call
+// itself until after the lock is released, so the native log callback never runs while
+// lifecycleMu is held. See docs/libviiper/fork-api.md D-pad diagnostic notes.
 func setSteamControllerDeviceState(handle uintptr, state steamControllerState) bool {
-	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
-		d, ok := dhw.device.(*steamcontroller.SteamController)
-		if !ok {
+	var dpadChanged bool
+	var dpadMask uint8
+	ok := withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		d, typeOk := dhw.device.(*steamcontroller.SteamController)
+		if !typeOk {
 			return false
 		}
 		d.UpdateInputState(steamControllerInputState(state))
+
+		dpadMask = dpadDiagMaskFromState(state)
+		dpadChanged = !dhw.dpadDiagLogged || dhw.dpadDiagMask != dpadMask
+		dhw.dpadDiagMask = dpadMask
+		dhw.dpadDiagLogged = true
 		return true
 	})
+	if ok && dpadChanged {
+		logDPadABIDecoded(state, dpadMask)
+	}
+	return ok
+}
+
+// logDPadABIDecoded emits a Debug-only diagnostic proving the D-pad fields survived native C ABI
+// decoding (Boundary A of the D-pad runtime diagnostic task). Callers must only invoke this after
+// determining (inside the single existing SetState lifecycle lock) that the decoded D-pad mask
+// actually changed for this device handle -- production callers publish state at up to ~250Hz, so
+// without that transition gating this would flood the log.
+func logDPadABIDecoded(state steamControllerState, mask uint8) {
+	slog.Debug("VIIPER.DPad", "Stage", "ABIDecoded",
+		"Up", boolToDigit(state.DPadUp), "Right", boolToDigit(state.DPadRight),
+		"Left", boolToDigit(state.DPadLeft), "Down", boolToDigit(state.DPadDown),
+		"Mask", fmt.Sprintf("0x%02X", mask))
 }
 
 func steamControllerInputState(state steamControllerState) *steamcontroller.InputState {

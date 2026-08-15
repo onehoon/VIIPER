@@ -71,6 +71,17 @@ type SteamController struct {
 	dpadReportDiagMu     sync.Mutex
 	dpadReportDiagMask   byte
 	dpadReportDiagLogged bool
+
+	// dpadReportInvariant* track whether the D-pad ABI/report mismatch Warning below is
+	// currently "active" for a specific (expected, actual) pair, so a sustained real mismatch
+	// (e.g. held for a full button press, polled at up to ~250Hz) logs one Warning rather than
+	// flooding -- the same transition-gating discipline as the Debug diagnostics, just keyed on
+	// mismatch state instead of D-pad mask. Returning to agreement clears the active state, so
+	// a later recurrence of the very same mismatch still logs again.
+	dpadReportInvariantMu     sync.Mutex
+	dpadReportInvariantActive bool
+	dpadReportInvariantExpect byte
+	dpadReportInvariantActual byte
 }
 
 type controllerState struct {
@@ -244,16 +255,29 @@ func (d *SteamController) HandleTransfer(ctx context.Context, ep uint32, dir uin
 // D-pad change. It also cross-checks the D-pad mask implied by the exact InputState
 // snapshot used to build this report against the mask actually written into the report;
 // those must always agree for the same snapshot/report-construction operation, so any
-// mismatch is a genuine internal invariant violation (logged as Warning) rather than the
-// ordinary case of the USB host polling between transitions.
+// mismatch is a genuine internal invariant violation. That Warning is itself
+// transition-gated on the (expected, actual) pair -- without this, a real, sustained
+// serialization bug would otherwise re-log a Warning on every ~4ms production tick or every
+// USB IN poll for as long as the bug's condition holds, which is exactly the kind of log
+// flood this diagnostic task is meant to avoid.
 func (d *SteamController) logDPadReportTransitionIfChanged(st InputState, report []byte) {
 	if len(report) <= 9 {
 		return
 	}
 	byte9 := report[9]
 	dpadMask := byte9 & 0x0F
+	expected := dpadMaskFromInputState(st)
 
-	if expected := dpadMaskFromInputState(st); expected != dpadMask {
+	d.dpadReportInvariantMu.Lock()
+	mismatched := expected != dpadMask
+	shouldWarn := mismatched && (!d.dpadReportInvariantActive || d.dpadReportInvariantExpect != expected || d.dpadReportInvariantActual != dpadMask)
+	d.dpadReportInvariantActive = mismatched
+	if mismatched {
+		d.dpadReportInvariantExpect = expected
+		d.dpadReportInvariantActual = dpadMask
+	}
+	d.dpadReportInvariantMu.Unlock()
+	if shouldWarn {
 		slog.Warn("VIIPER.DPad", "Stage", "GordonReportInvariant",
 			"Expected", fmt.Sprintf("0x%02X", expected), "Actual", fmt.Sprintf("0x%02X", dpadMask))
 	}

@@ -70,7 +70,12 @@ func TestDPadDiagMaskFromState_OneHotAndCombinedEncoding(t *testing.T) {
 	}
 }
 
-func TestLogDPadABIDecodedIfChanged_SuppressesRepeatedMaskAndLogsRelease(t *testing.T) {
+// TestSetSteamControllerDeviceState_DPadDiagnosticSuppressesRepeatedMaskAndLogsRelease exercises
+// the diagnostic through the actual production entry point (setSteamControllerDeviceState), not a
+// standalone helper -- the diagnostic's transition bookkeeping is computed inside SetState's own
+// single withActiveDeviceHandle critical section (see the comment on setSteamControllerDeviceState
+// in steamcontroller.go), so there is no separate function left to call directly.
+func TestSetSteamControllerDeviceState_DPadDiagnosticSuppressesRepeatedMaskAndLogsRelease(t *testing.T) {
 	handler := withCapturingLogger(t)
 	hw, _ := newLifecycleTestServer(t, 9433)
 	serverHandle := cgo.NewHandle(hw)
@@ -82,23 +87,28 @@ func TestLogDPadABIDecodedIfChanged_SuppressesRepeatedMaskAndLogsRelease(t *test
 		t.Fatal("failed to create test steam controller device")
 	}
 
-	logDPadABIDecodedIfChanged(uintptr(handle), steamControllerState{DPadUp: true})
-	logDPadABIDecodedIfChanged(uintptr(handle), steamControllerState{DPadUp: true})
-	logDPadABIDecodedIfChanged(uintptr(handle), steamControllerState{DPadUp: true})
+	if !setSteamControllerDeviceState(uintptr(handle), steamControllerState{DPadUp: true}) {
+		t.Fatal("setSteamControllerDeviceState rejected a valid handle")
+	}
+	setSteamControllerDeviceState(uintptr(handle), steamControllerState{DPadUp: true})
+	setSteamControllerDeviceState(uintptr(handle), steamControllerState{DPadUp: true})
 	if got := handler.countAtLevel(slog.LevelDebug); got != 1 {
 		t.Fatalf("Debug log count for 3 identical masks = %d, want 1 (transition-gated)", got)
 	}
 
-	logDPadABIDecodedIfChanged(uintptr(handle), steamControllerState{})
+	setSteamControllerDeviceState(uintptr(handle), steamControllerState{})
 	if got := handler.countAtLevel(slog.LevelDebug); got != 2 {
 		t.Fatalf("Debug log count after release = %d, want 2 (press + release)", got)
 	}
 }
 
-func TestLogDPadABIDecodedIfChanged_UnknownHandleNoOps(t *testing.T) {
+func TestSetSteamControllerDeviceState_UnknownHandleNoOpsDiagnosticAndReturnsFalse(t *testing.T) {
 	handler := withCapturingLogger(t)
-	// No device registered for this handle: must not log and must not panic.
-	logDPadABIDecodedIfChanged(0xDEADBEEF, steamControllerState{DPadUp: true})
+	// No device registered for this handle: SetState itself must fail closed, and the
+	// diagnostic must not log or panic.
+	if setSteamControllerDeviceState(0xDEADBEEF, steamControllerState{DPadUp: true}) {
+		t.Fatal("setSteamControllerDeviceState accepted an unknown handle")
+	}
 	if got := handler.countAtLevel(slog.LevelDebug); got != 0 {
 		t.Fatalf("Debug log count for unknown handle = %d, want 0", got)
 	}

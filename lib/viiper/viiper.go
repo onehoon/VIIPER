@@ -116,8 +116,9 @@ type deviceHandleWrapper struct {
 
 	// dpadDiag* track the last D-pad mask decoded from the native C ABI for this device
 	// handle, so the Boundary-A D-pad diagnostic in steamcontroller.go can log only on
-	// transitions. See docs/libviiper/fork-api.md D-pad diagnostic notes.
-	dpadDiagMu     sync.Mutex
+	// transitions. Mutated only from within setSteamControllerDeviceState's single
+	// withActiveDeviceHandle (lifecycleMu) critical section -- no separate lock needed.
+	// See docs/libviiper/fork-api.md D-pad diagnostic notes.
 	dpadDiagMask   uint8
 	dpadDiagLogged bool
 }
