@@ -57,3 +57,4 @@ Write-Host "Wrote manifest to $OutputPath"
 Write-Host "  commit: $($manifest.commit)"
 Write-Host "  dll:    $($manifest.dll.file) $($manifest.dll.sha256)"
 Write-Host "  header: $($manifest.header.file) $($manifest.header.sha256)"
+exit 0

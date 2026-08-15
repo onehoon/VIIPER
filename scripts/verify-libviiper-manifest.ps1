@@ -75,3 +75,4 @@ Write-Host "Manifest verified OK"
 Write-Host "  commit: $($manifest.commit)"
 Write-Host "  dll:    $actualDllHash"
 Write-Host "  header: $actualHeaderHash"
+exit 0

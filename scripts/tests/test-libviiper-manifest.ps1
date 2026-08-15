@@ -108,3 +108,4 @@ if ($failures -gt 0) {
     exit 1
 }
 Write-Host "All manifest script checks passed"
+exit 0
