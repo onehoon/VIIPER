@@ -353,7 +353,27 @@ Pull request builds generate and verify the same manifest for validation
 only; they do not upload artifacts and are not adoption candidates. Only a
 successful main-branch build produces an artifact eligible for downstream
 adoption. Consumers must pin an exact commit/artifact rather than depending
-on a mutable "latest" build. SteamInputAddonforClaw does not consume this
-artifact automatically yet; automated cross-repository adoption (a Addon-side
-lockfile, updater script, or dispatch-based PR creation) is out of scope for
-this contract and remains future work.
+on a mutable "latest" build.
+
+SteamInputAddonforClaw consumes this artifact through a two-repository
+automation pipeline:
+
+```text
+VIIPER main push
+  -> Dev Snapshot Build completes successfully
+  -> notify-addon-dependency.yml validates success/main/push and the exact
+     40-character head_sha, then sends repository_dispatch
+     (viiper-canonical-ready) with that commit
+  -> SteamInputAddonforClaw's viiper-dependency-update.yml independently
+     re-verifies the exact commit's canonical artifact, manifest, and hashes
+  -> mechanical Draft dependency PR
+  -> human ABI/runtime review
+  -> manual merge only
+```
+
+The dispatch payload's commit is only a hint/input, not dependency
+authority — the generated canonical artifact for that exact commit remains
+the actual dependency source, and the Addon receiver never trusts the
+payload's claims without independently re-deriving them. Managed ABI
+compatibility is never auto-inferred from this pipeline, and the resulting
+Draft PR is never auto-merged.
