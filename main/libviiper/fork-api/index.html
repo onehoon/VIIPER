@@ -1361,6 +1361,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Build and validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#canonical-dependency-artifact-and-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonical dependency artifact and manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2037,6 +2054,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Build and validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#canonical-dependency-artifact-and-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonical dependency artifact and manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2407,6 +2441,22 @@ application handling.</p>
 header layout, exported symbols, and canonical lifecycle race tests. The DLL
 and header must come from the same commit; do not mix artifacts from upstream
 VIIPER with this fork's canonical ABI.</p>
+<h3 id="canonical-dependency-artifact-and-manifest">Canonical dependency artifact and manifest</h3>
+<p>Main-branch CI packages the Windows canonical build as
+<code>libVIIPER-windows-amd64.zip</code>, alongside a <code>viiper-artifact.json</code> manifest
+that records the artifact's source identity (full Git commit SHA) and
+SHA-256 hashes of the exact <code>libVIIPER.dll</code> and <code>libVIIPER.h</code> in that
+package. CI regenerates and independently reverifies these hashes in the same
+job that produces the DLL/header, so the manifest cannot describe a different
+build than the one it ships with.</p>
+<p>Pull request builds generate and verify the same manifest for validation
+only; they do not upload artifacts and are not adoption candidates. Only a
+successful main-branch build produces an artifact eligible for downstream
+adoption. Consumers must pin an exact commit/artifact rather than depending
+on a mutable "latest" build. SteamInputAddonforClaw does not consume this
+artifact automatically yet; automated cross-repository adoption (a Addon-side
+lockfile, updater script, or dispatch-based PR creation) is out of scope for
+this contract and remains future work.</p>
 
 
 
