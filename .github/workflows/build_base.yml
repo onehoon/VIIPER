@@ -309,6 +309,15 @@ jobs:
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamDeckDeviceEx'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamDeckOutputCallback'
 
+            - name: Verify canonical generated header has no trailing whitespace
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  if grep -nE '[[:blank:]]+$' dist/libVIIPER/libVIIPER.h; then
+                    echo "::error::dist/libVIIPER/libVIIPER.h contains trailing whitespace on the lines above"
+                    exit 1
+                  fi
+
             - name: Generate canonical artifact manifest
               shell: pwsh
               run: |
