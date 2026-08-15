@@ -111,9 +111,34 @@ validation only; PR CI does not upload artifacts and is never an adoption
 candidate. Only a successful main-branch build is eligible for downstream
 adoption. Any downstream consumer, including SteamInputAddonforClaw, must pin
 an exact commit/artifact and must not depend on a mutable "latest" artifact.
-Automated cross-repository adoption (e.g. an Addon-side updater or dispatch)
-is not implemented by this fork yet; adoption remains a separate, manually
-reviewed operation.
+
+### Cross-repository dependency notification
+
+`.github/workflows/notify-addon-dependency.yml` runs on `workflow_run` after
+`Dev Snapshot Build` completes, and proceeds only when that run's conclusion
+was `success`, its `head_branch` was `main`, and its trigger `event` was
+`push`. It validates `head_sha` is exactly 40 hexadecimal characters, then
+sends a `repository_dispatch` (`viiper-canonical-ready`) to
+`onehoon/SteamInputAddonforClaw` carrying that exact `commit` and a
+diagnostic-only `source_run_id`. The GitHub App installation token it
+generates is scoped only to `SteamInputAddonforClaw` with `contents: write`,
+the minimum needed to send a `repository_dispatch`; it never reads Actions
+runs or writes pull requests.
+
+This dispatch payload is only a hint/input, never adoption authority. The
+generated canonical artifact for the exact dispatched commit remains the
+actual dependency source. The Addon's `viiper-dependency-update.yml` receiver
+independently rediscovers and re-verifies the exact push/main/success run,
+its canonical artifact name, its manifest, and its DLL/header hashes before
+adopting anything — it never trusts the dispatch payload's claims. Managed
+ABI compatibility is never auto-inferred: the receiver mechanically vendors
+the artifact into a Draft PR and stops. That Draft PR is never auto-merged;
+manual human review of the ABI/runtime diff and manual merge are required.
+
+If App credentials are unavailable, token creation fails, SHA validation
+fails, or the dispatch call fails, the sender workflow fails visibly. It does
+not fall back to `GITHUB_TOKEN`, retry with a different commit, or select a
+different run.
 
 ## Upstream synchronization
 
