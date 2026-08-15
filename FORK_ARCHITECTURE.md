@@ -56,7 +56,9 @@ Its default identity is `28DE:1205`. The wrapper shares generic USB identity,
 attachment, detachment, typed-handle, and removal lifecycle APIs. The generic
 output callback carries the existing normalized Steam Deck host-output stream;
 it does not add MSI Claw-specific behavior or claim Addon rumble adoption.
-Hardware Steam recognition and input testing remain pending.
+Basic non-gyro Steam Deck input has been validated on MSI Claw EX. Lifecycle
+and recovery validation remains pending; rumble/haptics and gyro remain
+separate feature tracks.
 
 ## Lifecycle and failure rules
 
