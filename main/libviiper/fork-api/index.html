@@ -1299,10 +1299,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#gordon-steam-controller" class="md-nav__link">
+  <a href="#steam-controller" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Gordon (Steam Controller)
+        Steam Controller
       
     </span>
   </a>
@@ -1975,10 +1975,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#gordon-steam-controller" class="md-nav__link">
+  <a href="#steam-controller" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Gordon (Steam Controller)
+        Steam Controller
       
     </span>
   </a>
@@ -2225,7 +2225,7 @@ legacy error-only attachment with typed ownership records.</p>
 </thead>
 <tbody>
 <tr>
-<td>Classic Steam Controller (Gordon)</td>
+<td>Steam Controller</td>
 <td><code>CreateSteamControllerDevice</code></td>
 <td><code>SetSteamControllerDeviceState</code>, <code>SetSteamControllerOutputCallback</code></td>
 <td><code>RemoveSteamControllerDevice</code>, <code>RemoveSteamControllerDeviceEx</code></td>
@@ -2291,7 +2291,7 @@ export. The legacy bool export for a given device remains the compatibility
 API and returns <code>true</code> only for that family's <code>_SUCCESS</code> value.</p>
 <p>The result is returned by the same removal operation; do not pair removal
 with a process-global or thread-local last-status query.</p>
-<h4 id="gordon-steam-controller">Gordon (Steam Controller)</h4>
+<h4 id="steam-controller">Steam Controller</h4>
 <p><code>RemoveSteamControllerDevice</code> remains the compatibility bool API. New
 consumers that must preserve native ownership semantics should use:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
@@ -2330,10 +2330,10 @@ that must preserve native ownership semantics should use:</p>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">SteamDeckDeviceRemoveResult</span><span class="w"> </span><span class="nf">RemoveSteamDeckDeviceEx</span><span class="p">(</span>
 <a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
 </code></pre></div>
-<p>The values carry the same semantics as Gordon's enum above (success,
+<p>The values carry the same semantics as the Steam Controller enum above (success,
 retryable failure, unsafe-unknown outcome, and invalid handle/lifecycle use),
 under the Steam Deck's own distinct enum and constant names. Do not assume
-Gordon's <code>SteamControllerDeviceRemoveResult</code> is the only classified removal
+<code>SteamControllerDeviceRemoveResult</code> is the only classified removal
 enum, and do not mix the two families' constants.</p>
 <p>The legacy bool export returns <code>true</code> only for
 <code>VIIPER_STEAMDECK_REMOVE_SUCCESS</code> and <code>false</code> for every other result.</p>
