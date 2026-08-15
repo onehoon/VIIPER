@@ -8,6 +8,13 @@ import (
 	"strings"
 )
 
+func formatDocCommentLine(line string) string {
+	if line == "" {
+		return " *"
+	}
+	return " * " + line
+}
+
 func main() {
 	entries, _ := os.ReadDir("lib/viiper")
 	fset := token.NewFileSet()
@@ -50,7 +57,7 @@ func main() {
 					if doc, ok := comments[before]; ok {
 						out = append(out, "/*")
 						for _, dl := range strings.Split(doc, "\n") {
-							out = append(out, " * "+dl)
+							out = append(out, formatDocCommentLine(dl))
 						}
 						out = append(out, " */")
 					}
