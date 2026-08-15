@@ -208,7 +208,9 @@ jobs:
     libviiper-windows:
         name: Build libVIIPER (windows/amd64)
         runs-on: windows-latest
-        needs: canonical-libviiper-test
+        needs:
+            - test
+            - canonical-libviiper-test
         steps:
             - name: Checkout code
               uses: actions/checkout@v6

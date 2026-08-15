@@ -7,7 +7,11 @@ param(
     [Parameter(Mandatory = $true)][string]$ManifestPath,
     [Parameter(Mandatory = $true)][string]$DllPath,
     [Parameter(Mandatory = $true)][string]$HeaderPath,
-    [string]$ExpectedCommit
+    [string]$ExpectedCommit,
+    [string]$ExpectedRepository = "onehoon/VIIPER",
+    [string]$ExpectedBuildEntrypoint = "just build-libVIIPER Release",
+    [string]$ExpectedPlatform = "windows",
+    [string]$ExpectedArchitecture = "amd64"
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,11 +58,32 @@ if ($manifest.commit.ToLowerInvariant() -ne $ExpectedCommit.ToLowerInvariant()) 
     Fail "Manifest commit '$($manifest.commit)' does not match expected checkout commit '$ExpectedCommit'"
 }
 
+if ($manifest.repository -ne $ExpectedRepository) {
+    Fail "Manifest repository '$($manifest.repository)' does not match expected '$ExpectedRepository'"
+}
+if ($manifest.build_entrypoint -ne $ExpectedBuildEntrypoint) {
+    Fail "Manifest build_entrypoint '$($manifest.build_entrypoint)' does not match expected '$ExpectedBuildEntrypoint'"
+}
+if ($manifest.platform -ne $ExpectedPlatform) {
+    Fail "Manifest platform '$($manifest.platform)' does not match expected '$ExpectedPlatform'"
+}
+if ($manifest.architecture -ne $ExpectedArchitecture) {
+    Fail "Manifest architecture '$($manifest.architecture)' does not match expected '$ExpectedArchitecture'"
+}
+
 if (-not $manifest.dll -or -not $manifest.dll.sha256) {
     Fail "Manifest is missing dll.sha256"
 }
 if (-not $manifest.header -or -not $manifest.header.sha256) {
     Fail "Manifest is missing header.sha256"
+}
+$expectedDllFile = Split-Path -Leaf $DllPath
+$expectedHeaderFile = Split-Path -Leaf $HeaderPath
+if ($manifest.dll.file -ne $expectedDllFile) {
+    Fail "Manifest dll.file '$($manifest.dll.file)' does not match expected '$expectedDllFile'"
+}
+if ($manifest.header.file -ne $expectedHeaderFile) {
+    Fail "Manifest header.file '$($manifest.header.file)' does not match expected '$expectedHeaderFile'"
 }
 
 $actualDllHash = (Get-FileHash -LiteralPath $DllPath -Algorithm SHA256).Hash.ToLowerInvariant()

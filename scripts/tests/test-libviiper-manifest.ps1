@@ -5,13 +5,15 @@ identically in any pwsh environment (local or CI).
 
 Exercises:
   - happy path: generate then verify succeeds
-  - verify fails on wrong commit
+  - verify fails on wrong (but well-formed) expected commit
   - verify fails on malformed/missing full SHA
   - verify fails on wrong DLL hash
   - verify fails on wrong header hash
   - verify fails on missing DLL
   - verify fails on missing header
   - verify fails on unsupported schema_version
+  - verify fails when repository/build_entrypoint/platform/architecture/
+    dll.file/header.file are mutated away from the canonical values
 #>
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -62,8 +64,9 @@ try {
     $exit = Run-Verify $manifest $dll $header $commit
     Check "verify succeeds on matching manifest" ($exit -eq 0)
 
-    $exit = Run-Verify $manifest $dll $header "ffffffffffffffffffffffffffffffffffffff"
-    Check "verify fails on wrong expected commit" ($exit -ne 0)
+    $otherValidCommit = "f" * 40
+    $exit = Run-Verify $manifest $dll $header $otherValidCommit
+    Check "verify fails on wrong but well-formed expected commit" ($exit -ne 0)
 
     $badCommitManifest = Join-Path $work "bad-commit.json"
     (Get-Content $manifest -Raw) -replace $commit, "deadbeef" | Set-Content $badCommitManifest
@@ -98,6 +101,35 @@ try {
     $json | ConvertTo-Json -Depth 10 | Set-Content $badSchemaManifest
     $exit = Run-Verify $badSchemaManifest $dll $header $commit
     Check "verify fails on unsupported schema_version" ($exit -ne 0)
+
+    $metadataMutations = @(
+        @{ Field = "repository"; Value = "someone/other-fork" },
+        @{ Field = "build_entrypoint"; Value = "some-custom-build" },
+        @{ Field = "platform"; Value = "linux" },
+        @{ Field = "architecture"; Value = "arm64" }
+    )
+    foreach ($mutation in $metadataMutations) {
+        $json = Get-Content $manifest -Raw | ConvertFrom-Json
+        $json.($mutation.Field) = $mutation.Value
+        $badManifest = Join-Path $work "bad-$($mutation.Field).json"
+        $json | ConvertTo-Json -Depth 10 | Set-Content $badManifest
+        $exit = Run-Verify $badManifest $dll $header $commit
+        Check "verify fails on wrong $($mutation.Field)" ($exit -ne 0)
+    }
+
+    $json = Get-Content $manifest -Raw | ConvertFrom-Json
+    $json.dll.file = "evil.dll"
+    $badDllFileManifest = Join-Path $work "bad-dll-file.json"
+    $json | ConvertTo-Json -Depth 10 | Set-Content $badDllFileManifest
+    $exit = Run-Verify $badDllFileManifest $dll $header $commit
+    Check "verify fails on wrong dll.file" ($exit -ne 0)
+
+    $json = Get-Content $manifest -Raw | ConvertFrom-Json
+    $json.header.file = "evil.h"
+    $badHeaderFileManifest = Join-Path $work "bad-header-file.json"
+    $json | ConvertTo-Json -Depth 10 | Set-Content $badHeaderFileManifest
+    $exit = Run-Verify $badHeaderFileManifest $dll $header $commit
+    Check "verify fails on wrong header.file" ($exit -ne 0)
 }
 finally {
     Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
