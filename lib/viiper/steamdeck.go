@@ -7,6 +7,11 @@ package main
 
 typedef uintptr_t USBServerHandle;
 typedef uintptr_t SteamDeckDeviceHandle;
+typedef void (*SteamDeckOutputCallback)(SteamDeckDeviceHandle handle, const uint8_t* data, uint32_t length);
+
+static void viiper_call_steamdeck_output(SteamDeckOutputCallback fn, SteamDeckDeviceHandle handle, const uint8_t* data, uint32_t length) {
+	fn(handle, data, length);
+}
 
 typedef enum {
     VIIPER_STEAMDECK_REMOVE_SUCCESS = 0,
@@ -225,6 +230,38 @@ func steamDeckInputState(state steamDeckState) *steamdeck.InputState {
 		LPadForce: state.LPadForce, RPadForce: state.RPadForce,
 		LStickForce: state.LStickForce, RStickForce: state.RStickForce,
 	}
+}
+
+// SetSteamDeckOutputCallback registers a raw normalized Steam Deck host-output callback.
+// The supplied buffer is C-owned, valid only for the synchronous callback, and must be copied
+// by callers that need to retain it. A nil callback clears the callback.
+//
+//export SetSteamDeckOutputCallback
+func SetSteamDeckOutputCallback(handle C.SteamDeckDeviceHandle, cb C.SteamDeckOutputCallback) bool {
+	if cb == nil {
+		return setSteamDeckOutputCallback(uintptr(handle), nil)
+	}
+	return setSteamDeckOutputCallback(uintptr(handle), func(out steamdeck.OutputState) {
+		invokeSteamDeckOutputCallback(cb, handle, out)
+	})
+}
+
+func setSteamDeckOutputCallback(handle uintptr, callback func(steamdeck.OutputState)) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		d, ok := dhw.device.(*steamdeck.SteamDeck)
+		if !ok {
+			return false
+		}
+		d.SetOutputCallback(callback)
+		return true
+	})
+}
+
+func invokeSteamDeckOutputCallback(cb C.SteamDeckOutputCallback, handle C.SteamDeckDeviceHandle, out steamdeck.OutputState) {
+	length := out.Length()
+	payload := C.CBytes(out.Data[:length])
+	defer C.free(payload)
+	C.viiper_call_steamdeck_output(cb, handle, (*C.uint8_t)(payload), C.uint32_t(length))
 }
 
 // RemoveSteamDeckDevice removes and finalizes only the Steam Deck logical device. The bus remains caller-owned.

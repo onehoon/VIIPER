@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -149,6 +151,146 @@ func TestFeedbackCommands(t *testing.T) {
 	assert.Equal(t, uint8(steamdeck.IntensityMedium), rumble.Intensity)
 	assert.Equal(t, uint16(500), rumble.LeftSpeed)
 	assert.Equal(t, uint16(900), rumble.RightSpeed)
+}
+
+func TestOutputCallbackPreservesCompatibilityNormalizationAndLength(t *testing.T) {
+	var legacy steamdeck.OutputState
+	assert.Equal(t, steamdeck.InputReportLen, legacy.Length())
+	if err := legacy.UnmarshalBinary(make([]byte, steamdeck.InputReportLen)); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, steamdeck.InputReportLen, legacy.Length())
+
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	var outputs []steamdeck.OutputState
+	dev.SetOutputCallback(func(out steamdeck.OutputState) {
+		outputs = append(outputs, out)
+	})
+
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x00})
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x00, steamdeck.FeatureClearDigitalMappings})
+	dev.HandleControl(0x21, 0x09, uint16(0x0300|steamdeck.FeatureClearDigitalMappings), 0, 0, nil)
+
+	if !assert.Len(t, outputs, 3) {
+		return
+	}
+	assert.Equal(t, []byte{0x00}, outputs[0].Data[:outputs[0].Length()])
+	assert.Equal(t, 1, outputs[0].Length())
+	assert.Equal(t, []byte{steamdeck.FeatureClearDigitalMappings}, outputs[1].Data[:outputs[1].Length()])
+	assert.Equal(t, []byte{steamdeck.FeatureClearDigitalMappings}, outputs[2].Data[:outputs[2].Length()])
+
+	oversized := make([]byte, steamdeck.InputReportLen+7)
+	oversized[0] = steamdeck.FeatureClearDigitalMappings
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, oversized)
+	assert.Equal(t, steamdeck.InputReportLen, outputs[3].Length())
+}
+
+func TestOutputCallbackSelfClearDoesNotDeadlock(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	var calls atomic.Int32
+	dev.SetOutputCallback(func(steamdeck.OutputState) {
+		calls.Add(1)
+		dev.SetOutputCallback(nil)
+	})
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x99})
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x99})
+	assert.Equal(t, int32(1), calls.Load())
+}
+
+func TestOutputCallbackClearPreventsLaterCapture(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	callbackDone := make(chan struct{})
+	var calls atomic.Int32
+	dev.SetOutputCallback(func(steamdeck.OutputState) {
+		calls.Add(1)
+		close(entered)
+		<-release
+		close(callbackDone)
+	})
+
+	dispatchDone := make(chan struct{})
+	go func() {
+		dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x99})
+		close(dispatchDone)
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("callback did not start")
+	}
+
+	clearDone := make(chan struct{})
+	go func() {
+		dev.SetOutputCallback(nil)
+		close(clearDone)
+	}()
+	select {
+	case <-clearDone:
+	case <-time.After(time.Second):
+		t.Fatal("callback clear did not return while callback was running")
+	}
+
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x98})
+	assert.Equal(t, int32(1), calls.Load())
+	close(release)
+	select {
+	case <-callbackDone:
+	case <-time.After(time.Second):
+		t.Fatal("captured callback did not finish")
+	}
+	select {
+	case <-dispatchDone:
+	case <-time.After(time.Second):
+		t.Fatal("first dispatch did not finish")
+	}
+}
+
+func TestSteamDeckRuntimeStateAndCallbackRaces(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				settings := []byte{0x00, steamdeck.FeatureSetSettingsValues, 0x03, steamdeck.SettingLizardMode, byte(j), 0x00}
+				dev.HandleControl(0x21, 0x09, 0x0300, 0, uint16(len(settings)), settings)
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				dev.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetSettingsValues), 0, steamdeck.InputReportLen, nil)
+			}
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				dev.SetOutputCallback(func(steamdeck.OutputState) {})
+				dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x99})
+				dev.SetOutputCallback(nil)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestFeedbackCommandsWithLeadingReportID(t *testing.T) {

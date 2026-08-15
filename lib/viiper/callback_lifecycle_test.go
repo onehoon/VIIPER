@@ -13,6 +13,7 @@ import (
 	"github.com/Alia5/VIIPER/device/keyboard"
 	"github.com/Alia5/VIIPER/device/ns2pro"
 	"github.com/Alia5/VIIPER/device/steamcontroller"
+	"github.com/Alia5/VIIPER/device/steamdeck"
 	"github.com/Alia5/VIIPER/device/xbox360"
 	"github.com/Alia5/VIIPER/internal/server/api"
 	viiperusb "github.com/Alia5/VIIPER/usb"
@@ -93,6 +94,16 @@ func canonicalCallbackCases() []callbackLifecycleCase {
 				report := make([]byte, ns2pro.OutputRumbleSize+1)
 				report[0] = ns2pro.ReportIDOutput
 				dev.(*ns2pro.NS2Pro).HandleTransfer(context.Background(), 1, usbip.DirOut, report)
+			},
+		},
+		{
+			name: "steamdeck",
+			new:  func() (viiperusb.Device, error) { return steamdeck.New(nil) },
+			install: func(dev viiperusb.Device, calls *atomic.Int64) {
+				dev.(*steamdeck.SteamDeck).SetOutputCallback(func(steamdeck.OutputState) { calls.Add(1) })
+			},
+			dispatch: func(dev viiperusb.Device) {
+				dev.(*steamdeck.SteamDeck).HandleTransfer(context.Background(), 3, usbip.DirOut, []byte{0x99})
 			},
 		},
 	}

@@ -161,6 +161,9 @@ jobs:
             - name: Run lifecycle race tests
               run: go test -race ./device/steamcontroller ./device/steamdeck ./lib/viiper
 
+            - name: Run Steam Deck C callback bridge tests
+              run: go test -tags viiper_testbridge ./lib/viiper
+
             - name: Vet canonical packages
               run: go vet ./device/steamcontroller ./device/steamdeck ./lib/viiper ./internal/server/usb ./virtualbus
 
@@ -262,6 +265,9 @@ jobs:
                   grep -q 'SetSteamDeckDeviceState' dist/libVIIPER/libVIIPER.h
                   grep -q 'RemoveSteamDeckDevice' dist/libVIIPER/libVIIPER.h
                   grep -q 'RemoveSteamDeckDeviceEx' dist/libVIIPER/libVIIPER.h
+                  grep -q 'SteamDeckOutputCallback' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'typedef void \(\*SteamDeckOutputCallback\)\(SteamDeckDeviceHandle handle, const uint8_t\* data, uint32_t length\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern GoUint8 SetSteamDeckOutputCallback\(SteamDeckDeviceHandle handle, SteamDeckOutputCallback cb\);' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern GoUint8 CreateSteamDeckDevice\(USBServerHandle serverHandle, SteamDeckDeviceHandle\* outDeviceHandle, GoUint32 busID, GoUint8 autoAttachLocalhost, GoUint16 idVendor, GoUint16 idProduct\);' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern GoUint8 SetSteamDeckDeviceState\(SteamDeckDeviceHandle handle, SteamDeckDeviceState state\);' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern GoUint8 RemoveSteamDeckDevice\(SteamDeckDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
@@ -278,6 +284,7 @@ jobs:
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamDeckDeviceState'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamDeckDevice'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamDeckDeviceEx'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamDeckOutputCallback'
 
             - name: Package
               shell: pwsh

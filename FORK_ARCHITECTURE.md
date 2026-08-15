@@ -54,7 +54,9 @@ RemoveSteamDeckDeviceEx
 
 Its default identity is `28DE:1205`. The wrapper shares generic USB identity,
 attachment, detachment, typed-handle, and removal lifecycle APIs. The generic
-output callback does not add application-specific behavior.
+output callback carries the existing normalized Steam Deck host-output stream;
+it does not add MSI Claw-specific behavior or claim Addon rumble adoption.
+Hardware Steam recognition and input testing remain pending.
 
 ## Lifecycle and failure rules
 

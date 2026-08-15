@@ -269,7 +269,27 @@ func (s *InputState) buildReport(frame uint32, payloadLen byte) []byte {
 }
 
 type OutputState struct {
-	Data [InputReportLen]byte
+	Data   [InputReportLen]byte
+	length uint8
+}
+
+func newOutputState(data []byte) OutputState {
+	if len(data) > InputReportLen {
+		data = data[:InputReportLen]
+	}
+	out := OutputState{length: uint8(len(data))}
+	copy(out.Data[:], data)
+	return out
+}
+
+// Length returns the actual host-output length for dispatched commands. A
+// zero length is the legacy fixed-buffer sentinel for directly constructed
+// or unmarshaled OutputState values.
+func (o OutputState) Length() int {
+	if o.length == 0 {
+		return len(o.Data)
+	}
+	return int(o.length)
 }
 
 func (o *OutputState) MarshalBinary() ([]byte, error) {
@@ -283,6 +303,7 @@ func (o *OutputState) UnmarshalBinary(data []byte) error {
 		return io.ErrUnexpectedEOF
 	}
 	copy(o.Data[:], data[:len(o.Data)])
+	o.length = uint8(len(o.Data))
 	return nil
 }
 
