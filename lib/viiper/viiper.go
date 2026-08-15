@@ -113,6 +113,13 @@ type deviceHandleWrapper struct {
 	exportMeta *usbip.ExportMeta
 	usbServer  *usbServerHandleWrapper
 	attachment deviceAttachmentRecord
+
+	// dpadDiag* track the last D-pad mask decoded from the native C ABI for this device
+	// handle, so the Boundary-A D-pad diagnostic in steamcontroller.go can log only on
+	// transitions. See docs/libviiper/fork-api.md D-pad diagnostic notes.
+	dpadDiagMu     sync.Mutex
+	dpadDiagMask   uint8
+	dpadDiagLogged bool
 }
 
 type deviceAttachmentState uint8

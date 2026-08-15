@@ -3,6 +3,8 @@ package steamcontroller
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/Alia5/VIIPER/device"
@@ -62,6 +64,13 @@ type SteamController struct {
 	controller          controllerState
 	imuBias             imuBiasState
 	lastFeatureResponse []byte
+
+	// dpadReportDiag* track the last D-pad mask (report[9]&0x0F) seen in a controller
+	// IN-endpoint report, so the Boundary-B D-pad diagnostic below logs only on
+	// transitions rather than every poll.
+	dpadReportDiagMu     sync.Mutex
+	dpadReportDiagMask   byte
+	dpadReportDiagLogged bool
 }
 
 type controllerState struct {
@@ -216,6 +225,7 @@ func (d *SteamController) HandleTransfer(ctx context.Context, ep uint32, dir uin
 		case controllerEndpointNumber:
 			st := d.snapshotInputState()
 			report := d.buildInputReport(st, st.Frame)
+			d.logDPadReportTransitionIfChanged(st, report)
 			return report
 		default:
 			return nil
@@ -225,6 +235,55 @@ func (d *SteamController) HandleTransfer(ctx context.Context, ep uint32, dir uin
 		d.handleHostCommand(out)
 	}
 	return nil
+}
+
+// logDPadReportTransitionIfChanged is the Boundary-B D-pad diagnostic (final Gordon
+// controller IN-report). It logs Debug only when report[9]&0x0F actually changes, so a
+// single physical button press produces only a handful of lines, and it never mistakes
+// unrelated upper-nibble bits (Menu/Steam/Options/LGrip, also packed into byte[9]) for a
+// D-pad change. It also cross-checks the D-pad mask implied by the exact InputState
+// snapshot used to build this report against the mask actually written into the report;
+// those must always agree for the same snapshot/report-construction operation, so any
+// mismatch is a genuine internal invariant violation (logged as Warning) rather than the
+// ordinary case of the USB host polling between transitions.
+func (d *SteamController) logDPadReportTransitionIfChanged(st InputState, report []byte) {
+	if len(report) <= 9 {
+		return
+	}
+	byte9 := report[9]
+	dpadMask := byte9 & 0x0F
+
+	if expected := dpadMaskFromInputState(st); expected != dpadMask {
+		slog.Warn("VIIPER.DPad", "Stage", "GordonReportInvariant",
+			"Expected", fmt.Sprintf("0x%02X", expected), "Actual", fmt.Sprintf("0x%02X", dpadMask))
+	}
+
+	d.dpadReportDiagMu.Lock()
+	changed := !d.dpadReportDiagLogged || d.dpadReportDiagMask != dpadMask
+	d.dpadReportDiagMask = dpadMask
+	d.dpadReportDiagLogged = true
+	d.dpadReportDiagMu.Unlock()
+	if changed {
+		slog.Debug("VIIPER.DPad", "Stage", "GordonReport",
+			"Byte9", fmt.Sprintf("0x%02X", byte9), "DPadMask", fmt.Sprintf("0x%02X", dpadMask))
+	}
+}
+
+func dpadMaskFromInputState(st InputState) byte {
+	var mask byte
+	if st.DPadUp {
+		mask |= buttonByte9Up
+	}
+	if st.DPadRight {
+		mask |= buttonByte9Right
+	}
+	if st.DPadLeft {
+		mask |= buttonByte9Left
+	}
+	if st.DPadDown {
+		mask |= buttonByte9Down
+	}
+	return mask
 }
 
 func (d *SteamController) buildLizardKeyboardReport(st InputState) []byte {

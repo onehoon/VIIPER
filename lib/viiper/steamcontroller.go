@@ -43,6 +43,8 @@ static void viiper_call_steamcontroller_output(SteamControllerOutputCallback fn,
 import "C"
 
 import (
+	"fmt"
+	"log/slog"
 	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
@@ -98,7 +100,66 @@ func createSteamControllerDevice(serverHandle uintptr, outDeviceHandle *deviceHa
 //
 //export SetSteamControllerDeviceState
 func SetSteamControllerDeviceState(handle C.SteamControllerDeviceHandle, state C.SteamControllerDeviceState) bool {
-	return setSteamControllerDeviceState(uintptr(handle), steamControllerStateFromC(state))
+	decoded := steamControllerStateFromC(state)
+	logDPadABIDecodedIfChanged(uintptr(handle), decoded)
+	return setSteamControllerDeviceState(uintptr(handle), decoded)
+}
+
+// D-pad runtime diagnostic (Boundary A): mask bits match the Gordon report byte[9]
+// encoding in device/steamcontroller/const.go (buttonByte9Up/Right/Left/Down).
+const (
+	dpadDiagUpMask    uint8 = 0x01
+	dpadDiagRightMask uint8 = 0x02
+	dpadDiagLeftMask  uint8 = 0x04
+	dpadDiagDownMask  uint8 = 0x08
+)
+
+func dpadDiagMaskFromState(state steamControllerState) uint8 {
+	var mask uint8
+	if state.DPadUp {
+		mask |= dpadDiagUpMask
+	}
+	if state.DPadRight {
+		mask |= dpadDiagRightMask
+	}
+	if state.DPadLeft {
+		mask |= dpadDiagLeftMask
+	}
+	if state.DPadDown {
+		mask |= dpadDiagDownMask
+	}
+	return mask
+}
+
+// logDPadABIDecodedIfChanged emits a Debug-only diagnostic proving the D-pad fields
+// survived native C ABI decoding (Boundary A of the D-pad runtime diagnostic task),
+// gated on an actual change of the decoded D-pad mask for this device handle. Production
+// callers publish state at up to ~250Hz; without transition gating this would flood the
+// log. Silently no-ops for an unknown/inactive handle -- diagnostics must never affect
+// SetSteamControllerDeviceState's own return value or behavior.
+func logDPadABIDecodedIfChanged(handle uintptr, state steamControllerState) {
+	mask := dpadDiagMaskFromState(state)
+	withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
+		dhw.dpadDiagMu.Lock()
+		changed := !dhw.dpadDiagLogged || dhw.dpadDiagMask != mask
+		dhw.dpadDiagMask = mask
+		dhw.dpadDiagLogged = true
+		dhw.dpadDiagMu.Unlock()
+		if changed {
+			slog.Debug("VIIPER.DPad", "Stage", "ABIDecoded",
+				"Up", boolToDigit(state.DPadUp), "Right", boolToDigit(state.DPadRight),
+				"Left", boolToDigit(state.DPadLeft), "Down", boolToDigit(state.DPadDown),
+				"Mask", fmt.Sprintf("0x%02X", mask))
+		}
+		return true
+	})
+}
+
+func boolToDigit(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 type steamControllerState struct {
