@@ -164,7 +164,9 @@ func steamDeckStateFromPointer(pointer unsafe.Pointer) steamDeckState {
 
 func steamDeckDeviceStateSize() uintptr { return unsafe.Sizeof(C.SteamDeckDeviceState{}) }
 
-func steamDeckDeviceRemoveResultSize() uintptr { return unsafe.Sizeof(C.SteamDeckDeviceRemoveResult(0)) }
+func steamDeckDeviceRemoveResultSize() uintptr {
+	return unsafe.Sizeof(C.SteamDeckDeviceRemoveResult(0))
+}
 
 type steamDeckDeviceStateCOffsets struct {
 	L2Digital, R2Digital, R3, QuickAccess uintptr
