@@ -298,11 +298,11 @@ func (d *SteamDeck) applySettingsLocked(data []byte) {
 }
 
 func (d *SteamDeck) getFeatureResponse(reportID uint8) []byte {
-	d.featureMtx.Lock()
-	defer d.featureMtx.Unlock()
 	if reportID != 0 {
 		return d.featureResponse([]byte{reportID})
 	}
+	d.featureMtx.Lock()
+	defer d.featureMtx.Unlock()
 	if len(d.lastFeatureResponse) == 0 {
 		return nil
 	}
@@ -310,9 +310,9 @@ func (d *SteamDeck) getFeatureResponse(reportID uint8) []byte {
 }
 
 func (d *SteamDeck) setFeatureResponse(request []byte) {
+	resp := d.featureResponse(request)
 	d.featureMtx.Lock()
 	defer d.featureMtx.Unlock()
-	resp := d.featureResponse(request)
 	if resp == nil {
 		d.lastFeatureResponse = nil
 		return

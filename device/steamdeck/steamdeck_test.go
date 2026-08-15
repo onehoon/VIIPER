@@ -203,6 +203,59 @@ func TestOutputCallbackSelfClearDoesNotDeadlock(t *testing.T) {
 	assert.Equal(t, int32(1), calls.Load())
 }
 
+func TestOutputCallbackClearPreventsLaterCapture(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	callbackDone := make(chan struct{})
+	var calls atomic.Int32
+	dev.SetOutputCallback(func(steamdeck.OutputState) {
+		calls.Add(1)
+		close(entered)
+		<-release
+		close(callbackDone)
+	})
+
+	dispatchDone := make(chan struct{})
+	go func() {
+		dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x99})
+		close(dispatchDone)
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("callback did not start")
+	}
+
+	clearDone := make(chan struct{})
+	go func() {
+		dev.SetOutputCallback(nil)
+		close(clearDone)
+	}()
+	select {
+	case <-clearDone:
+	case <-time.After(time.Second):
+		t.Fatal("callback clear did not return while callback was running")
+	}
+
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirOut, []byte{0x98})
+	assert.Equal(t, int32(1), calls.Load())
+	close(release)
+	select {
+	case <-callbackDone:
+	case <-time.After(time.Second):
+		t.Fatal("captured callback did not finish")
+	}
+	select {
+	case <-dispatchDone:
+	case <-time.After(time.Second):
+		t.Fatal("first dispatch did not finish")
+	}
+}
+
 func TestSteamDeckRuntimeStateAndCallbackRaces(t *testing.T) {
 	dev, err := steamdeck.New(nil)
 	if !assert.NoError(t, err) {

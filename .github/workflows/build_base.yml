@@ -161,6 +161,9 @@ jobs:
             - name: Run lifecycle race tests
               run: go test -race ./device/steamcontroller ./device/steamdeck ./lib/viiper
 
+            - name: Run Steam Deck C callback bridge tests
+              run: go test -tags viiper_testbridge ./lib/viiper
+
             - name: Vet canonical packages
               run: go vet ./device/steamcontroller ./device/steamdeck ./lib/viiper ./internal/server/usb ./virtualbus
 

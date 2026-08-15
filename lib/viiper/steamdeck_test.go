@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"reflect"
 	"runtime/cgo"
@@ -396,5 +397,36 @@ func TestSteamDeckOutputCallbackWrapperContracts(t *testing.T) {
 	}
 	if setSteamDeckOutputCallback(uintptr(h), nil) {
 		t.Fatal("stale handle accepted")
+	}
+}
+
+func TestSteamDeckRemovalClearsCallbackBeforeDetachFailure(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9242)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 68}, nil
+	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+		return errors.New("known detach failure")
+	}
+	deck, err := steamdeck.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9242, deck, true)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("creation failed")
+	}
+	calls := 0
+	if !setSteamDeckOutputCallback(uintptr(h), func(steamdeck.OutputState) { calls++ }) {
+		t.Fatal("callback registration failed")
+	}
+	if removeSteamDeckDevice(uintptr(h)) {
+		t.Fatal("removal succeeded despite detach failure")
+	}
+	deck.HandleTransfer(context.Background(), 3, usbip.DirOut, []byte{0x99})
+	if calls != 0 || !lookupIdentityExists(uintptr(h)) {
+		t.Fatalf("callback calls=%d record=%t", calls, lookupIdentityExists(uintptr(h)))
 	}
 }
