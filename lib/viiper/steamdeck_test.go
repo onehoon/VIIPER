@@ -161,27 +161,31 @@ func TestSteamDeckABIStateBoundaryConversion(t *testing.T) {
 func TestSteamDeckABIFieldOffsets(t *testing.T) {
 	cOffsets := steamDeckDeviceStateABIOffsets()
 	type fieldOffset struct {
-		name   string
-		c      uintptr
-		mirror uintptr
+		name            string
+		c, mirror, want uintptr
 	}
 	fields := []fieldOffset{
-		{"L2Digital", cOffsets.L2Digital, unsafe.Offsetof(steamDeckDeviceStateABI{}.L2Digital)},
-		{"R2Digital", cOffsets.R2Digital, unsafe.Offsetof(steamDeckDeviceStateABI{}.R2Digital)},
-		{"R3", cOffsets.R3, unsafe.Offsetof(steamDeckDeviceStateABI{}.R3)},
-		{"QuickAccess", cOffsets.QuickAccess, unsafe.Offsetof(steamDeckDeviceStateABI{}.QuickAccess)},
-		{"LPadX", cOffsets.LPadX, unsafe.Offsetof(steamDeckDeviceStateABI{}.LPadX)},
-		{"AccelX", cOffsets.AccelX, unsafe.Offsetof(steamDeckDeviceStateABI{}.AccelX)},
-		{"LTrigger", cOffsets.LTrigger, unsafe.Offsetof(steamDeckDeviceStateABI{}.LTrigger)},
-		{"LStickX", cOffsets.LStickX, unsafe.Offsetof(steamDeckDeviceStateABI{}.LStickX)},
-		{"RStickX", cOffsets.RStickX, unsafe.Offsetof(steamDeckDeviceStateABI{}.RStickX)},
+		{"L2Digital", cOffsets.L2Digital, unsafe.Offsetof(steamDeckDeviceStateABI{}.L2Digital), 6},
+		{"R2Digital", cOffsets.R2Digital, unsafe.Offsetof(steamDeckDeviceStateABI{}.R2Digital), 7},
+		{"R3", cOffsets.R3, unsafe.Offsetof(steamDeckDeviceStateABI{}.R3), 22},
+		{"QuickAccess", cOffsets.QuickAccess, unsafe.Offsetof(steamDeckDeviceStateABI{}.QuickAccess), 27},
+		{"LPadX", cOffsets.LPadX, unsafe.Offsetof(steamDeckDeviceStateABI{}.LPadX), 28},
+		{"AccelX", cOffsets.AccelX, unsafe.Offsetof(steamDeckDeviceStateABI{}.AccelX), 36},
+		{"LTrigger", cOffsets.LTrigger, unsafe.Offsetof(steamDeckDeviceStateABI{}.LTrigger), 56},
+		{"LStickX", cOffsets.LStickX, unsafe.Offsetof(steamDeckDeviceStateABI{}.LStickX), 60},
+		{"RStickX", cOffsets.RStickX, unsafe.Offsetof(steamDeckDeviceStateABI{}.RStickX), 64},
 	}
 	for _, field := range fields {
-		if field.c != field.mirror {
-			t.Fatalf("%s offsets: C=%d, Go mirror=%d", field.name, field.c, field.mirror)
+		if field.c != field.mirror || field.c != field.want {
+			t.Fatalf("%s offsets: C=%d, Go mirror=%d, want=%d", field.name, field.c, field.mirror, field.want)
 		}
 	}
-	t.Logf("SteamDeckDeviceState C ABI size = %d", steamDeckDeviceStateSize())
+	if got, want := steamDeckDeviceStateSize(), uintptr(76); got != want {
+		t.Fatalf("SteamDeckDeviceState C ABI size = %d, want %d", got, want)
+	}
+	if got, want := steamDeckDeviceRemoveResultSize(), uintptr(4); got != want {
+		t.Fatalf("SteamDeckDeviceRemoveResult C ABI size = %d, want %d", got, want)
+	}
 }
 
 func TestSteamDeckDefaultAndOverrideIdentity(t *testing.T) {
