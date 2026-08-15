@@ -2453,10 +2453,26 @@ build than the one it ships with.</p>
 only; they do not upload artifacts and are not adoption candidates. Only a
 successful main-branch build produces an artifact eligible for downstream
 adoption. Consumers must pin an exact commit/artifact rather than depending
-on a mutable "latest" build. SteamInputAddonforClaw does not consume this
-artifact automatically yet; automated cross-repository adoption (a Addon-side
-lockfile, updater script, or dispatch-based PR creation) is out of scope for
-this contract and remains future work.</p>
+on a mutable "latest" build.</p>
+<p>SteamInputAddonforClaw consumes this artifact through a two-repository
+automation pipeline:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>VIIPER main push
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>  -&gt; Dev Snapshot Build completes successfully
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>  -&gt; notify-addon-dependency.yml validates success/main/push and the exact
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>     40-character head_sha, then sends repository_dispatch
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>     (viiper-canonical-ready) with that commit
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>  -&gt; SteamInputAddonforClaw&#39;s viiper-dependency-update.yml independently
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>     re-verifies the exact commit&#39;s canonical artifact, manifest, and hashes
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>  -&gt; mechanical Draft dependency PR
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>  -&gt; human ABI/runtime review
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>  -&gt; manual merge only
+</code></pre></div>
+<p>The dispatch payload's commit is only a hint/input, not dependency
+authority — the generated canonical artifact for that exact commit remains
+the actual dependency source, and the Addon receiver never trusts the
+payload's claims without independently re-deriving them. Managed ABI
+compatibility is never auto-inferred from this pipeline, and the resulting
+Draft PR is never auto-merged.</p>
 
 
 
