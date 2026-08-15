@@ -38,9 +38,16 @@ All handles are opaque `uintptr_t` values. Treat them as capability tokens:
 - expect stale, zero, wrong-type, and arbitrary handles to return `false`;
 - keep callback function pointers alive for as long as they are registered.
 
-The exported functions return `true` on success and `false` on failure. Output
-handle and output ID pointers must be non-NULL. Invalid input is rejected
-before device construction, bus registration, attachment, or handle creation.
+Return semantics are defined by each export. Boolean compatibility exports
+(`AttachUSBDevice`, `DetachUSBDevice`, `Create*Device`, `Set*DeviceState`,
+`Remove*Device`, and similar) return `true` on success and `false` on
+failure. Classified `*Ex` exports (`AttachUSBDeviceEx`, `DetachUSBDeviceEx`,
+`RemoveSteamControllerDeviceEx`, `RemoveSteamDeckDeviceEx`, and similar)
+return their documented operation-specific result enum directly instead of a
+bool; see "Classified attach/detach results" and "Classified typed-device
+removal" below for the exact enums. Output handle and output ID pointers
+must be non-NULL. Invalid input is rejected before device construction, bus
+registration, attachment, or handle creation.
 
 ## Classic Steam Controller trigger state
 
@@ -170,6 +177,56 @@ The attachment result is classified as:
 - verified success: backend and positive port are recorded;
 - unknown outcome: the server enters `close-failed`, no automatic retry is
   attempted, and the token is retained only for diagnostics.
+
+### Classified attach/detach results
+
+`AttachUSBDevice`/`DetachUSBDevice` collapse that classification into a bare
+`bool`. Callers that need to distinguish a safe, explicitly retryable failure
+from an unsafe unknown outcome should use the classified `Ex` variants
+instead of trying to infer native ownership from a `bool`:
+
+```c
+typedef enum {
+    VIIPER_ATTACH_SUCCESS = 0,
+    VIIPER_ATTACH_RETRYABLE_FAILURE = 1,
+    VIIPER_ATTACH_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_ATTACH_INVALID = 3
+} USBDeviceAttachResult;
+
+typedef enum {
+    VIIPER_DETACH_SUCCESS = 0,
+    VIIPER_DETACH_RETRYABLE_FAILURE = 1,
+    VIIPER_DETACH_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_DETACH_INVALID = 3
+} USBDeviceDetachResult;
+
+USBDeviceAttachResult AttachUSBDeviceEx(uintptr_t deviceHandle);
+USBDeviceDetachResult DetachUSBDeviceEx(uintptr_t deviceHandle);
+```
+
+`AttachUSBDeviceEx` and `DetachUSBDeviceEx` are not a separate mutation path:
+`AttachUSBDevice`/`DetachUSBDevice` call the exact same classified operation
+and return `true` only for `..._SUCCESS`, `false` for every other result.
+
+- `..._SUCCESS`: the device was successfully attached/detached, or was
+  already in that state (attach/detach remain idempotent; the same valid
+  device already attached/detached succeeds without a second backend call).
+- `..._RETRYABLE_FAILURE`: the operation had a known failure. Ownership
+  remains known — for detach, the exact existing attachment token remains
+  authoritative — the server remains active, and an explicit later retry is
+  safe.
+- `..._UNSAFE_OUTCOME_UNKNOWN`: native ownership cannot be determined
+  safely. The device's attachment record becomes `attachmentOutcomeUnknown`
+  and the owning server enters `close-failed`, matching the existing
+  fail-closed contract. **If the device is already in
+  `attachmentOutcomeUnknown`, subsequent `AttachUSBDeviceEx` or
+  `DetachUSBDeviceEx` calls must return `UNSAFE_OUTCOME_UNKNOWN` again
+  without invoking the backend or attempting any destructive retry. Do not
+  downgrade this state to `INVALID`** — unknown means native ownership
+  evidence remains unsafe, not that the handle became invalid.
+- `..._INVALID`: a zero/stale/wrong-type handle, or a mutation the current
+  server lifecycle does not permit (for example after the server has
+  finished closing). No attachment attempt is made.
 
 The legacy `clib` attachment functions are separate compatibility APIs. New
 fork integrations should use the typed canonical functions instead of mixing
