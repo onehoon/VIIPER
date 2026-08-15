@@ -18,6 +18,12 @@ type localhostAttachAttempt func(context.Context, *usbip.ExportMeta, uint16, *sl
 
 // attachLocalhostClientWithFallback makes one layer responsible for native to
 // command fallback. Unknown outcomes deliberately bypass fallback.
+//
+// port is the real runtime USB/IP server listen port (hw.s.GetListenPort() in lib/viiper); every
+// call site visible to this package's linter run happens to pass the test fixture value 3241,
+// but the contract genuinely needs a variable port and must not be narrowed.
+//
+//nolint:unparam
 func attachLocalhostClientWithFallback(ctx context.Context, meta *usbip.ExportMeta, port uint16, useNativeIOCTL bool, logger *slog.Logger, native, command localhostAttachAttempt) (LocalhostAttachment, error) {
 	start := time.Now()
 

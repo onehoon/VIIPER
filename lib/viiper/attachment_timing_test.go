@@ -36,7 +36,7 @@ func (h *timingRecordingHandler) Handle(_ context.Context, r slog.Record) error 
 }
 
 func (h *timingRecordingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h *timingRecordingHandler) WithGroup(string) slog.Handler     { return h }
+func (h *timingRecordingHandler) WithGroup(string) slog.Handler      { return h }
 
 func (h *timingRecordingHandler) timingRecords() []slog.Record {
 	h.mu.Lock()
@@ -233,6 +233,90 @@ func TestCanonicalDetachTimingPreservesTokenAndClassification(t *testing.T) {
 	}
 	if detachCalls != 2 {
 		t.Fatalf("detachCalls = %d, want 2", detachCalls)
+	}
+	// The successful detach clears dhw.attachment.attachment back to its zero value as part of
+	// the mutation -- the timing log must still report the token that was actually detached
+	// (snapshotted before the mutation), not the post-mutation zero value.
+	records = handler.timingRecords()
+	if len(records) != 2 {
+		t.Fatalf("timing records = %d, want exactly 2", len(records))
+	}
+	successAttrs := recordAttrs(records[1])
+	if successAttrs["result"] != "success" {
+		t.Fatalf("unexpected success timing attrs: %+v", successAttrs)
+	}
+	if fmt.Sprint(successAttrs["attachmentBackend"]) != fmt.Sprint(api.LocalhostAttachmentBackendCommand) || fmt.Sprint(successAttrs["importPort"]) != "201" {
+		t.Fatalf("successful detach timing lost the real token (post-mutation zero value logged instead): %+v", successAttrs)
+	}
+	identity, ok = lookupDeviceIdentity(uintptr(h))
+	if !ok || identity.attachment.state != attachmentDetached {
+		t.Fatal("device did not end detached after the successful retry")
+	}
+}
+
+// lockCheckingHandler records, for every log record it receives, whether hw.lifecycleMu was
+// already free at that moment (via TryLock). This is a direct regression guard for the timing
+// log running after lifecycleMu.Unlock(), not held-lock: the funcLogHandler bridge used in
+// production invokes the embedding consumer's C callback synchronously from inside slog.Handle,
+// so logging while still holding the lock would let a slow/reentrant callback stall unrelated
+// lifecycle operations or deadlock a callback that re-enters a VIIPER lifecycle API.
+type lockCheckingHandler struct {
+	mu          sync.Mutex
+	hw          *usbServerHandleWrapper
+	lockWasFree []bool
+}
+
+func (h *lockCheckingHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *lockCheckingHandler) Handle(_ context.Context, r slog.Record) error {
+	if r.Message != "attachment-timing" {
+		return nil
+	}
+	free := h.hw.lifecycleMu.TryLock()
+	if free {
+		h.hw.lifecycleMu.Unlock()
+	}
+	h.mu.Lock()
+	h.lockWasFree = append(h.lockWasFree, free)
+	h.mu.Unlock()
+	return nil
+}
+
+func (h *lockCheckingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *lockCheckingHandler) WithGroup(string) slog.Handler      { return h }
+
+func TestCanonicalAttachDetachTimingLogsAfterLockRelease(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9503)
+	checker := &lockCheckingHandler{hw: hw}
+	hw.logger = slog.New(checker)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 202}, nil
+	}
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
+
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9503, mustNewTestMouse(t), false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("create failed")
+	}
+
+	if got := attachUSBDeviceResult(uintptr(h)); got != deviceAttachSuccess {
+		t.Fatalf("attach result = %d, want success", got)
+	}
+	if got := detachUSBDeviceResult(uintptr(h)); got != deviceDetachSuccess {
+		t.Fatalf("detach result = %d, want success", got)
+	}
+
+	checker.mu.Lock()
+	defer checker.mu.Unlock()
+	if len(checker.lockWasFree) != 2 {
+		t.Fatalf("timing log invocations observed = %d, want 2", len(checker.lockWasFree))
+	}
+	for i, free := range checker.lockWasFree {
+		if !free {
+			t.Fatalf("invocation %d: lifecycleMu was still held while emitting the timing log", i)
+		}
 	}
 }
 

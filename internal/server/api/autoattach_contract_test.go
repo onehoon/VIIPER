@@ -32,7 +32,7 @@ func (h *timingRecordingHandler) Handle(_ context.Context, r slog.Record) error 
 }
 
 func (h *timingRecordingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h *timingRecordingHandler) WithGroup(string) slog.Handler     { return h }
+func (h *timingRecordingHandler) WithGroup(string) slog.Handler      { return h }
 
 func (h *timingRecordingHandler) timingRecords() []slog.Record {
 	h.mu.Lock()

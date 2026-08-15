@@ -428,10 +428,14 @@ func detachResultTimingLabel(result deviceDetachResult) string {
 
 // logCanonicalAttachmentTiming emits one behavior-neutral "attachment-timing" summary per
 // canonical Attach/Detach operation (layer=canonical), covering both the bool and classified Ex
-// exports since they share this exact resolver. It is diagnostic-only: called after the result
-// and any stored state are already finalized, and it never influences either. Fields follow the
-// stable vocabulary documented in fork-api.md's timing note: operation, layer, result, backend,
-// backendCalled, totalUs, lockWaitUs, backendUs, plus operation-specific identity fields.
+// exports since they share this exact resolver. It is diagnostic-only and must always be called
+// after hw.lifecycleMu has been released: the funcLogHandler bridge invokes the embedding
+// consumer's C log callback synchronously, so logging while still holding the lock would let a
+// slow/reentrant callback stall unrelated lifecycle operations (or deadlock one that re-enters a
+// VIIPER lifecycle API) and would pollute the very lockWaitUs measurement this exists to produce.
+// Fields follow the stable diagnostic vocabulary used by this instrumentation: operation, layer,
+// result, backend, backendCalled, totalUs, lockWaitUs, backendUs, plus operation-specific
+// identity fields snapshotted under the lock before it was released.
 func logCanonicalAttachmentTiming(logger *slog.Logger, operation, result string, timing operationTiming, totalUs, lockWaitUs int64, identity ...any) {
 	backend := "none"
 	if timing.backendCalled {
@@ -470,7 +474,6 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	lockWaitStart := time.Now()
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
-	defer hw.lifecycleMu.Unlock()
 
 	var result deviceAttachResult
 	var timing operationTiming
@@ -488,8 +491,14 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	default:
 		result = hw.attachDeviceLockedResult(dhw, &timing)
 	}
-	logCanonicalAttachmentTiming(hw.logger, "attach", attachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
-		"busID", dhw.exportMeta.BusID, "deviceID", dhw.exportMeta.DevID)
+	// exportMeta is set once at creation and never mutated, but snapshot it into locals anyway
+	// (rather than reading dhw after unlock) so this function never depends on that remaining true.
+	busID, deviceID := dhw.exportMeta.BusID, dhw.exportMeta.DevID
+	logger := hw.logger
+	hw.lifecycleMu.Unlock()
+
+	logCanonicalAttachmentTiming(logger, "attach", attachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
+		"busID", busID, "deviceID", deviceID)
 	return result
 }
 
@@ -510,7 +519,12 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	lockWaitStart := time.Now()
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
-	defer hw.lifecycleMu.Unlock()
+
+	// Snapshot the attachment token that is authoritative going into this call, before any
+	// mutation: a successful detach clears dhw.attachment.attachment back to its zero value, and
+	// the timing log for that exact success is the one case where the real backend/port most
+	// matters for the real hardware analysis this instrumentation exists for.
+	trackedBackend, trackedPort := dhw.attachment.attachment.Backend, dhw.attachment.attachment.Port
 
 	var result deviceDetachResult
 	var timing operationTiming
@@ -527,8 +541,11 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	default:
 		result = hw.detachDeviceLockedResult(dhw, &timing)
 	}
-	logCanonicalAttachmentTiming(hw.logger, "detach", detachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
-		"attachmentBackend", dhw.attachment.attachment.Backend, "importPort", dhw.attachment.attachment.Port)
+	logger := hw.logger
+	hw.lifecycleMu.Unlock()
+
+	logCanonicalAttachmentTiming(logger, "detach", detachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
+		"attachmentBackend", trackedBackend, "importPort", trackedPort)
 	return result
 }
 
