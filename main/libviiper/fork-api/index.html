@@ -1237,6 +1237,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#detached-ready-typed-devices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detached-ready typed devices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bus-ownership" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1930,6 +1941,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#detached-ready-typed-devices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detached-ready typed devices
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bus-ownership" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2197,6 +2219,18 @@ field-layout change with a newer DLL (or vice versa).</p>
 diagnostic/identity operations and retry <code>CloseUSBServer</code> according to the
 failure state. A failed close is fail-closed; callers must not recreate buses,
 retry an unknown attachment outcome, or continue normal mutation.</p>
+<h3 id="detached-ready-typed-devices">Detached-ready typed devices</h3>
+<p>A typed device created with <code>autoAttachLocalhost=false</code> is immediately
+usable in the <code>detached</code> state: its <code>Set*DeviceState</code> and
+<code>Set*OutputCallback</code>/<code>Set*RumbleCallback</code> exports accept mutation before the
+device has ever been attached. <code>AttachUSBDevice</code> is the only operation that
+performs a Windows localhost attachment; creation itself never does.</p>
+<p>An explicit <code>DetachUSBDevice</code> ends only that attachment, not the logical
+device's lifetime. State and callback mutation remain valid on the same
+typed handle while detached, and the same handle may be explicitly
+reattached via <code>AttachUSBDevice</code> any number of times while the owning server
+remains <code>active</code>. Only a successful typed <code>Remove*Device</code> (or <code>*Ex</code> variant)
+ends the logical device's lifetime; <code>DetachUSBDevice</code> never does.</p>
 <h3 id="bus-ownership">Bus ownership</h3>
 <p>Typed device removal is intentionally <strong>device-only</strong>. A successful
 <code>RemoveXbox360Device</code>, <code>RemoveSteamControllerDevice</code>, or other typed remove:</p>
