@@ -100,6 +100,24 @@ const (
 	typedDeviceRemoveInvalid
 )
 
+type deviceAttachResult uint8
+
+const (
+	deviceAttachSuccess deviceAttachResult = iota
+	deviceAttachRetryableFailure
+	deviceAttachUnsafeOutcomeUnknown
+	deviceAttachInvalid
+)
+
+type deviceDetachResult uint8
+
+const (
+	deviceDetachSuccess deviceDetachResult = iota
+	deviceDetachRetryableFailure
+	deviceDetachUnsafeOutcomeUnknown
+	deviceDetachInvalid
+)
+
 func waitTransportDrains(drains []*usb.TransportDrain) {
 	for _, drain := range drains {
 		if drain != nil {
@@ -228,25 +246,35 @@ func (hw *usbServerHandleWrapper) registerDeviceLocked(dhw *deviceHandleWrapper)
 }
 
 func (hw *usbServerHandleWrapper) attachDeviceLocked(dhw *deviceHandleWrapper) bool {
+	return hw.attachDeviceLockedResult(dhw) == deviceAttachSuccess
+}
+
+// attachDeviceLockedResult is the single classified attach implementation. Both the legacy bool
+// AttachUSBDevice and the classified AttachUSBDeviceEx export call this same operation; the bool
+// export never performs an independent second mutation attempt.
+func (hw *usbServerHandleWrapper) attachDeviceLockedResult(dhw *deviceHandleWrapper) deviceAttachResult {
 	if !hw.s.DeviceTransportCanAccept(dhw.device.(viiperusb.Device)) {
-		return false
+		return deviceAttachRetryableFailure
 	}
 	switch dhw.attachment.state {
 	case attachmentAttached:
-		return true
+		return deviceAttachSuccess
 	case attachmentOutcomeUnknown:
-		return false
+		// Ownership evidence is already unsafe/unknown; do not invoke the backend again or
+		// downgrade this to an invalid-handle result.
+		return deviceAttachUnsafeOutcomeUnknown
 	}
 	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.logger)
 	if err == nil && isValidLocalhostAttachment(attachment) {
 		dhw.attachment = deviceAttachmentRecord{state: attachmentAttached, attachment: attachment}
-		return true
+		return deviceAttachSuccess
 	}
 	if err == nil || errors.Is(err, api.ErrAttachmentOutcomeUnknown) {
 		dhw.attachment.state = attachmentOutcomeUnknown
 		hw.state = serverCloseFailed
+		return deviceAttachUnsafeOutcomeUnknown
 	}
-	return false
+	return deviceAttachRetryableFailure
 }
 
 func isValidLocalhostAttachment(attachment api.LocalhostAttachment) bool {
@@ -262,22 +290,32 @@ func isValidLocalhostAttachment(attachment api.LocalhostAttachment) bool {
 }
 
 func (hw *usbServerHandleWrapper) detachDeviceLocked(dhw *deviceHandleWrapper) bool {
+	return hw.detachDeviceLockedResult(dhw) == deviceDetachSuccess
+}
+
+// detachDeviceLockedResult is the single classified detach implementation. Both the legacy bool
+// DetachUSBDevice and the classified DetachUSBDeviceEx export call this same operation; the bool
+// export never performs an independent second mutation attempt.
+func (hw *usbServerHandleWrapper) detachDeviceLockedResult(dhw *deviceHandleWrapper) deviceDetachResult {
 	switch dhw.attachment.state {
 	case attachmentDetached:
-		return true
+		return deviceDetachSuccess
 	case attachmentOutcomeUnknown:
-		return false
+		// Ownership evidence is already unsafe/unknown; do not invoke the backend again or
+		// downgrade this to an invalid-handle result.
+		return deviceDetachUnsafeOutcomeUnknown
 	}
 	err := hw.ops.detachLocalhost(context.Background(), dhw.attachment.attachment, hw.logger)
 	if err == nil {
 		dhw.attachment = deviceAttachmentRecord{state: attachmentDetached}
-		return true
+		return deviceDetachSuccess
 	}
 	if errors.Is(err, api.ErrDetachmentOutcomeUnknown) {
 		dhw.attachment.state = attachmentOutcomeUnknown
 		hw.state = serverCloseFailed
+		return deviceDetachUnsafeOutcomeUnknown
 	}
-	return false
+	return deviceDetachRetryableFailure
 }
 
 func (hw *usbServerHandleWrapper) removeDeviceLocked(dhw *deviceHandleWrapper, h deviceHandle) bool {
@@ -337,6 +375,65 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 		return typedDeviceRemoveUnsafeOutcomeUnknown
 	}
 	return typedDeviceRemoveRetryableFailure
+}
+
+// attachUSBDeviceResult resolves and locks the handle exactly like withActiveDeviceHandle, but
+// returns the classified attachDeviceLockedResult instead of a bare bool so a rejected/invalid
+// handle (deviceAttachInvalid) can never be confused with a zero-value success.
+func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
+	v, ok := deviceHandleRecords.Load(handle)
+	if !ok {
+		return deviceAttachInvalid
+	}
+	dhw, ok := v.(*deviceHandleWrapper)
+	if !ok {
+		return deviceAttachInvalid
+	}
+	hw := dhw.usbServer
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw {
+		return deviceAttachInvalid
+	}
+	// Check the device's own unsafe/unknown ownership evidence before the server-wide active
+	// check: an unknown outcome must keep reporting UNSAFE_OUTCOME_UNKNOWN even after it has
+	// pushed the server into close-failed, never downgrade to INVALID.
+	if dhw.attachment.state == attachmentOutcomeUnknown {
+		return deviceAttachUnsafeOutcomeUnknown
+	}
+	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("typed-device-mutation")
+		return deviceAttachInvalid
+	}
+	return hw.attachDeviceLockedResult(dhw)
+}
+
+// detachUSBDeviceResult mirrors attachUSBDeviceResult for the classified detach path.
+func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
+	v, ok := deviceHandleRecords.Load(handle)
+	if !ok {
+		return deviceDetachInvalid
+	}
+	dhw, ok := v.(*deviceHandleWrapper)
+	if !ok {
+		return deviceDetachInvalid
+	}
+	hw := dhw.usbServer
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw {
+		return deviceDetachInvalid
+	}
+	// Same ordering rationale as attachUSBDeviceResult: unsafe/unknown ownership evidence takes
+	// priority over the server-wide active check so it never gets downgraded to INVALID.
+	if dhw.attachment.state == attachmentOutcomeUnknown {
+		return deviceDetachUnsafeOutcomeUnknown
+	}
+	if hw.state != serverActive {
+		hw.warnMutationRejectedLocked("typed-device-mutation")
+		return deviceDetachInvalid
+	}
+	return hw.detachDeviceLockedResult(dhw)
 }
 
 func (hw *usbServerHandleWrapper) hasUnknownAttachmentLocked() bool {
