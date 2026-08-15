@@ -164,6 +164,11 @@ jobs:
             - name: Vet canonical packages
               run: go vet ./device/steamcontroller ./lib/viiper ./internal/server/usb ./virtualbus
 
+            - name: Test manifest scripts
+              shell: pwsh
+              run: |
+                  ./scripts/tests/test-libviiper-manifest.ps1
+
     libviiper-linux:
         name: Build libVIIPER (linux/amd64)
         runs-on: ubuntu-latest
@@ -264,10 +269,26 @@ jobs:
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamControllerOutputCallback'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamControllerDevice'
 
+            - name: Generate canonical artifact manifest
+              shell: pwsh
+              run: |
+                  ./scripts/generate-libviiper-manifest.ps1 `
+                      -DllPath dist/libVIIPER/libVIIPER.dll `
+                      -HeaderPath dist/libVIIPER/libVIIPER.h `
+                      -OutputPath dist/libVIIPER/viiper-artifact.json
+
+            - name: Verify canonical artifact manifest
+              shell: pwsh
+              run: |
+                  ./scripts/verify-libviiper-manifest.ps1 `
+                      -ManifestPath dist/libVIIPER/viiper-artifact.json `
+                      -DllPath dist/libVIIPER/libVIIPER.dll `
+                      -HeaderPath dist/libVIIPER/libVIIPER.h
+
             - name: Package
               shell: pwsh
               run: |
-                  Compress-Archive -Path dist/libVIIPER/libVIIPER.dll, dist/libVIIPER/libVIIPER.def, dist/libVIIPER/libVIIPER.h, dist/libVIIPER/licenses.txt -DestinationPath dist/libVIIPER/libVIIPER-windows-amd64.zip -Force
+                  Compress-Archive -Path dist/libVIIPER/libVIIPER.dll, dist/libVIIPER/libVIIPER.def, dist/libVIIPER/libVIIPER.h, dist/libVIIPER/licenses.txt, dist/libVIIPER/viiper-artifact.json -DestinationPath dist/libVIIPER/libVIIPER-windows-amd64.zip -Force
 
             - name: Upload artifact
               if: ${{ inputs.upload_artifacts }}

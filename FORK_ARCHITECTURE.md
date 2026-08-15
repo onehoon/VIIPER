@@ -91,6 +91,32 @@ Build the canonical embedded library with `just build-libVIIPER Release`.
 
 Canonical `lib/viiper` changes require focused tests, lifecycle race coverage, vet, the Windows shared-library build, generated-header validation, and DLL export validation.
 
+### Canonical Windows dependency artifact
+
+A successful main-branch build of the `libviiper-windows` job produces a
+self-describing canonical artifact, `libVIIPER-windows-amd64.zip`, containing
+`libVIIPER.dll`, `libVIIPER.h`, `libVIIPER.def`, `licenses.txt`, and
+`viiper-artifact.json`. The DLL, header, and manifest are always produced by
+the same job invocation of `just build-libVIIPER Release`; no separate job
+rebuilds any of these files.
+
+`viiper-artifact.json` records the artifact's source identity as the full
+40-character Git commit SHA of the build (`git rev-parse HEAD`), never a
+branch name, short SHA, or mutable tag, plus SHA-256 hashes of the exact DLL
+and header produced by that build. The same job recomputes both hashes and
+fails the build if they do not match the manifest (see
+`scripts/generate-libviiper-manifest.ps1` and
+`scripts/verify-libviiper-manifest.ps1`).
+
+Pull request builds run the same manifest generation and verification for
+validation only; PR CI does not upload artifacts and is never an adoption
+candidate. Only a successful main-branch build is eligible for downstream
+adoption. Any downstream consumer, including SteamInputAddonforClaw, must pin
+an exact commit/artifact and must not depend on a mutable "latest" artifact.
+Automated cross-repository adoption (e.g. an Addon-side updater or dispatch)
+is not implemented by this fork yet; adoption remains a separate, manually
+reviewed operation.
+
 ## Upstream synchronization
 
 Keep fork-specific architectural changes localized where practical. Avoid unnecessary changes to upstream device and USB/IP core code so future synchronization remains reviewable.
