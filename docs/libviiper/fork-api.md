@@ -173,11 +173,30 @@ The canonical wrappers currently include:
 | Keyboard | `CreateKeyboardDevice` | `SetKeyboardDeviceState`, `SetKeyboardLEDCallback` | `RemoveKeyboardDevice` |
 | Mouse | `CreateMouseDevice` | `SetMouseDeviceState` | `RemoveMouseDevice` |
 | Nintendo Switch 2 Pro | `CreateNS2ProDevice` | `SetNS2ProDeviceState`, `SetNS2ProOutputCallback` | `RemoveNS2ProDevice` |
+| Steam Deck | `CreateSteamDeckDevice` | `SetSteamDeckDeviceState` | `RemoveSteamDeckDevice`, `RemoveSteamDeckDeviceEx` |
 
-`device/steamdeck` exists as a fork device implementation but does not yet
-have a typed `lib/viiper` wrapper.
+`lib/viiper` exposes the Steam Deck (`28DE:1205` by default) through a
+minimal typed wrapper: `CreateSteamDeckDevice`, `SetSteamDeckDeviceState`,
+`RemoveSteamDeckDevice`, and the classified `RemoveSteamDeckDeviceEx`. It
+reuses the shared `GetUSBDeviceIdentity`, `AttachUSBDevice`, and
+`DetachUSBDevice` APIs rather than device-specific attach/detach entry
+points, and it participates in the same server/bus/typed-handle ownership
+model as every other typed device. This wrapper only covers input state; it
+does not yet expose an output/rumble/haptics callback (`device/steamdeck`
+itself supports rumble, haptics, and audio host commands, but no typed ABI
+surface is exported for them yet). Hardware Steam client recognition and
+input testing with this wrapper are still pending validation.
 
-### Classified Gordon removal
+### Classified typed-device removal
+
+Each typed device family has its own classified removal enum and `*Ex`
+export. The legacy bool export for a given device remains the compatibility
+API and returns `true` only for that family's `_SUCCESS` value.
+
+The result is returned by the same removal operation; do not pair removal
+with a process-global or thread-local last-status query.
+
+#### Gordon (Steam Controller)
 
 `RemoveSteamControllerDevice` remains the compatibility bool API. New
 consumers that must preserve native ownership semantics should use:
@@ -194,9 +213,6 @@ SteamControllerDeviceRemoveResult RemoveSteamControllerDeviceEx(
     uintptr_t deviceHandle);
 ```
 
-The result is returned by the same removal operation; do not pair removal
-with a process-global or thread-local last-status query.
-
 - `VIIPER_REMOVE_SUCCESS`: the typed device handle was finalized.
 - `VIIPER_REMOVE_RETRYABLE_FAILURE`: ownership remains known and the same
   handle may be retried explicitly. This includes a known detach failure or a
@@ -209,6 +225,32 @@ with a process-global or thread-local last-status query.
 
 The legacy bool export returns `true` only for `VIIPER_REMOVE_SUCCESS` and
 `false` for every other result.
+
+#### Steam Deck
+
+`RemoveSteamDeckDevice` remains the compatibility bool API. New consumers
+that must preserve native ownership semantics should use:
+
+```c
+typedef enum {
+    VIIPER_STEAMDECK_REMOVE_SUCCESS = 0,
+    VIIPER_STEAMDECK_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_STEAMDECK_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_STEAMDECK_REMOVE_INVALID = 3
+} SteamDeckDeviceRemoveResult;
+
+SteamDeckDeviceRemoveResult RemoveSteamDeckDeviceEx(
+    uintptr_t deviceHandle);
+```
+
+The values carry the same semantics as Gordon's enum above (success,
+retryable failure, unsafe-unknown outcome, and invalid handle/lifecycle use),
+under the Steam Deck's own distinct enum and constant names. Do not assume
+Gordon's `SteamControllerDeviceRemoveResult` is the only classified removal
+enum, and do not mix the two families' constants.
+
+The legacy bool export returns `true` only for
+`VIIPER_STEAMDECK_REMOVE_SUCCESS` and `false` for every other result.
 
 ## Callback and teardown contract
 

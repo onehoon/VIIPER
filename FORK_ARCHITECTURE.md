@@ -43,7 +43,7 @@ embedded server close lifecycle.
 ```text
 process lifetime        -> libVIIPER module/runtime
 USB server/bus lifetime -> long-lived embedded runtime
-logical device lifetime -> typed Gordon/Xbox360 objects
+logical device lifetime -> typed Steam output devices (Steam Deck target, Gordon retained) / Xbox360 objects
 Windows attachment      -> explicit USB/IP attach/detach (implemented for localhost)
 report-routing lifetime -> neutral/live routing
 ```
@@ -56,9 +56,29 @@ suspend/resume revalidation, remains future work.
 
 This fork contains device implementations not currently present upstream, including `device/steamcontroller` and `device/steamdeck`. Required fork devices should be exposed through typed `lib/viiper` wrappers rather than a new generic controller-manager API.
 
-The Steam Deck does not yet have a typed `lib/viiper` wrapper.
+The Steam Deck has a minimal typed `lib/viiper` wrapper (`CreateSteamDeckDevice`,
+`SetSteamDeckDeviceState`, `RemoveSteamDeckDevice`/`RemoveSteamDeckDeviceEx`),
+default identity `28DE:1205`. It shares the generic `GetUSBDeviceIdentity`,
+`AttachUSBDevice`, and `DetachUSBDevice` APIs and the same typed-handle
+ownership/removal lifecycle as the other typed devices. It currently covers
+input state only; no output/rumble/haptics callback is exposed yet, and it is
+not claimed as production-default. Hardware Steam recognition/input testing
+is still pending.
 
-The intended virtual outputs are a persistent Classic Steam Controller (Gordon, `28DE:1102`) and a temporary Xbox 360 controller for the Game Bar route.
+Current Addon production baseline:
+
+```text
+Gordon 28DE:1102
+```
+
+Target after hardware validation:
+
+```text
+persistent Steam Deck 28DE:1205
++ temporary Xbox360 for Game Bar
+```
+
+Gordon remains a supported/reference typed device.
 
 ## Server lifecycle
 
