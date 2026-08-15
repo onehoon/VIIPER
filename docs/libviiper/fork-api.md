@@ -338,3 +338,22 @@ CI additionally validates the Windows shared-library build, generated C
 header layout, exported symbols, and canonical lifecycle race tests. The DLL
 and header must come from the same commit; do not mix artifacts from upstream
 VIIPER with this fork's canonical ABI.
+
+### Canonical dependency artifact and manifest
+
+Main-branch CI packages the Windows canonical build as
+`libVIIPER-windows-amd64.zip`, alongside a `viiper-artifact.json` manifest
+that records the artifact's source identity (full Git commit SHA) and
+SHA-256 hashes of the exact `libVIIPER.dll` and `libVIIPER.h` in that
+package. CI regenerates and independently reverifies these hashes in the same
+job that produces the DLL/header, so the manifest cannot describe a different
+build than the one it ships with.
+
+Pull request builds generate and verify the same manifest for validation
+only; they do not upload artifacts and are not adoption candidates. Only a
+successful main-branch build produces an artifact eligible for downstream
+adoption. Consumers must pin an exact commit/artifact rather than depending
+on a mutable "latest" build. SteamInputAddonforClaw does not consume this
+artifact automatically yet; automated cross-repository adoption (a Addon-side
+lockfile, updater script, or dispatch-based PR creation) is out of scope for
+this contract and remains future work.
