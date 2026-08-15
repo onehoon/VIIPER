@@ -66,10 +66,11 @@ func resetTestSteamDeckCOutputCallback() {
 }
 
 func testSteamDeckCOutputSnapshot() (uintptr, uint32, []byte) {
-	length := uint32(C.getTestSteamDeckLength())
-	if length > 64 {
-		length = 64
+	rawLength := uint32(C.getTestSteamDeckLength())
+	copyLength := rawLength
+	if copyLength > 64 {
+		copyLength = 64
 	}
-	data := unsafe.Slice((*byte)(unsafe.Pointer(C.getTestSteamDeckData())), int(length))
-	return uintptr(C.getTestSteamDeckHandle()), length, append([]byte(nil), data...)
+	data := unsafe.Slice((*byte)(unsafe.Pointer(C.getTestSteamDeckData())), int(copyLength))
+	return uintptr(C.getTestSteamDeckHandle()), rawLength, append([]byte(nil), data...)
 }

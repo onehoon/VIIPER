@@ -185,8 +185,9 @@ points, and it participates in the same server/bus/typed-handle ownership
 model as every other typed device. The output callback carries the existing
 generic Steam Deck host-output stream, including rumble, haptic, haptic-pulse,
 and audio commands. It does not perform MSI Claw-specific translation or
-claim SteamInputAddonforClaw rumble adoption. Hardware Steam client
-recognition and input testing with this wrapper are still pending validation.
+claim SteamInputAddonforClaw rumble adoption. Basic non-gyro Steam Deck input
+has been validated on MSI Claw EX. Lifecycle and recovery validation remains
+pending; rumble/haptics and gyro remain separate feature tracks.
 
 ### Classified typed-device removal
 
