@@ -173,9 +173,19 @@ The canonical wrappers currently include:
 | Keyboard | `CreateKeyboardDevice` | `SetKeyboardDeviceState`, `SetKeyboardLEDCallback` | `RemoveKeyboardDevice` |
 | Mouse | `CreateMouseDevice` | `SetMouseDeviceState` | `RemoveMouseDevice` |
 | Nintendo Switch 2 Pro | `CreateNS2ProDevice` | `SetNS2ProDeviceState`, `SetNS2ProOutputCallback` | `RemoveNS2ProDevice` |
+| Steam Deck | `CreateSteamDeckDevice` | `SetSteamDeckDeviceState` | `RemoveSteamDeckDevice`, `RemoveSteamDeckDeviceEx` |
 
-`device/steamdeck` exists as a fork device implementation but does not yet
-have a typed `lib/viiper` wrapper.
+`lib/viiper` exposes the Steam Deck (`28DE:1205` by default) through a
+minimal typed wrapper: `CreateSteamDeckDevice`, `SetSteamDeckDeviceState`,
+`RemoveSteamDeckDevice`, and the classified `RemoveSteamDeckDeviceEx`. It
+reuses the shared `GetUSBDeviceIdentity`, `AttachUSBDevice`, and
+`DetachUSBDevice` APIs rather than device-specific attach/detach entry
+points, and it participates in the same server/bus/typed-handle ownership
+model as every other typed device. This wrapper only covers input state; it
+does not yet expose an output/rumble/haptics callback (`device/steamdeck`
+itself supports rumble, haptics, and audio host commands, but no typed ABI
+surface is exported for them yet). Hardware Steam client recognition and
+input testing with this wrapper are still pending validation.
 
 ### Classified Gordon removal
 
