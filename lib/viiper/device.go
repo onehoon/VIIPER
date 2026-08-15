@@ -17,13 +17,20 @@ typedef enum {
     VIIPER_DETACH_UNSAFE_OUTCOME_UNKNOWN = 2,
     VIIPER_DETACH_INVALID = 3
 } USBDeviceDetachResult;
+
+typedef enum {
+    VIIPER_ATTACHMENT_DETACHED = 0,
+    VIIPER_ATTACHMENT_ATTACHED = 1,
+    VIIPER_ATTACHMENT_OUTCOME_UNKNOWN = 2
+} USBDeviceAttachmentState;
 */
 import "C"
 
 import "unsafe"
 
-func attachResultCSize() uintptr { return unsafe.Sizeof(C.USBDeviceAttachResult(0)) }
-func detachResultCSize() uintptr { return unsafe.Sizeof(C.USBDeviceDetachResult(0)) }
+func attachResultCSize() uintptr          { return unsafe.Sizeof(C.USBDeviceAttachResult(0)) }
+func detachResultCSize() uintptr          { return unsafe.Sizeof(C.USBDeviceDetachResult(0)) }
+func attachmentStateResultCSize() uintptr { return unsafe.Sizeof(C.USBDeviceAttachmentState(0)) }
 
 // GetUSBDeviceIdentity returns the logical VIIPER USB bus and device identity for a typed device handle.
 // This does not indicate Windows attachment or PnP enumeration state.
@@ -43,6 +50,42 @@ func getUSBDeviceIdentity(handle uintptr, outBusID *uint32, outDeviceID *uint32)
 	}
 	*outBusID = dhw.exportMeta.BusID
 	*outDeviceID = dhw.exportMeta.DevID
+	return true
+}
+
+// GetUSBDeviceAttachmentState reports VIIPER's tracked localhost attachment ownership state for a
+// typed device handle: DETACHED, ATTACHED, or OUTCOME_UNKNOWN. This is VIIPER's own attachment
+// bookkeeping only -- it does not report Windows PnP enumeration, HID interface readiness,
+// XInput readiness, or Steam device discovery, and an ATTACHED result does not mean an
+// application may skip its own exact PnP stabilization/ownership checks. This is a read-only
+// diagnostic query: it never invokes the attach/detach backend and never mutates attachment
+// state, the stored token, or server lifecycle. Like GetUSBDeviceIdentity, the query succeeds
+// for a still-authoritative handle whether the owning server is active or close-failed; it fails
+// for a NULL outState, an invalid/stale handle, or any other server lifecycle.
+//
+//export GetUSBDeviceAttachmentState
+func GetUSBDeviceAttachmentState(handle C.uintptr_t, outState *C.USBDeviceAttachmentState) C.bool {
+	return C.bool(getUSBDeviceAttachmentState(uintptr(handle), outState))
+}
+
+func getUSBDeviceAttachmentState(handle uintptr, outState *C.USBDeviceAttachmentState) bool {
+	if outState == nil {
+		return false
+	}
+	state, ok := queryDeviceAttachmentState(handle)
+	if !ok {
+		return false
+	}
+	switch state {
+	case deviceAttachmentQueryDetached:
+		*outState = C.VIIPER_ATTACHMENT_DETACHED
+	case deviceAttachmentQueryAttached:
+		*outState = C.VIIPER_ATTACHMENT_ATTACHED
+	case deviceAttachmentQueryOutcomeUnknown:
+		*outState = C.VIIPER_ATTACHMENT_OUTCOME_UNKNOWN
+	default:
+		return false
+	}
 	return true
 }
 

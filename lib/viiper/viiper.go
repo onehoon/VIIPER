@@ -436,6 +436,52 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	return hw.detachDeviceLockedResult(dhw)
 }
 
+type deviceAttachmentQueryState uint8
+
+const (
+	deviceAttachmentQueryDetached deviceAttachmentQueryState = iota
+	deviceAttachmentQueryAttached
+	deviceAttachmentQueryOutcomeUnknown
+)
+
+// queryDeviceAttachmentState is a read-only diagnostic snapshot of a device's tracked
+// localhost attachment ownership -- never the attach/detach backend. It follows the same
+// active-or-close-failed diagnostic-handle model as lookupDeviceIdentity, but unlike
+// lookupDeviceIdentity it translates the mutable attachment.state field to the public
+// enum while still holding lifecycleMu, since that field (unlike the immutable exportMeta
+// identity fields lookupDeviceIdentity's callers read) changes under Attach/Detach and must
+// never be read after the lock has been released.
+func queryDeviceAttachmentState(handle uintptr) (deviceAttachmentQueryState, bool) {
+	v, ok := deviceHandleRecords.Load(handle)
+	if !ok {
+		return 0, false
+	}
+	dhw, ok := v.(*deviceHandleWrapper)
+	if !ok {
+		return 0, false
+	}
+	hw := dhw.usbServer
+	hw.lifecycleMu.Lock()
+	defer hw.lifecycleMu.Unlock()
+	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw {
+		return 0, false
+	}
+	if hw.state != serverActive && hw.state != serverCloseFailed {
+		return 0, false
+	}
+	switch dhw.attachment.state {
+	case attachmentDetached:
+		return deviceAttachmentQueryDetached, true
+	case attachmentAttached:
+		return deviceAttachmentQueryAttached, true
+	case attachmentOutcomeUnknown:
+		return deviceAttachmentQueryOutcomeUnknown, true
+	default:
+		// An unrecognized private state must never be fabricated into a public value.
+		return 0, false
+	}
+}
+
 func (hw *usbServerHandleWrapper) hasUnknownAttachmentLocked() bool {
 	for _, dhw := range hw.deviceHandleRecords {
 		if dhw.attachment.state == attachmentOutcomeUnknown {
