@@ -259,6 +259,84 @@ func TestDetachUSBDeviceExClassification(t *testing.T) {
 	})
 }
 
+// TestKnownOwnershipVsUnknownOwnershipUnderNonActiveServer locks in the distinction that matters
+// most for this API: a valid, known-ownership device whose server has merely stopped being
+// active (closing/close-failed for an unrelated reason) is INVALID -- no attachment attempt is
+// safe to make on a server that is not active. A device whose own ownership evidence is unknown
+// stays UNSAFE_OUTCOME_UNKNOWN even though the server is also close-failed; it must never be
+// reported as INVALID, and the backend must never be called again in either case.
+func TestKnownOwnershipVsUnknownOwnershipUnderNonActiveServer(t *testing.T) {
+	t.Run("known ownership, non-active server -> INVALID", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9320)
+		attachCalls, detachCalls := 0, 0
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			attachCalls++
+			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 90}, nil
+		}
+		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+			detachCalls++
+			return nil
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9320, mustNewTestMouse(t), false)
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("create failed")
+		}
+
+		for _, state := range []serverLifecycleState{serverClosing, serverCloseFailed} {
+			t.Run(state.String(), func(t *testing.T) {
+				hw.lifecycleMu.Lock()
+				hw.state = state
+				hw.lifecycleMu.Unlock()
+
+				if got := attachUSBDeviceResult(uintptr(h)); got != deviceAttachInvalid {
+					t.Fatalf("attach result = %d, want invalid (server state %s, known ownership)", got, state)
+				}
+				if got := detachUSBDeviceResult(uintptr(h)); got != deviceDetachInvalid {
+					t.Fatalf("detach result = %d, want invalid (server state %s, known ownership)", got, state)
+				}
+			})
+		}
+		if attachCalls != 0 || detachCalls != 0 {
+			t.Fatalf("attachCalls=%d detachCalls=%d, want 0/0 (INVALID must never call the backend)", attachCalls, detachCalls)
+		}
+	})
+
+	t.Run("unknown ownership, close-failed server -> UNSAFE_OUTCOME_UNKNOWN not INVALID", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9321)
+		calls := 0
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			calls++
+			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9321, mustNewTestMouse(t), false)
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("create failed")
+		}
+		// Drives the device into attachmentOutcomeUnknown, which also pushes the server into
+		// close-failed -- the same non-active server state as the known-ownership case above.
+		if got := attachUSBDeviceResult(uintptr(h)); got != deviceAttachUnsafeOutcomeUnknown {
+			t.Fatalf("setup result = %d, want unsafe outcome unknown", got)
+		}
+		if hw.state != serverCloseFailed {
+			t.Fatalf("server state = %s, want close-failed", hw.state)
+		}
+
+		if got := attachUSBDeviceResult(uintptr(h)); got != deviceAttachUnsafeOutcomeUnknown {
+			t.Fatalf("attach result = %d, want unsafe outcome unknown (not invalid)", got)
+		}
+		if got := detachUSBDeviceResult(uintptr(h)); got != deviceDetachUnsafeOutcomeUnknown {
+			t.Fatalf("detach result = %d, want unsafe outcome unknown (not invalid)", got)
+		}
+		if calls != 1 {
+			t.Fatalf("calls = %d, want 1 (must not retry after an unknown outcome)", calls)
+		}
+	})
+}
+
 func TestClassifiedAttachDetachSizeAndValues(t *testing.T) {
 	if got := attachResultCSize(); got != 4 {
 		t.Fatalf("sizeof(USBDeviceAttachResult) = %d, want 4", got)

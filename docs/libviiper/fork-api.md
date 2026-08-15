@@ -38,9 +38,16 @@ All handles are opaque `uintptr_t` values. Treat them as capability tokens:
 - expect stale, zero, wrong-type, and arbitrary handles to return `false`;
 - keep callback function pointers alive for as long as they are registered.
 
-The exported functions return `true` on success and `false` on failure. Output
-handle and output ID pointers must be non-NULL. Invalid input is rejected
-before device construction, bus registration, attachment, or handle creation.
+Return semantics are defined by each export. Boolean compatibility exports
+(`AttachUSBDevice`, `DetachUSBDevice`, `Create*Device`, `Set*DeviceState`,
+`Remove*Device`, and similar) return `true` on success and `false` on
+failure. Classified `*Ex` exports (`AttachUSBDeviceEx`, `DetachUSBDeviceEx`,
+`RemoveSteamControllerDeviceEx`, `RemoveSteamDeckDeviceEx`, and similar)
+return their documented operation-specific result enum directly instead of a
+bool; see "Classified attach/detach results" and "Classified typed-device
+removal" below for the exact enums. Output handle and output ID pointers
+must be non-NULL. Invalid input is rejected before device construction, bus
+registration, attachment, or handle creation.
 
 ## Classic Steam Controller trigger state
 
