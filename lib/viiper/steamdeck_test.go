@@ -349,3 +349,52 @@ func TestSteamDeckSharedIdentityAndAttachDetach(t *testing.T) {
 		t.Fatal("shared DetachUSBDevice rejected typed Steam Deck handle")
 	}
 }
+
+func TestSteamDeckOutputCallbackWrapperContracts(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9238)
+	deck, err := steamdeck.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9238, deck, false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("Steam Deck creation failed")
+	}
+
+	var got steamdeck.OutputState
+	if !setSteamDeckOutputCallback(uintptr(h), func(out steamdeck.OutputState) { got = out }) {
+		t.Fatal("valid Steam Deck handle rejected")
+	}
+	deck.HandleTransfer(context.Background(), 3, usbip.DirOut, []byte{0x00, 0x99, 0x01})
+	if got.Length() != 2 || !reflect.DeepEqual(got.Data[:got.Length()], []byte{0x99, 0x01}) {
+		t.Fatalf("callback payload = %v length=%d", got.Data[:got.Length()], got.Length())
+	}
+	if !setSteamDeckOutputCallback(uintptr(h), nil) {
+		t.Fatal("NULL callback clear failed")
+	}
+
+	if setSteamDeckOutputCallback(0, nil) {
+		t.Fatal("zero handle accepted")
+	}
+	wrong, err := mouse.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	wrongHandle, ok := hw.createDeviceLocked(9238, wrong, false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("wrong-type setup failed")
+	}
+	if setSteamDeckOutputCallback(uintptr(wrongHandle), nil) {
+		t.Fatal("wrong-type handle accepted")
+	}
+	if !removeSteamDeckDevice(uintptr(h)) {
+		t.Fatal("Steam Deck removal failed")
+	}
+	if setSteamDeckOutputCallback(uintptr(h), nil) {
+		t.Fatal("stale handle accepted")
+	}
+}

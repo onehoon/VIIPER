@@ -56,14 +56,15 @@ suspend/resume revalidation, remains future work.
 
 This fork contains device implementations not currently present upstream, including `device/steamcontroller` and `device/steamdeck`. Required fork devices should be exposed through typed `lib/viiper` wrappers rather than a new generic controller-manager API.
 
-The Steam Deck has a minimal typed `lib/viiper` wrapper (`CreateSteamDeckDevice`,
-`SetSteamDeckDeviceState`, `RemoveSteamDeckDevice`/`RemoveSteamDeckDeviceEx`),
+The Steam Deck has a typed `lib/viiper` wrapper (`CreateSteamDeckDevice`,
+`SetSteamDeckDeviceState`, `SetSteamDeckOutputCallback`,
+`RemoveSteamDeckDevice`/`RemoveSteamDeckDeviceEx`),
 default identity `28DE:1205`. It shares the generic `GetUSBDeviceIdentity`,
 `AttachUSBDevice`, and `DetachUSBDevice` APIs and the same typed-handle
-ownership/removal lifecycle as the other typed devices. It currently covers
-input state only; no output/rumble/haptics callback is exposed yet, and it is
-not claimed as production-default. Hardware Steam recognition/input testing
-is still pending.
+ownership/removal lifecycle as the other typed devices. The output callback is
+a generic normalized host-output capability; it does not add MSI Claw-specific
+behavior or claim Addon rumble adoption. Hardware Steam recognition/input
+testing is still pending.
 
 Current Addon production baseline:
 

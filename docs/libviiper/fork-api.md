@@ -173,19 +173,20 @@ The canonical wrappers currently include:
 | Keyboard | `CreateKeyboardDevice` | `SetKeyboardDeviceState`, `SetKeyboardLEDCallback` | `RemoveKeyboardDevice` |
 | Mouse | `CreateMouseDevice` | `SetMouseDeviceState` | `RemoveMouseDevice` |
 | Nintendo Switch 2 Pro | `CreateNS2ProDevice` | `SetNS2ProDeviceState`, `SetNS2ProOutputCallback` | `RemoveNS2ProDevice` |
-| Steam Deck | `CreateSteamDeckDevice` | `SetSteamDeckDeviceState` | `RemoveSteamDeckDevice`, `RemoveSteamDeckDeviceEx` |
+| Steam Deck | `CreateSteamDeckDevice` | `SetSteamDeckDeviceState`, `SetSteamDeckOutputCallback` | `RemoveSteamDeckDevice`, `RemoveSteamDeckDeviceEx` |
 
-`lib/viiper` exposes the Steam Deck (`28DE:1205` by default) through a
-minimal typed wrapper: `CreateSteamDeckDevice`, `SetSteamDeckDeviceState`,
-`RemoveSteamDeckDevice`, and the classified `RemoveSteamDeckDeviceEx`. It
+`lib/viiper` exposes the Steam Deck (`28DE:1205` by default) through a typed
+wrapper: `CreateSteamDeckDevice`, `SetSteamDeckDeviceState`,
+`SetSteamDeckOutputCallback`, `RemoveSteamDeckDevice`, and the classified
+`RemoveSteamDeckDeviceEx`. It
 reuses the shared `GetUSBDeviceIdentity`, `AttachUSBDevice`, and
 `DetachUSBDevice` APIs rather than device-specific attach/detach entry
 points, and it participates in the same server/bus/typed-handle ownership
-model as every other typed device. This wrapper only covers input state; it
-does not yet expose an output/rumble/haptics callback (`device/steamdeck`
-itself supports rumble, haptics, and audio host commands, but no typed ABI
-surface is exported for them yet). Hardware Steam client recognition and
-input testing with this wrapper are still pending validation.
+model as every other typed device. The output callback carries the existing
+generic Steam Deck host-output stream, including rumble, haptic, haptic-pulse,
+and audio commands. It does not perform MSI Claw-specific translation or
+claim SteamInputAddonforClaw rumble adoption. Hardware Steam client
+recognition and input testing with this wrapper are still pending validation.
 
 ### Classified typed-device removal
 
@@ -256,7 +257,13 @@ The legacy bool export returns `true` only for
 
 Callbacks are captured under the device callback lock and invoked after that
 lock is released. A callback may therefore re-enter a safe canonical API
-without creating a callback-lock deadlock.
+without creating a callback-lock deadlock. Steam Deck output callbacks use a
+single compatibility-preserving normalization path: an empty control payload
+with a nonzero report ID is synthesized before normalization; a leading
+`0x00` is removed only when the input contains more than one byte; and the
+normalized payload is bounded to 64 bytes. The callback receives the exact
+stored length, and its temporary C-owned buffer is valid only during the
+synchronous callback. Callers must copy retained data.
 
 During typed removal and bus/server teardown, callback clearing occurs before
 detach and logical removal. Already-running callback invocations are allowed

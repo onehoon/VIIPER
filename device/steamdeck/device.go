@@ -30,6 +30,8 @@ type SteamDeck struct {
 	inputState          *InputState
 	mtx                 sync.Mutex
 	featureMtx          sync.Mutex
+	callbackMu          sync.RWMutex
+	stateMu             sync.RWMutex
 	outputFunc          func(OutputState)
 	frame               uint32
 	descriptor          usb.Descriptor
@@ -125,6 +127,8 @@ func New(o *device.CreateOptions) (*SteamDeck, error) {
 }
 
 func (d *SteamDeck) SetOutputCallback(f func(OutputState)) {
+	d.callbackMu.Lock()
+	defer d.callbackMu.Unlock()
 	d.outputFunc = f
 }
 
@@ -165,7 +169,7 @@ func (d *SteamDeck) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 		}
 	}
 	if dir == usbip.DirOut && ep == controllerEndpointNumber {
-		d.handleHostCommand(out)
+		d.handleHostCommand(normalizeHostCommand(out, 0))
 	}
 	return nil
 }
@@ -223,7 +227,10 @@ func normalizeHostCommand(data []byte, reportID uint8) []byte {
 		return []byte{reportID}
 	}
 	if len(data) > 1 && data[0] == 0x00 {
-		return append([]byte(nil), data[1:]...)
+		data = data[1:]
+	}
+	if len(data) > InputReportLen {
+		data = data[:InputReportLen]
 	}
 	return append([]byte(nil), data...)
 }
@@ -232,29 +239,30 @@ func (d *SteamDeck) handleHostCommand(data []byte) {
 	if len(data) == 0 {
 		return
 	}
-	if len(data) > 1 && data[0] == 0x00 {
-		data = data[1:]
-	}
+	d.stateMu.Lock()
 	switch data[0] {
 	case FeatureSetControllerMode:
 		if len(data) >= 3 {
 			d.controller.mode = data[2]
 		}
 	case FeatureSetSettingsValues:
-		d.applySettings(data)
+		d.applySettingsLocked(data)
 	case FeatureLoadDefaultSettings, FeatureFactoryReset:
 		d.controller = newControllerState()
 	case FeatureClearSettingsValues:
-		d.resetSettings()
+		d.resetSettingsLocked()
 	case FeatureClearDigitalMappings, FeatureSetDefaultMappings, FeatureSetDigitalMappings, FeatureResetIMU:
 		// Accepted for protocol compatibility.
 	}
-	if d.outputFunc == nil {
+	d.stateMu.Unlock()
+
+	d.callbackMu.RLock()
+	callback := d.outputFunc
+	d.callbackMu.RUnlock()
+	if callback == nil {
 		return
 	}
-	var out OutputState
-	copy(out.Data[:], data)
-	d.outputFunc(out)
+	callback(newOutputState(data))
 }
 
 func cloneSettings(src map[uint8]uint16) map[uint8]uint16 {
@@ -265,13 +273,13 @@ func cloneSettings(src map[uint8]uint16) map[uint8]uint16 {
 	return dst
 }
 
-func (d *SteamDeck) resetSettings() {
+func (d *SteamDeck) resetSettingsLocked() {
 	state := newControllerState()
 	d.controller.settings = cloneSettings(state.settings)
 	d.controller.mode = state.mode
 }
 
-func (d *SteamDeck) applySettings(data []byte) {
+func (d *SteamDeck) applySettingsLocked(data []byte) {
 	if len(data) < 2 {
 		return
 	}
@@ -325,11 +333,14 @@ func (d *SteamDeck) featureResponse(request []byte) []byte {
 		copy(resp, request)
 		return resp
 	case FeatureGetDeviceInfo:
+		d.stateMu.RLock()
+		mode := d.controller.mode
+		d.stateMu.RUnlock()
 		resp[1] = InputReportLen
 		binary.LittleEndian.PutUint16(resp[4:6], d.descriptor.Device.IDVendor)
 		binary.LittleEndian.PutUint16(resp[6:8], d.descriptor.Device.IDProduct)
 		resp[8] = 0x01
-		resp[9] = d.controller.mode
+		resp[9] = mode
 		copy(resp[16:], []byte(d.descriptor.Strings[2]))
 		return resp
 	case FeatureGetChipID:
@@ -337,16 +348,22 @@ func (d *SteamDeck) featureResponse(request []byte) []byte {
 		copy(resp[4:], []byte("STEAMDECK-0001"))
 		return resp
 	case FeatureGetAttributesValues:
-		resp[1] = d.fillAttributes(resp[2:])
+		d.stateMu.RLock()
+		resp[1] = d.fillAttributesLocked(resp[2:])
+		d.stateMu.RUnlock()
 		return resp
 	case FeatureGetStringAttribute:
-		resp[1] = d.fillStringAttribute(resp[2:], request)
+		d.stateMu.RLock()
+		resp[1] = d.fillStringAttributeLocked(resp[2:], request)
+		d.stateMu.RUnlock()
 		return resp
 	case FeatureGetDigitalMappings:
 		resp[1] = 0
 		return resp
 	case FeatureGetSettingsValues:
+		d.stateMu.RLock()
 		resp[1] = fillSettings(resp[2:], d.controller.settings)
+		d.stateMu.RUnlock()
 		return resp
 	case FeatureGetSettingsDefaults:
 		resp[1] = fillSettings(resp[2:], defaultSettings)
@@ -372,7 +389,7 @@ func fillSettings(buf []byte, settings map[uint8]uint16) byte {
 	return byte(offset)
 }
 
-func (d *SteamDeck) fillAttributes(buf []byte) byte {
+func (d *SteamDeck) fillAttributesLocked(buf []byte) byte {
 	entries := []struct {
 		tag   byte
 		value uint32
@@ -397,7 +414,7 @@ func (d *SteamDeck) fillAttributes(buf []byte) byte {
 	return byte(offset)
 }
 
-func (d *SteamDeck) fillStringAttribute(buf []byte, request []byte) byte {
+func (d *SteamDeck) fillStringAttributeLocked(buf []byte, request []byte) byte {
 	if len(buf) < 2 {
 		return 0
 	}

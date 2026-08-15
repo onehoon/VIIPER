@@ -8,6 +8,7 @@ import (
 	"github.com/Alia5/VIIPER/device/keyboard"
 	"github.com/Alia5/VIIPER/device/ns2pro"
 	"github.com/Alia5/VIIPER/device/steamcontroller"
+	"github.com/Alia5/VIIPER/device/steamdeck"
 	"github.com/Alia5/VIIPER/device/xbox360"
 )
 
@@ -37,6 +38,9 @@ func (hw *usbServerHandleWrapper) clearDeviceCallbackLocked(dhw *deviceHandleWra
 		d.SetLEDCallback(nil)
 		cleared = true
 	case *ns2pro.NS2Pro:
+		d.SetOutputCallback(nil)
+		cleared = true
+	case *steamdeck.SteamDeck:
 		d.SetOutputCallback(nil)
 		cleared = true
 	}
