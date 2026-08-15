@@ -118,7 +118,6 @@ type deviceHandleWrapper struct {
 	// handle, so the Boundary-A D-pad diagnostic in steamcontroller.go can log only on
 	// transitions. Mutated only from within setSteamControllerDeviceState's single
 	// withActiveDeviceHandle (lifecycleMu) critical section -- no separate lock needed.
-	// See docs/libviiper/fork-api.md D-pad diagnostic notes.
 	dpadDiagMask   uint8
 	dpadDiagLogged bool
 }

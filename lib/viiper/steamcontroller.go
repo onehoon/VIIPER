@@ -176,7 +176,7 @@ func steamControllerDeviceStateABIOffsets() steamControllerDeviceStateCOffsets {
 // Boundary-A D-pad diagnostic transitioned -- it does not take a second lock or lifecycle lookup
 // for the diagnostic, and it does not invoke the (potentially callback-routed) slog.Debug call
 // itself until after the lock is released, so the native log callback never runs while
-// lifecycleMu is held. See docs/libviiper/fork-api.md D-pad diagnostic notes.
+// lifecycleMu is held.
 func setSteamControllerDeviceState(handle uintptr, state steamControllerState) bool {
 	var dpadChanged bool
 	var dpadMask uint8
