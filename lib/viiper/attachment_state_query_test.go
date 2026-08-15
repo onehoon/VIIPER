@@ -262,6 +262,111 @@ func TestGetUSBDeviceAttachmentStateRepeatedQueriesNeverInvokeBackend(t *testing
 	}
 }
 
+// TestGetUSBDeviceAttachmentStatePublicPathMapsToCEnum exercises getUSBDeviceAttachmentState
+// itself through callGetUSBDeviceAttachmentStateForTest, not just the private
+// queryDeviceAttachmentState it wraps -- this is the actual public path that maps the private
+// state to the C enum and writes outState. cgo can't be used directly in _test.go files, so
+// callGetUSBDeviceAttachmentStateForTest (device.go) is a thin plain-Go wrapper around the real
+// C-typed call; every value it returns comes straight out of the real C.USBDeviceAttachmentState
+// write, translated to plain Go only at the very end. A regression in the private-to-public
+// mapping, or in the "never write outState on failure" contract fork-api.md documents, would not
+// be caught by tests that only call queryDeviceAttachmentState directly.
+func TestGetUSBDeviceAttachmentStatePublicPathMapsToCEnum(t *testing.T) {
+	t.Run("valid detached", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9412)
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9412, mustNewTestMouse(t), false)
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("create failed")
+		}
+		out, queryOK := callGetUSBDeviceAttachmentStateForTest(uintptr(h))
+		if !queryOK {
+			t.Fatal("query failed for a valid detached handle")
+		}
+		if out != cAttachmentStateDetached {
+			t.Fatalf("outState = %d, want VIIPER_ATTACHMENT_DETACHED", out)
+		}
+	})
+
+	t.Run("valid attached", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9413)
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 98}, nil
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9413, mustNewTestMouse(t), false)
+		hw.lifecycleMu.Unlock()
+		if !ok || attachUSBDeviceResult(uintptr(h)) != deviceAttachSuccess {
+			t.Fatal("setup attach failed")
+		}
+		out, queryOK := callGetUSBDeviceAttachmentStateForTest(uintptr(h))
+		if !queryOK {
+			t.Fatal("query failed for a valid attached handle")
+		}
+		if out != cAttachmentStateAttached {
+			t.Fatalf("outState = %d, want VIIPER_ATTACHMENT_ATTACHED", out)
+		}
+	})
+
+	t.Run("outcome unknown", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9414)
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9414, mustNewTestMouse(t), false)
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("create failed")
+		}
+		if attachUSBDeviceResult(uintptr(h)) != deviceAttachUnsafeOutcomeUnknown {
+			t.Fatal("expected an unsafe unknown attach outcome")
+		}
+		out, queryOK := callGetUSBDeviceAttachmentStateForTest(uintptr(h))
+		if !queryOK {
+			t.Fatal("query failed for an outcome-unknown handle under close-failed")
+		}
+		if out != cAttachmentStateOutcomeUnknown {
+			t.Fatalf("outState = %d, want VIIPER_ATTACHMENT_OUTCOME_UNKNOWN", out)
+		}
+	})
+
+	t.Run("invalid/stale/closing handle leaves the caller's sentinel outState unchanged", func(t *testing.T) {
+		out, queryOK := callGetUSBDeviceAttachmentStateForTest(0)
+		if queryOK {
+			t.Fatal("zero handle accepted")
+		}
+		if out != cAttachmentStateSentinel {
+			t.Fatalf("outState = %d after a failed query on a zero handle, want sentinel %d unchanged", out, cAttachmentStateSentinel)
+		}
+
+		out, queryOK = callGetUSBDeviceAttachmentStateForTest(0xDEADBEEF)
+		if queryOK {
+			t.Fatal("stale/arbitrary handle accepted")
+		}
+		if out != cAttachmentStateSentinel {
+			t.Fatalf("outState = %d after a failed query on a stale handle, want sentinel %d unchanged", out, cAttachmentStateSentinel)
+		}
+
+		hw, _ := newLifecycleTestServer(t, 9415)
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9415, mustNewTestMouse(t), false)
+		hw.state = serverClosing
+		hw.lifecycleMu.Unlock()
+		if !ok {
+			t.Fatal("create failed")
+		}
+		out, queryOK = callGetUSBDeviceAttachmentStateForTest(uintptr(h))
+		if queryOK {
+			t.Fatal("query succeeded under serverClosing")
+		}
+		if out != cAttachmentStateSentinel {
+			t.Fatalf("outState = %d after a failed query under serverClosing, want sentinel %d unchanged", out, cAttachmentStateSentinel)
+		}
+	})
+}
+
 func TestAttachmentStateEnumSizeAndValues(t *testing.T) {
 	if got := attachmentStateResultCSize(); got != 4 {
 		t.Fatalf("sizeof(USBDeviceAttachmentState) = %d, want 4", got)

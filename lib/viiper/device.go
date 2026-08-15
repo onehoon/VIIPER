@@ -89,6 +89,30 @@ func getUSBDeviceAttachmentState(handle uintptr, outState *C.USBDeviceAttachment
 	return true
 }
 
+// cAttachmentStateValue is a plain-Go mirror of the real C.USBDeviceAttachmentState numeric
+// values, for use by _test.go files. Go's cgo does not permit "import C" in test files, so tests
+// that need to exercise the real getUSBDeviceAttachmentState call (rather than the private
+// queryDeviceAttachmentState it wraps) go through callGetUSBDeviceAttachmentStateForTest below,
+// which does the actual C-typed call in this cgo-enabled file and returns only this plain type.
+type cAttachmentStateValue uint32
+
+const (
+	cAttachmentStateDetached       cAttachmentStateValue = cAttachmentStateValue(C.VIIPER_ATTACHMENT_DETACHED)
+	cAttachmentStateAttached       cAttachmentStateValue = cAttachmentStateValue(C.VIIPER_ATTACHMENT_ATTACHED)
+	cAttachmentStateOutcomeUnknown cAttachmentStateValue = cAttachmentStateValue(C.VIIPER_ATTACHMENT_OUTCOME_UNKNOWN)
+	cAttachmentStateSentinel       cAttachmentStateValue = 0xFF
+)
+
+// callGetUSBDeviceAttachmentStateForTest calls the real getUSBDeviceAttachmentState with a real
+// *C.USBDeviceAttachmentState seeded with the sentinel value, and reports both the resulting
+// value and whether the call succeeded -- so a test can assert the sentinel survives untouched on
+// every failure path, exactly as fork-api.md documents.
+func callGetUSBDeviceAttachmentStateForTest(handle uintptr) (cAttachmentStateValue, bool) {
+	out := C.USBDeviceAttachmentState(cAttachmentStateSentinel)
+	ok := getUSBDeviceAttachmentState(handle, &out)
+	return cAttachmentStateValue(out), ok
+}
+
 // AttachUSBDevice performs a tracked localhost attachment. It returns true only when the
 // classified result is VIIPER_ATTACH_SUCCESS; every other classified result reports false here.
 // Use AttachUSBDeviceEx to distinguish a safe retryable failure from an unsafe unknown outcome.
