@@ -101,6 +101,21 @@ diagnostic/identity operations and retry `CloseUSBServer` according to the
 failure state. A failed close is fail-closed; callers must not recreate buses,
 retry an unknown attachment outcome, or continue normal mutation.
 
+### Detached-ready typed devices
+
+A typed device created with `autoAttachLocalhost=false` is immediately
+usable in the `detached` state: its `Set*DeviceState` and
+`Set*OutputCallback`/`Set*RumbleCallback` exports accept mutation before the
+device has ever been attached. `AttachUSBDevice` is the only operation that
+performs a Windows localhost attachment; creation itself never does.
+
+An explicit `DetachUSBDevice` ends only that attachment, not the logical
+device's lifetime. State and callback mutation remain valid on the same
+typed handle while detached, and the same handle may be explicitly
+reattached via `AttachUSBDevice` any number of times while the owning server
+remains `active`. Only a successful typed `Remove*Device` (or `*Ex` variant)
+ends the logical device's lifetime; `DetachUSBDevice` never does.
+
 ### Bus ownership
 
 Typed device removal is intentionally **device-only**. A successful
