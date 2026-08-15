@@ -166,7 +166,7 @@ The canonical wrappers currently include:
 
 | Device | Create | State/callback | Remove |
 | --- | --- | --- | --- |
-| Classic Steam Controller (Gordon) | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice`, `RemoveSteamControllerDeviceEx` |
+| Steam Controller | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice`, `RemoveSteamControllerDeviceEx` |
 | Xbox 360 | `CreateXbox360Device` | `SetXbox360DeviceState`, `SetXbox360RumbleCallback` | `RemoveXbox360Device` |
 | DualShock 4 | `CreateDS4Device` | `SetDS4DeviceState`, `SetDS4OutputCallback` | `RemoveDS4Device` |
 | DualSense | `CreateDualSenseDevice`, `CreateDualSenseEdgeDevice` | `SetDualSenseDeviceState`, `SetDualSenseOutputCallback` | `RemoveDualSenseDevice` |
@@ -196,7 +196,7 @@ API and returns `true` only for that family's `_SUCCESS` value.
 The result is returned by the same removal operation; do not pair removal
 with a process-global or thread-local last-status query.
 
-#### Gordon (Steam Controller)
+#### Steam Controller
 
 `RemoveSteamControllerDevice` remains the compatibility bool API. New
 consumers that must preserve native ownership semantics should use:
@@ -243,10 +243,10 @@ SteamDeckDeviceRemoveResult RemoveSteamDeckDeviceEx(
     uintptr_t deviceHandle);
 ```
 
-The values carry the same semantics as Gordon's enum above (success,
+The values carry the same semantics as the Steam Controller enum above (success,
 retryable failure, unsafe-unknown outcome, and invalid handle/lifecycle use),
 under the Steam Deck's own distinct enum and constant names. Do not assume
-Gordon's `SteamControllerDeviceRemoveResult` is the only classified removal
+`SteamControllerDeviceRemoveResult` is the only classified removal
 enum, and do not mix the two families' constants.
 
 The legacy bool export returns `true` only for
