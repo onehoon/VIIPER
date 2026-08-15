@@ -1283,6 +1283,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Attachment API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#classified-attachdetach-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Classified attach/detach results
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1987,6 +2004,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Attachment API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#classified-attachdetach-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Classified attach/detach results
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2172,9 +2206,16 @@ claim that a device is attached.</p>
 <li>expect stale, zero, wrong-type, and arbitrary handles to return <code>false</code>;</li>
 <li>keep callback function pointers alive for as long as they are registered.</li>
 </ul>
-<p>The exported functions return <code>true</code> on success and <code>false</code> on failure. Output
-handle and output ID pointers must be non-NULL. Invalid input is rejected
-before device construction, bus registration, attachment, or handle creation.</p>
+<p>Return semantics are defined by each export. Boolean compatibility exports
+(<code>AttachUSBDevice</code>, <code>DetachUSBDevice</code>, <code>Create*Device</code>, <code>Set*DeviceState</code>,
+<code>Remove*Device</code>, and similar) return <code>true</code> on success and <code>false</code> on
+failure. Classified <code>*Ex</code> exports (<code>AttachUSBDeviceEx</code>, <code>DetachUSBDeviceEx</code>,
+<code>RemoveSteamControllerDeviceEx</code>, <code>RemoveSteamDeckDeviceEx</code>, and similar)
+return their documented operation-specific result enum directly instead of a
+bool; see "Classified attach/detach results" and "Classified typed-device
+removal" below for the exact enums. Output handle and output ID pointers
+must be non-NULL. Invalid input is rejected before device construction, bus
+registration, attachment, or handle creation.</p>
 <h2 id="classic-steam-controller-trigger-state">Classic Steam Controller trigger state</h2>
 <p>The generated <code>SteamControllerDeviceState</code> contains independent digital
 trigger flags immediately after <code>L1</code> and <code>R1</code>:</p>
@@ -2277,6 +2318,52 @@ blindly retry another backend.</p>
 <li>unknown outcome: the server enters <code>close-failed</code>, no automatic retry is
   attempted, and the token is retained only for diagnostics.</li>
 </ul>
+<h3 id="classified-attachdetach-results">Classified attach/detach results</h3>
+<p><code>AttachUSBDevice</code>/<code>DetachUSBDevice</code> collapse that classification into a bare
+<code>bool</code>. Callers that need to distinguish a safe, explicitly retryable failure
+from an unsafe unknown outcome should use the classified <code>Ex</code> variants
+instead of trying to infer native ownership from a <code>bool</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="n">VIIPER_ATTACH_SUCCESS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">VIIPER_ATTACH_RETRYABLE_FAILURE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">VIIPER_ATTACH_UNSAFE_OUTCOME_UNKNOWN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">VIIPER_ATTACH_INVALID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span><span class="w"> </span><span class="n">USBDeviceAttachResult</span><span class="p">;</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="n">VIIPER_DETACH_SUCCESS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="n">VIIPER_DETACH_RETRYABLE_FAILURE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="n">VIIPER_DETACH_UNSAFE_OUTCOME_UNKNOWN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="n">VIIPER_DETACH_INVALID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">}</span><span class="w"> </span><span class="n">USBDeviceDetachResult</span><span class="p">;</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">USBDeviceAttachResult</span><span class="w"> </span><span class="nf">AttachUSBDeviceEx</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="n">USBDeviceDetachResult</span><span class="w"> </span><span class="nf">DetachUSBDeviceEx</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
+</code></pre></div>
+<p><code>AttachUSBDeviceEx</code> and <code>DetachUSBDeviceEx</code> are not a separate mutation path:
+<code>AttachUSBDevice</code>/<code>DetachUSBDevice</code> call the exact same classified operation
+and return <code>true</code> only for <code>..._SUCCESS</code>, <code>false</code> for every other result.</p>
+<ul>
+<li><code>..._SUCCESS</code>: the device was successfully attached/detached, or was
+  already in that state (attach/detach remain idempotent; the same valid
+  device already attached/detached succeeds without a second backend call).</li>
+<li><code>..._RETRYABLE_FAILURE</code>: the operation had a known failure. Ownership
+  remains known — for detach, the exact existing attachment token remains
+  authoritative — the server remains active, and an explicit later retry is
+  safe.</li>
+<li><code>..._UNSAFE_OUTCOME_UNKNOWN</code>: native ownership cannot be determined
+  safely. The device's attachment record becomes <code>attachmentOutcomeUnknown</code>
+  and the owning server enters <code>close-failed</code>, matching the existing
+  fail-closed contract. <strong>If the device is already in
+  <code>attachmentOutcomeUnknown</code>, subsequent <code>AttachUSBDeviceEx</code> or
+  <code>DetachUSBDeviceEx</code> calls must return <code>UNSAFE_OUTCOME_UNKNOWN</code> again
+  without invoking the backend or attempting any destructive retry. Do not
+  downgrade this state to <code>INVALID</code></strong> — unknown means native ownership
+  evidence remains unsafe, not that the handle became invalid.</li>
+<li><code>..._INVALID</code>: a zero/stale/wrong-type handle, or a mutation the current
+  server lifecycle does not permit (for example after the server has
+  finished closing). No attachment attempt is made.</li>
+</ul>
 <p>The legacy <code>clib</code> attachment functions are separate compatibility APIs. New
 fork integrations should use the typed canonical functions instead of mixing
 legacy error-only attachment with typed ownership records.</p>
@@ -2364,15 +2451,15 @@ with a process-global or thread-local last-status query.</p>
 <h4 id="steam-controller">Steam Controller</h4>
 <p><code>RemoveSteamControllerDevice</code> remains the compatibility bool API. New
 consumers that must preserve native ownership semantics should use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_SUCCESS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_RETRYABLE_FAILURE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_UNSAFE_OUTCOME_UNKNOWN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_INVALID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span><span class="w"> </span><span class="n">SteamControllerDeviceRemoveResult</span><span class="p">;</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">SteamControllerDeviceRemoveResult</span><span class="w"> </span><span class="nf">RemoveSteamControllerDeviceEx</span><span class="p">(</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_SUCCESS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_RETRYABLE_FAILURE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_UNSAFE_OUTCOME_UNKNOWN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">VIIPER_REMOVE_INVALID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span><span class="w"> </span><span class="n">SteamControllerDeviceRemoveResult</span><span class="p">;</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">SteamControllerDeviceRemoveResult</span><span class="w"> </span><span class="nf">RemoveSteamControllerDeviceEx</span><span class="p">(</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
 </code></pre></div>
 <ul>
 <li><code>VIIPER_REMOVE_SUCCESS</code>: the typed device handle was finalized.</li>
@@ -2390,15 +2477,15 @@ consumers that must preserve native ownership semantics should use:</p>
 <h4 id="steam-deck">Steam Deck</h4>
 <p><code>RemoveSteamDeckDevice</code> remains the compatibility bool API. New consumers
 that must preserve native ownership semantics should use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_SUCCESS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_RETRYABLE_FAILURE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_UNSAFE_OUTCOME_UNKNOWN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_INVALID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span><span class="w"> </span><span class="n">SteamDeckDeviceRemoveResult</span><span class="p">;</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">SteamDeckDeviceRemoveResult</span><span class="w"> </span><span class="nf">RemoveSteamDeckDeviceEx</span><span class="p">(</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_SUCCESS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_RETRYABLE_FAILURE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_UNSAFE_OUTCOME_UNKNOWN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="n">VIIPER_STEAMDECK_REMOVE_INVALID</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">}</span><span class="w"> </span><span class="n">SteamDeckDeviceRemoveResult</span><span class="p">;</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">SteamDeckDeviceRemoveResult</span><span class="w"> </span><span class="nf">RemoveSteamDeckDeviceEx</span><span class="p">(</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
 </code></pre></div>
 <p>The values carry the same semantics as the Steam Controller enum above (success,
 retryable failure, unsafe-unknown outcome, and invalid handle/lifecycle use),
@@ -2428,48 +2515,48 @@ application can release it during device removal or server shutdown.</p>
 <h2 id="minimal-c-usage">Minimal C usage</h2>
 <p>The following is a lifecycle sketch. Use the generated
 <code>dist/libVIIPER/libVIIPER.h</code> from the same build as the DLL.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">USBServerConfig</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">USBServerHandle</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">NewUSBServer</span><span class="p">(</span><span class="o">&amp;</span><span class="n">config</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">bus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bus</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">}</span>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">SteamControllerDeviceHandle</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateSteamControllerDevice</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="p">}</span>
-<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>
-<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="cm">/* State updates and callback registration happen while the server is active. */</span>
-<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="n">SetSteamControllerDeviceState</span><span class="p">(</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">);</span>
-<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>
-<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="cm">/* Optional Windows-only tracked attachment. */</span>
-<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="n">AttachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
-<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a>
-<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="n">DetachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
-<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="n">RemoveSteamControllerDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
-<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
-<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">USBServerConfig</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">USBServerHandle</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">NewUSBServer</span><span class="p">(</span><span class="o">&amp;</span><span class="n">config</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">}</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">bus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bus</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">}</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="n">SteamControllerDeviceHandle</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateSteamControllerDevice</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="p">}</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="cm">/* State updates and callback registration happen while the server is active. */</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="n">SetSteamControllerDeviceState</span><span class="p">(</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">);</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="cm">/* Optional Windows-only tracked attachment. */</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="n">AttachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="n">DetachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="n">RemoveSteamControllerDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
 </code></pre></div>
 <p>In production code, check every return value and treat a failed close or
 unknown attachment outcome as a lifecycle fault requiring operator or host
 application handling.</p>
 <h2 id="build-and-validation">Build and validation</h2>
 <p>Build the canonical library and generated header with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>just build-libVIIPER Release
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>just build-libVIIPER Release
 </code></pre></div>
 <p>Before consuming a new DLL/header pair, validate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>go test ./...
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>go test -race ./internal/server/usb ./lib/viiper
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>go vet ./...
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>git diff --check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>go test ./...
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>go test -race ./internal/server/usb ./lib/viiper
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>go vet ./...
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>git diff --check
 </code></pre></div>
 <p>CI additionally validates the Windows shared-library build, generated C
 header layout, exported symbols, and canonical lifecycle race tests. The DLL
@@ -2490,16 +2577,16 @@ adoption. Consumers must pin an exact commit/artifact rather than depending
 on a mutable "latest" build.</p>
 <p>SteamInputAddonforClaw consumes this artifact through a two-repository
 automation pipeline:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>VIIPER main push
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>  -&gt; Dev Snapshot Build completes successfully
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>  -&gt; notify-addon-dependency.yml validates success/main/push and the exact
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>     40-character head_sha, then sends repository_dispatch
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>     (viiper-canonical-ready) with that commit
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>  -&gt; SteamInputAddonforClaw&#39;s viiper-dependency-update.yml independently
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>     re-verifies the exact commit&#39;s canonical artifact, manifest, and hashes
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>  -&gt; mechanical Draft dependency PR
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>  -&gt; human ABI/runtime review
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>  -&gt; manual merge only
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>VIIPER main push
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>  -&gt; Dev Snapshot Build completes successfully
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  -&gt; notify-addon-dependency.yml validates success/main/push and the exact
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>     40-character head_sha, then sends repository_dispatch
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>     (viiper-canonical-ready) with that commit
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>  -&gt; SteamInputAddonforClaw&#39;s viiper-dependency-update.yml independently
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>     re-verifies the exact commit&#39;s canonical artifact, manifest, and hashes
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>  -&gt; mechanical Draft dependency PR
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>  -&gt; human ABI/runtime review
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>  -&gt; manual merge only
 </code></pre></div>
 <p>The dispatch payload's commit is only a hint/input, not dependency
 authority — the generated canonical artifact for that exact commit remains
