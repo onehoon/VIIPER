@@ -228,6 +228,67 @@ and return `true` only for `..._SUCCESS`, `false` for every other result.
   server lifecycle does not permit (for example after the server has
   finished closing). No attachment attempt is made.
 
+### Reading attachment state without mutating it
+
+`AttachUSBDeviceEx`/`DetachUSBDeviceEx` report the outcome of a mutation.
+`GetUSBDeviceAttachmentState` is the read-only counterpart: it reports the
+current tracked attachment ownership state without attempting to change it.
+
+```c
+typedef enum {
+    VIIPER_ATTACHMENT_DETACHED = 0,
+    VIIPER_ATTACHMENT_ATTACHED = 1,
+    VIIPER_ATTACHMENT_OUTCOME_UNKNOWN = 2
+} USBDeviceAttachmentState;
+
+bool GetUSBDeviceAttachmentState(uintptr_t deviceHandle,
+                                 USBDeviceAttachmentState* outState);
+```
+
+**This reports VIIPER's own tracked localhost attachment ownership only. It
+is not a Windows PnP, HID, or XInput readiness signal.**
+`VIIPER_ATTACHMENT_ATTACHED` means VIIPER completed its tracked localhost
+attach operation and retains the verified attachment token, backend, and
+positive import port — it does not mean the Windows PnP node has enumerated,
+HID interfaces are ready, XInput is ready, or Steam has discovered the
+device. An application must still perform its own exact PnP
+stabilization/ownership checks; this query never substitutes for that.
+`VIIPER_ATTACHMENT_DETACHED` means no tracked localhost attachment is
+currently active for that logical device; it does not by itself confirm
+Windows-side disappearance where a consumer requires that.
+
+State meanings:
+
+- `VIIPER_ATTACHMENT_DETACHED`: the typed logical device is alive with no
+  active tracked localhost attachment. If the owning server is `active`, an
+  explicit attach may be attempted through the normal classified contract.
+- `VIIPER_ATTACHMENT_ATTACHED`: the typed logical device is alive and VIIPER
+  retains the exact verified attachment token (backend and positive import
+  port) that `DetachUSBDeviceEx` will use.
+- `VIIPER_ATTACHMENT_OUTCOME_UNKNOWN`: the typed device handle is still
+  authoritative, but native attachment ownership cannot be determined
+  safely — the same `attachmentOutcomeUnknown` state `AttachUSBDeviceEx`/
+  `DetachUSBDeviceEx` report as `UNSAFE_OUTCOME_UNKNOWN`. The query still
+  succeeds and reports this state; it does not fail merely because the
+  owning server has entered `close-failed`. This remains the fail-closed
+  signal to never attempt a destructive Attach/Detach retry.
+
+Lifecycle and failure behavior:
+
+- Like `GetUSBDeviceIdentity`, the query succeeds for a still-authoritative
+  handle whether the owning server is `active` or `close-failed` — an
+  unrelated `close-failed` condition never erases known attachment evidence.
+  It fails (returns `false`, does not write `outState`) when the server is
+  `closing` or `closed`.
+- Fails for a `NULL outState`, a zero/stale/wrong-type handle, or a removed
+  typed handle. `outState` is valid only when the function returns `true`.
+- This is a pure read: it never invokes the attach or detach backend, and
+  never mutates the attachment record, the stored token, server lifecycle
+  state, or USB transport state. Repeated queries never call either backend.
+- The state is snapshotted under the same server lifecycle lock that
+  serializes `AttachUSBDeviceEx`/`DetachUSBDeviceEx`, so a query never
+  observes a torn read of attachment state mid-mutation.
+
 The legacy `clib` attachment functions are separate compatibility APIs. New
 fork integrations should use the typed canonical functions instead of mixing
 legacy error-only attachment with typed ownership records.

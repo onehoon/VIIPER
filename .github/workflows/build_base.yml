@@ -267,6 +267,11 @@ jobs:
                   grep -Eq 'extern USBDeviceDetachResult DetachUSBDeviceEx\(uintptr_t handle\);' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern _Bool AttachUSBDevice\(uintptr_t handle\);' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern _Bool DetachUSBDevice\(uintptr_t handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -q 'USBDeviceAttachmentState' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_ATTACHMENT_DETACHED = 0' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_ATTACHMENT_ATTACHED = 1' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_ATTACHMENT_OUTCOME_UNKNOWN = 2' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern _Bool GetUSBDeviceAttachmentState\(uintptr_t handle, USBDeviceAttachmentState\* outState\);' dist/libVIIPER/libVIIPER.h
                   grep -q 'SteamControllerDeviceHandle' dist/libVIIPER/libVIIPER.h
                   grep -q 'SteamControllerDeviceState' dist/libVIIPER/libVIIPER.h
                   grep -q 'SteamControllerOutputCallback' dist/libVIIPER/libVIIPER.h
@@ -299,6 +304,7 @@ jobs:
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -qE '\bDetachUSBDevice$'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'AttachUSBDeviceEx'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'DetachUSBDeviceEx'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'GetUSBDeviceAttachmentState'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'CreateSteamControllerDevice'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamControllerDeviceState'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamControllerOutputCallback'
