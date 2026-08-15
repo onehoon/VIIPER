@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/Alia5/VIIPER/usbip"
@@ -104,18 +105,64 @@ func attachLocalhostClientTrackedImpl(ctx context.Context, deviceExportMeta *usb
 	return attachLocalhostClientWithFallback(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger, attachViaIOCTL, attachViaCommand)
 }
 
-func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
+// logNativeIOCTLTiming emits one behavior-neutral "attachment-timing" summary (layer=native-ioctl)
+// per actual native attach/detach attempt. discoveryUs/openUs/ioctlUs/validationUs are 0 for any
+// stage never reached; reachedIOCTL distinguishes a request that never got past discovery/open
+// (backendCalled=false) from one where DeviceIoControl actually ran. This is diagnostic-only and
+// runs after err is already finalized by the caller; it never changes err or classification.
+func logNativeIOCTLTiming(logger *slog.Logger, operation string, err error, reachedIOCTL bool, total time.Duration, discoveryUs, openUs, ioctlUs, validationUs int64) {
+	logger.Info("attachment-timing",
+		"operation", operation,
+		"layer", "native-ioctl",
+		"result", attachmentTimingResultLabel(err),
+		"backend", "native-ioctl",
+		"backendCalled", reachedIOCTL,
+		"totalUs", total.Microseconds(),
+		"discoveryUs", discoveryUs,
+		"openUs", openUs,
+		"ioctlUs", ioctlUs,
+		"validationUs", validationUs,
+	)
+}
+
+// logCommandBackendTiming emits one behavior-neutral "attachment-timing" summary
+// (layer=command) per actual command-backend attempt.
+func logCommandBackendTiming(logger *slog.Logger, operation string, err error, backendCalled bool, total time.Duration, processUs, classificationUs int64) {
+	logger.Info("attachment-timing",
+		"operation", operation,
+		"layer", "command",
+		"result", attachmentTimingResultLabel(err),
+		"backend", "command",
+		"backendCalled", backendCalled,
+		"totalUs", total.Microseconds(),
+		"processUs", processUs,
+		"classificationUs", classificationUs,
+	)
+}
+
+func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (result LocalhostAttachment, err error) {
+	nativeStart := time.Now()
+	var discoveryUs, openUs, ioctlUs, validationUs int64
+	var reachedIOCTL bool
+	defer func() {
+		logNativeIOCTLTiming(logger, "attach", err, reachedIOCTL, time.Since(nativeStart), discoveryUs, openUs, ioctlUs, validationUs)
+	}()
+
 	logger.Info("Auto-attaching localhost client via native IOCTL",
 		"busID", deviceExportMeta.BusID,
 		"deviceID", deviceExportMeta.DevID)
 
 	if usbipServerPort == 0 {
-		return LocalhostAttachment{}, fmt.Errorf("argumentValidation: invalid TCP port number (0)")
+		err = fmt.Errorf("argumentValidation: invalid TCP port number (0)")
+		return
 	}
 
-	devicePath, err := getDeviceInterfacePath(&deviceGUID)
-	if err != nil {
-		return LocalhostAttachment{}, fmt.Errorf("discovery: %w", err)
+	discoveryStart := time.Now()
+	devicePath, discoveryErr := getDeviceInterfacePath(&deviceGUID)
+	discoveryUs = time.Since(discoveryStart).Microseconds()
+	if discoveryErr != nil {
+		err = fmt.Errorf("discovery: %w", discoveryErr)
+		return
 	}
 
 	logger.Debug("Found usbip-win2 device", "path", devicePath)
@@ -125,23 +172,27 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 
 	busID := fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID)
 	if len(busID) >= len(ioctlData.BusID) {
-		return LocalhostAttachment{}, fmt.Errorf("argumentValidation: bus ID too long: %s", busID)
+		err = fmt.Errorf("argumentValidation: bus ID too long: %s", busID)
+		return
 	}
 	copy(ioctlData.BusID[:], busID)
 
 	service := fmt.Sprintf("%d", usbipServerPort)
 	if len(service) >= len(ioctlData.Service) {
-		return LocalhostAttachment{}, fmt.Errorf("argumentValidation: service string too long: %s", service)
+		err = fmt.Errorf("argumentValidation: service string too long: %s", service)
+		return
 	}
 	copy(ioctlData.Service[:], service)
 	copy(ioctlData.Host[:], "localhost")
 
-	devicePathUTF16, err := windows.UTF16PtrFromString(devicePath)
-	if err != nil {
-		return LocalhostAttachment{}, fmt.Errorf("open: failed to convert device path: %w", err)
+	devicePathUTF16, convErr := windows.UTF16PtrFromString(devicePath)
+	if convErr != nil {
+		err = fmt.Errorf("open: failed to convert device path: %w", convErr)
+		return
 	}
 
-	handle, err := windows.CreateFile(
+	openStart := time.Now()
+	handle, openErr := windows.CreateFile(
 		devicePathUTF16,
 		windows.GENERIC_READ|windows.GENERIC_WRITE,
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
@@ -150,8 +201,10 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 		windows.FILE_ATTRIBUTE_NORMAL,
 		0,
 	)
-	if err != nil {
-		return LocalhostAttachment{}, fmt.Errorf("open: failed to open usbip-win2 device: %w", err)
+	openUs = time.Since(openStart).Microseconds()
+	if openErr != nil {
+		err = fmt.Errorf("open: failed to open usbip-win2 device: %w", openErr)
+		return
 	}
 	defer windows.CloseHandle(handle) // nolint
 
@@ -159,7 +212,8 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 
 	var bytesReturned uint32
 	inputLength, outputLength := nativeAttachIOCTLLengths()
-	err = windows.DeviceIoControl(
+	ioctlStart := time.Now()
+	ioctlErr := windows.DeviceIoControl(
 		handle,
 		ioctlPluginHardware,
 		(*byte)(unsafe.Pointer(&ioctlData)),
@@ -169,14 +223,21 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 		&bytesReturned,
 		nil,
 	)
-	if err != nil {
-		return LocalhostAttachment{}, fmt.Errorf("%w: native PLUGIN_HARDWARE DeviceIoControl failed: %v", ErrAttachmentOutcomeUnknown, err)
+	ioctlUs = time.Since(ioctlStart).Microseconds()
+	reachedIOCTL = true
+	if ioctlErr != nil {
+		err = fmt.Errorf("%w: native PLUGIN_HARDWARE DeviceIoControl failed: %v", ErrAttachmentOutcomeUnknown, ioctlErr)
+		return
 	}
 
 	logger.Debug("IOCTL completed", "bytesReturned", bytesReturned, "portOutput", ioctlData.PortOutput)
 
-	if err := validateNativeAttachResponse(bytesReturned, ioctlData.PortOutput); err != nil {
-		return LocalhostAttachment{}, err
+	validationStart := time.Now()
+	validationErr := validateNativeAttachResponse(bytesReturned, ioctlData.PortOutput)
+	validationUs = time.Since(validationStart).Microseconds()
+	if validationErr != nil {
+		err = validationErr
+		return
 	}
 
 	logger.Info("Successfully attached device via IOCTL",
@@ -184,14 +245,21 @@ func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbip
 		"deviceID", deviceExportMeta.DevID,
 		"usbPort", ioctlData.PortOutput)
 
-	return LocalhostAttachment{Backend: LocalhostAttachmentBackendNativeIOCTL, Port: ioctlData.PortOutput}, nil
+	result = LocalhostAttachment{Backend: LocalhostAttachmentBackendNativeIOCTL, Port: ioctlData.PortOutput}
+	return
 }
 
 func nativeAttachIOCTLLengths() (input uint32, output uint32) {
 	return attachInputLength, attachPortOutputLength
 }
 
-func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
+func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (result LocalhostAttachment, err error) {
+	commandStart := time.Now()
+	var processUs, classificationUs int64
+	defer func() {
+		logCommandBackendTiming(logger, "attach", err, true, time.Since(commandStart), processUs, classificationUs)
+	}()
+
 	logger.Info("Auto-attaching localhost client", "busID", deviceExportMeta.BusID, "deviceID", deviceExportMeta.DevID)
 
 	cmd := exec.CommandContext(
@@ -199,24 +267,34 @@ func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, u
 		"usbip",
 		usbipAttachCommandArgs(usbipServerPort, fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID))...,
 	)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
+	processStart := time.Now()
+	output, cmdErr := cmd.CombinedOutput()
+	processUs = time.Since(processStart).Microseconds()
+	if cmdErr != nil {
 		logger.Error("Failed to attach device",
-			"error", err,
+			"error", cmdErr,
 			"port", usbipServerPort,
 			"output", string(output))
-		port, resultErr := classifyUSBIPAttachCommandResult(output, err)
+		classifyStart := time.Now()
+		port, resultErr := classifyUSBIPAttachCommandResult(output, cmdErr)
+		classificationUs = time.Since(classifyStart).Microseconds()
 		if resultErr != nil {
-			return LocalhostAttachment{}, resultErr
+			err = resultErr
+			return
 		}
-		return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: port}, nil
+		result = LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: port}
+		return
 	}
 	logger.Debug("usbip attach output", "output", string(output))
-	port, err := classifyUSBIPAttachCommandResult(output, nil)
-	if err != nil {
-		return LocalhostAttachment{}, err
+	classifyStart := time.Now()
+	port, classifyErr := classifyUSBIPAttachCommandResult(output, nil)
+	classificationUs = time.Since(classifyStart).Microseconds()
+	if classifyErr != nil {
+		err = classifyErr
+		return
 	}
-	return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: port}, nil
+	result = LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: port}
+	return
 }
 
 // attachViaCommandLegacy preserves the old error-only auto-attach behavior.
@@ -263,31 +341,53 @@ func detachLocalhostClientImpl(ctx context.Context, attachment LocalhostAttachme
 	}
 }
 
-func detachViaIOCTL(_ context.Context, port int32, logger *slog.Logger) error {
-	request, err := newPlugoutIOCTL(port)
-	if err != nil {
-		return err
+func detachViaIOCTL(_ context.Context, port int32, logger *slog.Logger) (err error) {
+	nativeStart := time.Now()
+	var validationUs, discoveryUs, openUs, ioctlUs int64
+	var reachedIOCTL bool
+	defer func() {
+		logNativeIOCTLTiming(logger, "detach", err, reachedIOCTL, time.Since(nativeStart), discoveryUs, openUs, ioctlUs, validationUs)
+	}()
+
+	validationStart := time.Now()
+	request, validationErr := newPlugoutIOCTL(port)
+	validationUs = time.Since(validationStart).Microseconds()
+	if validationErr != nil {
+		err = validationErr
+		return
 	}
-	devicePath, err := getDeviceInterfacePath(&deviceGUID)
-	if err != nil {
-		return fmt.Errorf("discovery: %w", err)
+	discoveryStart := time.Now()
+	devicePath, discoveryErr := getDeviceInterfacePath(&deviceGUID)
+	discoveryUs = time.Since(discoveryStart).Microseconds()
+	if discoveryErr != nil {
+		err = fmt.Errorf("discovery: %w", discoveryErr)
+		return
 	}
-	devicePathUTF16, err := windows.UTF16PtrFromString(devicePath)
-	if err != nil {
-		return fmt.Errorf("open: failed to convert device path: %w", err)
+	devicePathUTF16, convErr := windows.UTF16PtrFromString(devicePath)
+	if convErr != nil {
+		err = fmt.Errorf("open: failed to convert device path: %w", convErr)
+		return
 	}
-	handle, err := windows.CreateFile(devicePathUTF16, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
-	if err != nil {
-		return fmt.Errorf("open: failed to open usbip-win2 device: %w", err)
+	openStart := time.Now()
+	handle, openErr := windows.CreateFile(devicePathUTF16, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	openUs = time.Since(openStart).Microseconds()
+	if openErr != nil {
+		err = fmt.Errorf("open: failed to open usbip-win2 device: %w", openErr)
+		return
 	}
 	defer windows.CloseHandle(handle) // nolint
 
 	var bytesReturned uint32
-	if err := windows.DeviceIoControl(handle, ioctlPlugoutHardware, (*byte)(unsafe.Pointer(&request)), uint32(unsafe.Sizeof(request)), nil, 0, &bytesReturned, nil); err != nil {
-		return classifyNativeDetachResult(err)
+	ioctlStart := time.Now()
+	ioctlErr := windows.DeviceIoControl(handle, ioctlPlugoutHardware, (*byte)(unsafe.Pointer(&request)), uint32(unsafe.Sizeof(request)), nil, 0, &bytesReturned, nil)
+	ioctlUs = time.Since(ioctlStart).Microseconds()
+	reachedIOCTL = true
+	if ioctlErr != nil {
+		err = classifyNativeDetachResult(ioctlErr)
+		return
 	}
 	logger.Info("Successfully detached device via IOCTL", "usbPort", port)
-	return nil
+	return
 }
 
 func newPlugoutIOCTL(port int32) (plugoutIOCTL, error) {
@@ -297,17 +397,32 @@ func newPlugoutIOCTL(port int32) (plugoutIOCTL, error) {
 	return plugoutIOCTL{Size: uint32(unsafe.Sizeof(plugoutIOCTL{})), Port: port}, nil
 }
 
-func detachViaCommand(ctx context.Context, port int32, logger *slog.Logger) error {
-	args, err := usbipDetachCommandArgs(port)
-	if err != nil {
-		return err
+func detachViaCommand(ctx context.Context, port int32, logger *slog.Logger) (err error) {
+	commandStart := time.Now()
+	var processUs, classificationUs int64
+	var backendCalled bool
+	defer func() {
+		logCommandBackendTiming(logger, "detach", err, backendCalled, time.Since(commandStart), processUs, classificationUs)
+	}()
+
+	args, argsErr := usbipDetachCommandArgs(port)
+	if argsErr != nil {
+		err = argsErr
+		return
 	}
-	output, err := exec.CommandContext(ctx, "usbip", args...).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%w: %s", classifyUSBIPDetachCommandResult(err), output)
+	processStart := time.Now()
+	output, cmdErr := exec.CommandContext(ctx, "usbip", args...).CombinedOutput()
+	processUs = time.Since(processStart).Microseconds()
+	backendCalled = true
+	if cmdErr != nil {
+		classifyStart := time.Now()
+		classifyErr := classifyUSBIPDetachCommandResult(cmdErr)
+		classificationUs = time.Since(classifyStart).Microseconds()
+		err = fmt.Errorf("%w: %s", classifyErr, output)
+		return
 	}
 	logger.Info("Successfully detached device via usbip command", "usbPort", port)
-	return nil
+	return
 }
 
 func getDeviceInterfacePath(guid *windows.GUID) (string, error) {

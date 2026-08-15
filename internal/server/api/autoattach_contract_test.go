@@ -7,10 +7,68 @@ import (
 	"log/slog"
 	"os/exec"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/Alia5/VIIPER/usbip"
 )
+
+// timingRecordingHandler is a minimal slog.Handler that records every emitted record so a test
+// can assert on the "attachment-timing" log line without depending on any real logging backend.
+// Shared by the fallback-layer tests here and the native-ioctl/command-layer tests in
+// autoattach_windows_test.go.
+type timingRecordingHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *timingRecordingHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *timingRecordingHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, r.Clone())
+	return nil
+}
+
+func (h *timingRecordingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *timingRecordingHandler) WithGroup(string) slog.Handler     { return h }
+
+func (h *timingRecordingHandler) timingRecords() []slog.Record {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []slog.Record
+	for _, r := range h.records {
+		if r.Message == "attachment-timing" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func recordAttrs(r slog.Record) map[string]any {
+	m := make(map[string]any, r.NumAttrs())
+	r.Attrs(func(a slog.Attr) bool {
+		m[a.Key] = a.Value.Any()
+		return true
+	})
+	return m
+}
+
+func requireNonNegativeInt64(t *testing.T, attrs map[string]any, key string) {
+	t.Helper()
+	v, ok := attrs[key]
+	if !ok {
+		t.Fatalf("missing timing field %q", key)
+	}
+	n, ok := v.(int64)
+	if !ok {
+		t.Fatalf("timing field %q = %v (%T), want int64", key, v, v)
+	}
+	if n < 0 {
+		t.Fatalf("timing field %q = %d, want >= 0", key, n)
+	}
+}
 
 func TestParseUSBIPTerseAttachPort(t *testing.T) {
 	tests := []struct {
@@ -102,6 +160,87 @@ func TestTrackedAttachFallbackIsSingleLayerAndFailClosed(t *testing.T) {
 		}
 		if commandCalls != 0 {
 			t.Fatalf("command fallback called %d times after unknown outcome", commandCalls)
+		}
+	})
+}
+
+func TestAttachmentFallbackTimingRecordsNativeAttemptedAndFallbackUsed(t *testing.T) {
+	meta := &usbip.ExportMeta{BusID: 1, DevID: 2}
+
+	t.Run("known native failure: nativeAttempted and fallbackUsed both true", func(t *testing.T) {
+		handler := &timingRecordingHandler{}
+		logger := slog.New(handler)
+		attachment, err := attachLocalhostClientWithFallback(context.Background(), meta, 3241, true, logger,
+			func(context.Context, *usbip.ExportMeta, uint16, *slog.Logger) (LocalhostAttachment, error) {
+				return LocalhostAttachment{}, errors.New("device interface absent")
+			},
+			func(context.Context, *usbip.ExportMeta, uint16, *slog.Logger) (LocalhostAttachment, error) {
+				return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: 11}, nil
+			},
+		)
+		if err != nil || attachment.Port != 11 {
+			t.Fatalf("attachment=%+v err=%v", attachment, err)
+		}
+		records := handler.timingRecords()
+		if len(records) != 1 {
+			t.Fatalf("timing records = %d, want exactly 1", len(records))
+		}
+		attrs := recordAttrs(records[0])
+		if attrs["layer"] != "fallback" || attrs["result"] != "success" || attrs["backend"] != "command" {
+			t.Fatalf("unexpected timing attrs: %+v", attrs)
+		}
+		if attrs["nativeAttempted"] != true || attrs["fallbackUsed"] != true {
+			t.Fatalf("nativeAttempted/fallbackUsed = %+v, want true/true", attrs)
+		}
+		requireNonNegativeInt64(t, attrs, "totalUs")
+	})
+
+	t.Run("unknown native outcome: fallbackUsed stays false", func(t *testing.T) {
+		handler := &timingRecordingHandler{}
+		logger := slog.New(handler)
+		commandCalls := 0
+		_, err := attachLocalhostClientWithFallback(context.Background(), meta, 3241, true, logger,
+			func(context.Context, *usbip.ExportMeta, uint16, *slog.Logger) (LocalhostAttachment, error) {
+				return LocalhostAttachment{}, ErrAttachmentOutcomeUnknown
+			},
+			func(context.Context, *usbip.ExportMeta, uint16, *slog.Logger) (LocalhostAttachment, error) {
+				commandCalls++
+				return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: 11}, nil
+			},
+		)
+		if !errors.Is(err, ErrAttachmentOutcomeUnknown) || commandCalls != 0 {
+			t.Fatalf("err=%v commandCalls=%d, want ErrAttachmentOutcomeUnknown and 0 fallback calls", err, commandCalls)
+		}
+		records := handler.timingRecords()
+		if len(records) != 1 {
+			t.Fatalf("timing records = %d, want exactly 1", len(records))
+		}
+		attrs := recordAttrs(records[0])
+		if attrs["result"] != "unsafe-outcome-unknown" || attrs["nativeAttempted"] != true || attrs["fallbackUsed"] != false || attrs["backend"] != "native-ioctl" {
+			t.Fatalf("unexpected timing attrs: %+v", attrs)
+		}
+	})
+
+	t.Run("useNativeIOCTL=false: nativeAttempted false, command runs once", func(t *testing.T) {
+		handler := &timingRecordingHandler{}
+		logger := slog.New(handler)
+		commandCalls := 0
+		_, err := attachLocalhostClientWithFallback(context.Background(), meta, 3241, false, logger,
+			func(context.Context, *usbip.ExportMeta, uint16, *slog.Logger) (LocalhostAttachment, error) {
+				t.Fatal("native must not be called when useNativeIOCTL is false")
+				return LocalhostAttachment{}, nil
+			},
+			func(context.Context, *usbip.ExportMeta, uint16, *slog.Logger) (LocalhostAttachment, error) {
+				commandCalls++
+				return LocalhostAttachment{Backend: LocalhostAttachmentBackendCommand, Port: 12}, nil
+			},
+		)
+		if err != nil || commandCalls != 1 {
+			t.Fatalf("err=%v commandCalls=%d, want nil/1", err, commandCalls)
+		}
+		attrs := recordAttrs(handler.timingRecords()[0])
+		if attrs["nativeAttempted"] != false || attrs["fallbackUsed"] != false {
+			t.Fatalf("unexpected timing attrs: %+v", attrs)
 		}
 	})
 }

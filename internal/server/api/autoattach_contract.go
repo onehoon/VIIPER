@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Alia5/VIIPER/usbip"
 )
@@ -18,20 +19,59 @@ type localhostAttachAttempt func(context.Context, *usbip.ExportMeta, uint16, *sl
 // attachLocalhostClientWithFallback makes one layer responsible for native to
 // command fallback. Unknown outcomes deliberately bypass fallback.
 func attachLocalhostClientWithFallback(ctx context.Context, meta *usbip.ExportMeta, port uint16, useNativeIOCTL bool, logger *slog.Logger, native, command localhostAttachAttempt) (LocalhostAttachment, error) {
+	start := time.Now()
+
 	if !useNativeIOCTL {
-		return command(ctx, meta, port, logger)
+		attachment, err := command(ctx, meta, port, logger)
+		logAttachmentFallbackTiming(logger, false, false, "command", err, time.Since(start))
+		return attachment, err
 	}
 
 	attachment, err := native(ctx, meta, port, logger)
 	if err == nil {
+		logAttachmentFallbackTiming(logger, true, false, "native-ioctl", nil, time.Since(start))
 		return attachment, nil
 	}
 	if errors.Is(err, ErrAttachmentOutcomeUnknown) {
+		logAttachmentFallbackTiming(logger, true, false, "native-ioctl", err, time.Since(start))
 		return LocalhostAttachment{}, err
 	}
 
 	logger.Error("native USB/IP attach failed before ownership could be created; using command fallback", "error", err)
-	return command(ctx, meta, port, logger)
+	attachment, cmdErr := command(ctx, meta, port, logger)
+	logAttachmentFallbackTiming(logger, true, true, "command", cmdErr, time.Since(start))
+	return attachment, cmdErr
+}
+
+// logAttachmentFallbackTiming emits one behavior-neutral "attachment-timing" summary
+// (layer=fallback) describing the fallback decision itself: whether native IOCTL was attempted,
+// whether the command fallback was used, and which backend the final result actually came from.
+// This is purely diagnostic and runs after the real fallback decision above has already been
+// made; it never influences it.
+func logAttachmentFallbackTiming(logger *slog.Logger, nativeAttempted, fallbackUsed bool, finalBackend string, err error, total time.Duration) {
+	logger.Info("attachment-timing",
+		"operation", "attach",
+		"layer", "fallback",
+		"result", attachmentTimingResultLabel(err),
+		"backend", finalBackend,
+		"nativeAttempted", nativeAttempted,
+		"fallbackUsed", fallbackUsed,
+		"totalUs", total.Microseconds(),
+	)
+}
+
+// attachmentTimingResultLabel maps an attach/detach error to the stable timing-log result
+// vocabulary (success/unsafe-outcome-unknown/retryable-failure). It never affects the actual
+// returned error.
+func attachmentTimingResultLabel(err error) string {
+	switch {
+	case err == nil:
+		return "success"
+	case errors.Is(err, ErrAttachmentOutcomeUnknown), errors.Is(err, ErrDetachmentOutcomeUnknown):
+		return "unsafe-outcome-unknown"
+	default:
+		return "retryable-failure"
+	}
 }
 
 func parseUSBIPTerseAttachPort(output string) (int32, error) {

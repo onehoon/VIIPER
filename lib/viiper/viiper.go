@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/internal/server/api"
@@ -245,14 +246,25 @@ func (hw *usbServerHandleWrapper) registerDeviceLocked(dhw *deviceHandleWrapper)
 	return h
 }
 
+// operationTiming carries behavior-neutral diagnostic durations out of the classified
+// attach/detach resolvers. It is purely additive: a nil *operationTiming means "caller does not
+// need timing," and every field defaults to its zero value on any path that never reaches the
+// backend, so a caller never has to distinguish "not measured" from "measured as zero" itself.
+type operationTiming struct {
+	backendUs     int64
+	backendCalled bool
+}
+
 func (hw *usbServerHandleWrapper) attachDeviceLocked(dhw *deviceHandleWrapper) bool {
-	return hw.attachDeviceLockedResult(dhw) == deviceAttachSuccess
+	return hw.attachDeviceLockedResult(dhw, nil) == deviceAttachSuccess
 }
 
 // attachDeviceLockedResult is the single classified attach implementation. Both the legacy bool
 // AttachUSBDevice and the classified AttachUSBDeviceEx export call this same operation; the bool
-// export never performs an independent second mutation attempt.
-func (hw *usbServerHandleWrapper) attachDeviceLockedResult(dhw *deviceHandleWrapper) deviceAttachResult {
+// export never performs an independent second mutation attempt. timing is optional and purely
+// diagnostic: it is filled in only around the actual backend call and never changes control flow,
+// the returned result, or any stored attachment/server state.
+func (hw *usbServerHandleWrapper) attachDeviceLockedResult(dhw *deviceHandleWrapper, timing *operationTiming) deviceAttachResult {
 	if !hw.s.DeviceTransportCanAccept(dhw.device.(viiperusb.Device)) {
 		return deviceAttachRetryableFailure
 	}
@@ -264,7 +276,12 @@ func (hw *usbServerHandleWrapper) attachDeviceLockedResult(dhw *deviceHandleWrap
 		// downgrade this to an invalid-handle result.
 		return deviceAttachUnsafeOutcomeUnknown
 	}
+	backendStart := time.Now()
 	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.logger)
+	if timing != nil {
+		timing.backendUs = time.Since(backendStart).Microseconds()
+		timing.backendCalled = true
+	}
 	if err == nil && isValidLocalhostAttachment(attachment) {
 		dhw.attachment = deviceAttachmentRecord{state: attachmentAttached, attachment: attachment}
 		return deviceAttachSuccess
@@ -290,13 +307,14 @@ func isValidLocalhostAttachment(attachment api.LocalhostAttachment) bool {
 }
 
 func (hw *usbServerHandleWrapper) detachDeviceLocked(dhw *deviceHandleWrapper) bool {
-	return hw.detachDeviceLockedResult(dhw) == deviceDetachSuccess
+	return hw.detachDeviceLockedResult(dhw, nil) == deviceDetachSuccess
 }
 
 // detachDeviceLockedResult is the single classified detach implementation. Both the legacy bool
 // DetachUSBDevice and the classified DetachUSBDeviceEx export call this same operation; the bool
-// export never performs an independent second mutation attempt.
-func (hw *usbServerHandleWrapper) detachDeviceLockedResult(dhw *deviceHandleWrapper) deviceDetachResult {
+// export never performs an independent second mutation attempt. timing follows the same
+// optional/diagnostic-only contract as in attachDeviceLockedResult.
+func (hw *usbServerHandleWrapper) detachDeviceLockedResult(dhw *deviceHandleWrapper, timing *operationTiming) deviceDetachResult {
 	switch dhw.attachment.state {
 	case attachmentDetached:
 		return deviceDetachSuccess
@@ -305,7 +323,12 @@ func (hw *usbServerHandleWrapper) detachDeviceLockedResult(dhw *deviceHandleWrap
 		// downgrade this to an invalid-handle result.
 		return deviceDetachUnsafeOutcomeUnknown
 	}
+	backendStart := time.Now()
 	err := hw.ops.detachLocalhost(context.Background(), dhw.attachment.attachment, hw.logger)
+	if timing != nil {
+		timing.backendUs = time.Since(backendStart).Microseconds()
+		timing.backendCalled = true
+	}
 	if err == nil {
 		dhw.attachment = deviceAttachmentRecord{state: attachmentDetached}
 		return deviceDetachSuccess
@@ -377,63 +400,136 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 	return typedDeviceRemoveRetryableFailure
 }
 
+func attachResultTimingLabel(result deviceAttachResult) string {
+	switch result {
+	case deviceAttachSuccess:
+		return "success"
+	case deviceAttachRetryableFailure:
+		return "retryable-failure"
+	case deviceAttachUnsafeOutcomeUnknown:
+		return "unsafe-outcome-unknown"
+	default:
+		return "invalid"
+	}
+}
+
+func detachResultTimingLabel(result deviceDetachResult) string {
+	switch result {
+	case deviceDetachSuccess:
+		return "success"
+	case deviceDetachRetryableFailure:
+		return "retryable-failure"
+	case deviceDetachUnsafeOutcomeUnknown:
+		return "unsafe-outcome-unknown"
+	default:
+		return "invalid"
+	}
+}
+
+// logCanonicalAttachmentTiming emits one behavior-neutral "attachment-timing" summary per
+// canonical Attach/Detach operation (layer=canonical), covering both the bool and classified Ex
+// exports since they share this exact resolver. It is diagnostic-only: called after the result
+// and any stored state are already finalized, and it never influences either. Fields follow the
+// stable vocabulary documented in fork-api.md's timing note: operation, layer, result, backend,
+// backendCalled, totalUs, lockWaitUs, backendUs, plus operation-specific identity fields.
+func logCanonicalAttachmentTiming(logger *slog.Logger, operation, result string, timing operationTiming, totalUs, lockWaitUs int64, identity ...any) {
+	backend := "none"
+	if timing.backendCalled {
+		backend = "tracked"
+	}
+	args := []any{
+		"operation", operation,
+		"layer", "canonical",
+		"result", result,
+		"backend", backend,
+		"backendCalled", timing.backendCalled,
+		"totalUs", totalUs,
+		"lockWaitUs", lockWaitUs,
+		"backendUs", timing.backendUs,
+	}
+	args = append(args, identity...)
+	logger.Info("attachment-timing", args...)
+}
+
 // attachUSBDeviceResult resolves and locks the handle exactly like withActiveDeviceHandle, but
 // returns the classified attachDeviceLockedResult instead of a bare bool so a rejected/invalid
 // handle (deviceAttachInvalid) can never be confused with a zero-value success.
 func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
+	opStart := time.Now()
 	v, ok := deviceHandleRecords.Load(handle)
 	if !ok {
+		logCanonicalAttachmentTiming(slog.Default(), "attach", attachResultTimingLabel(deviceAttachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceAttachInvalid
 	}
 	dhw, ok := v.(*deviceHandleWrapper)
 	if !ok {
+		logCanonicalAttachmentTiming(slog.Default(), "attach", attachResultTimingLabel(deviceAttachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceAttachInvalid
 	}
 	hw := dhw.usbServer
+	lockWaitStart := time.Now()
 	hw.lifecycleMu.Lock()
+	lockWaitUs := time.Since(lockWaitStart).Microseconds()
 	defer hw.lifecycleMu.Unlock()
-	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw {
-		return deviceAttachInvalid
-	}
+
+	var result deviceAttachResult
+	var timing operationTiming
+	switch {
+	case hw.deviceHandleRecords[deviceHandle(handle)] != dhw:
+		result = deviceAttachInvalid
 	// Check the device's own unsafe/unknown ownership evidence before the server-wide active
 	// check: an unknown outcome must keep reporting UNSAFE_OUTCOME_UNKNOWN even after it has
 	// pushed the server into close-failed, never downgrade to INVALID.
-	if dhw.attachment.state == attachmentOutcomeUnknown {
-		return deviceAttachUnsafeOutcomeUnknown
-	}
-	if hw.state != serverActive {
+	case dhw.attachment.state == attachmentOutcomeUnknown:
+		result = deviceAttachUnsafeOutcomeUnknown
+	case hw.state != serverActive:
 		hw.warnMutationRejectedLocked("typed-device-mutation")
-		return deviceAttachInvalid
+		result = deviceAttachInvalid
+	default:
+		result = hw.attachDeviceLockedResult(dhw, &timing)
 	}
-	return hw.attachDeviceLockedResult(dhw)
+	logCanonicalAttachmentTiming(hw.logger, "attach", attachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
+		"busID", dhw.exportMeta.BusID, "deviceID", dhw.exportMeta.DevID)
+	return result
 }
 
 // detachUSBDeviceResult mirrors attachUSBDeviceResult for the classified detach path.
 func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
+	opStart := time.Now()
 	v, ok := deviceHandleRecords.Load(handle)
 	if !ok {
+		logCanonicalAttachmentTiming(slog.Default(), "detach", detachResultTimingLabel(deviceDetachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceDetachInvalid
 	}
 	dhw, ok := v.(*deviceHandleWrapper)
 	if !ok {
+		logCanonicalAttachmentTiming(slog.Default(), "detach", detachResultTimingLabel(deviceDetachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceDetachInvalid
 	}
 	hw := dhw.usbServer
+	lockWaitStart := time.Now()
 	hw.lifecycleMu.Lock()
+	lockWaitUs := time.Since(lockWaitStart).Microseconds()
 	defer hw.lifecycleMu.Unlock()
-	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw {
-		return deviceDetachInvalid
-	}
+
+	var result deviceDetachResult
+	var timing operationTiming
+	switch {
+	case hw.deviceHandleRecords[deviceHandle(handle)] != dhw:
+		result = deviceDetachInvalid
 	// Same ordering rationale as attachUSBDeviceResult: unsafe/unknown ownership evidence takes
 	// priority over the server-wide active check so it never gets downgraded to INVALID.
-	if dhw.attachment.state == attachmentOutcomeUnknown {
-		return deviceDetachUnsafeOutcomeUnknown
-	}
-	if hw.state != serverActive {
+	case dhw.attachment.state == attachmentOutcomeUnknown:
+		result = deviceDetachUnsafeOutcomeUnknown
+	case hw.state != serverActive:
 		hw.warnMutationRejectedLocked("typed-device-mutation")
-		return deviceDetachInvalid
+		result = deviceDetachInvalid
+	default:
+		result = hw.detachDeviceLockedResult(dhw, &timing)
 	}
-	return hw.detachDeviceLockedResult(dhw)
+	logCanonicalAttachmentTiming(hw.logger, "detach", detachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
+		"attachmentBackend", dhw.attachment.attachment.Backend, "importPort", dhw.attachment.attachment.Port)
+	return result
 }
 
 type deviceAttachmentQueryState uint8
