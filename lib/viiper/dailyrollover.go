@@ -39,13 +39,24 @@ func calendarDayOf(t time.Time) calendarDay {
 // haveDay/day distinguish "we know the destination's existing content is from calendar day X"
 // (typically seeded from the file's on-disk modification time at open) from "we don't know," in
 // which case the first Write establishes today as the active day without resetting -- the safe
-// assumption when the destination is new or its age could not be determined, per the "logging
-// failures must never become routing failures" contract.
+// assumption when the destination is new, since there is nothing stale to discard.
+//
+// If a same-day-change Reset fails, this deliberately does NOT fall back to appending onto the
+// stale (pre-reset) file -- that would defeat the entire point of daily retention by letting
+// old-day content accumulate indefinitely. Instead it suppresses file writes for the remainder
+// of that day (the record is reported as "written" to the caller regardless -- diagnostic loss,
+// never a caller-visible error -- and VIIPERLogCallback is entirely unaffected, since it is a
+// separate handler that never goes through this writer). Suppression does not retry Reset on
+// every subsequent record of the same day; the next real day change tries Reset again exactly
+// once. This is the same fail-safe posture as "logging failures must never become routing
+// failures," applied specifically so a failure never turns into unbounded historical
+// accumulation either.
 type dailyRolloverWriter struct {
-	backing dailyLogWriter
-	now     func() time.Time
-	haveDay bool
-	day     calendarDay
+	backing    dailyLogWriter
+	now        func() time.Time
+	haveDay    bool
+	day        calendarDay
+	suppressed bool
 }
 
 func newDailyRolloverWriter(backing dailyLogWriter, now func() time.Time, initialDay calendarDay, haveInitialDay bool) *dailyRolloverWriter {
@@ -58,13 +69,16 @@ func (d *dailyRolloverWriter) Write(p []byte) (int, error) {
 	case !d.haveDay:
 		d.day = today
 		d.haveDay = true
+		d.suppressed = false
 	case today != d.day:
-		// Reset failure is diagnostic-only: if the backing destination cannot safely be reset,
-		// continue writing to it as-is (mixing a little of the old day's tail into the new day)
-		// rather than losing this record or risking any effect on routing. Either way, advance
-		// the active day so a persistent reset failure does not retry on every single record.
-		_ = d.backing.Reset()
 		d.day = today
+		d.suppressed = d.backing.Reset() != nil
+	}
+	if d.suppressed {
+		// Diagnostic loss only: report success to the caller (matching every other "logging
+		// failure must never become a routing failure" path) without persisting into what would
+		// otherwise be a stale, unbounded-accumulating file.
+		return len(p), nil
 	}
 	return d.backing.Write(p)
 }

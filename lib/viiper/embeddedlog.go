@@ -57,11 +57,17 @@ func embeddedFileHandler(w io.Writer) slog.Handler {
 // any real module-path Windows API call, real filesystem dependency, or real wall-clock time;
 // failures at resolve or openFile return a nil handler and a nil writer rather than an error,
 // matching the "logging failures must never become routing failures" contract -- callers must
-// never treat a nil result as anything other than "no file sink this run." A statModTime failure
-// is handled the same way as "file does not exist yet": the daily-rollover layer simply treats
-// the first write as establishing today with no reset, rather than aborting anything. The
-// returned *asyncLogWriter (nil on failure) lets a caller request a best-effort flush; it must
-// never be required for correctness.
+// never treat a nil result as anything other than "no file sink this run."
+//
+// A statModTime result of "does not exist" is handled like a brand-new file: the daily-rollover
+// layer treats the first write as establishing today with no reset, since there is nothing stale
+// to discard. A genuine statModTime *error* (anything other than "does not exist") means the
+// file's age cannot be determined at all -- rather than risk appending onto a file of unknown
+// age forever (which would defeat the entire point of daily retention), the owned file sink is
+// disabled for this process run. VIIPERLogCallback, if supplied, is completely unaffected.
+//
+// The returned *asyncLogWriter (nil on failure) lets a caller request a best-effort flush; it
+// must never be required for correctness.
 func openEmbeddedLogFileHandler(
 	resolve func() (string, bool),
 	statModTime func(path string) (modTime time.Time, exists bool, err error),
@@ -72,9 +78,13 @@ func openEmbeddedLogFileHandler(
 	if !ok {
 		return nil, nil
 	}
+	modTime, exists, statErr := statModTime(path)
+	if statErr != nil {
+		return nil, nil
+	}
 	var initialDay calendarDay
 	haveInitialDay := false
-	if modTime, exists, err := statModTime(path); err == nil && exists {
+	if exists {
 		initialDay = calendarDayOf(modTime)
 		haveInitialDay = true
 	}

@@ -137,33 +137,54 @@ func TestDailyRolloverWriterUnknownInitialDayNeverResetsOnFirstWrite(t *testing.
 	}
 }
 
-func TestDailyRolloverWriterResetFailureIsDiagnosticOnlyNoPanicNoRetryStorm(t *testing.T) {
+// TestDailyRolloverWriterResetFailureSuppressesStaleFileNotAppendsToIt proves the file-of-
+// unknown-age contract: when a day-change Reset fails, the writer must NOT fall back to
+// appending onto the pre-reset (now stale) file -- that would defeat daily retention by letting
+// old-day content accumulate indefinitely. It must instead suppress file persistence for the
+// rest of that day (reporting success to the caller regardless; diagnostic loss only), attempt
+// Reset exactly once per day (no retry storm), and try again exactly once on the next real day
+// change.
+func TestDailyRolloverWriterResetFailureSuppressesStaleFileNotAppendsToIt(t *testing.T) {
 	backing := &fakeDailyLogWriter{resetErr: errors.New("simulated truncate failure")}
 	yesterday := calendarDayOf(dateAt(15, 12))
 	current := dateAt(16, 9)
 	now := func() time.Time { return current }
 	w := newDailyRolloverWriter(backing, now, yesterday, true)
 
-	// Must not panic, and the record must still reach the backing writer even though the reset
-	// it attempted failed -- dropping the record entirely would be worse than a little mixed
-	// content, and either way this must never surface as an error to the caller.
-	if _, err := w.Write([]byte("record despite failed reset\n")); err != nil {
+	if _, err := w.Write([]byte("record on the day reset failed\n")); err != nil {
 		t.Fatalf("Write returned an error (%v); reset failures must never propagate", err)
 	}
 	if backing.resetCalls != 1 {
 		t.Fatalf("resetCalls = %d, want 1 (reset was attempted)", backing.resetCalls)
 	}
-	if len(backing.writes) != 1 {
-		t.Fatalf("writes = %d, want 1 (the record was not dropped just because reset failed)", len(backing.writes))
+	if len(backing.writes) != 0 {
+		t.Fatalf("writes = %d, want 0 (must not append onto the stale, un-reset file)", len(backing.writes))
 	}
 
-	// The active day must have advanced despite the failed reset, so an immediate second
-	// same-day write does not attempt (and fail) another reset -- no retry storm.
+	// A second same-day write must not retry (and fail) Reset again -- no retry storm -- and
+	// must also stay suppressed rather than accumulating into the stale file.
 	if _, err := w.Write([]byte("second same-day record\n")); err != nil {
 		t.Fatal(err)
 	}
 	if backing.resetCalls != 1 {
 		t.Fatalf("resetCalls = %d after a second same-day write, want still 1 (no retry storm)", backing.resetCalls)
+	}
+	if len(backing.writes) != 0 {
+		t.Fatalf("writes = %d after a second same-day write, want still 0", len(backing.writes))
+	}
+
+	// The next real day change must try Reset exactly once more; if it succeeds this time,
+	// persistence resumes for the new day's records.
+	backing.resetErr = nil
+	current = dateAt(17, 0)
+	if _, err := w.Write([]byte("first record of the day after the failure\n")); err != nil {
+		t.Fatal(err)
+	}
+	if backing.resetCalls != 2 {
+		t.Fatalf("resetCalls = %d, want 2 (exactly one more attempt on the next day change)", backing.resetCalls)
+	}
+	if len(backing.writes) != 1 || string(backing.writes[0]) != "first record of the day after the failure\n" {
+		t.Fatalf("writes = %+v, want exactly the new day's record now that reset succeeded", backing.writes)
 	}
 }
 

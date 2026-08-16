@@ -129,6 +129,26 @@ func TestOpenEmbeddedLogFileHandlerResolutionFailureReturnsNilNotError(t *testin
 	}
 }
 
+// TestOpenEmbeddedLogFileHandlerStatErrorDisablesFileSinkEntirely proves the file-of-unknown-age
+// contract: a genuine statModTime error (as opposed to "does not exist") means the existing
+// file's age cannot be determined at all, so the owned file sink is disabled for this process
+// run entirely -- rather than risk appending onto a file that could be arbitrarily old forever.
+// openFile must not even be called.
+func TestOpenEmbeddedLogFileHandlerStatErrorDisablesFileSinkEntirely(t *testing.T) {
+	handler, writer := openEmbeddedLogFileHandler(
+		func() (string, bool) { return "libVIIPER.log", true },
+		func(string) (time.Time, bool, error) { return time.Time{}, false, errors.New("simulated stat failure") },
+		func(string) (dailyLogWriter, error) {
+			t.Fatal("openFile must not be called when the file's age cannot be determined")
+			return nil, nil
+		},
+		time.Now,
+	)
+	if handler != nil || writer != nil {
+		t.Fatal("expected a nil handler and nil writer when statModTime fails")
+	}
+}
+
 func TestOpenEmbeddedLogFileHandlerOpenFailureReturnsNilNotError(t *testing.T) {
 	handler, writer := openEmbeddedLogFileHandler(
 		func() (string, bool) { return "C:\\nonexistent\\deeply\\nested\\path\\libVIIPER.log", true },
