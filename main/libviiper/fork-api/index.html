@@ -2565,19 +2565,42 @@ claim SteamInputAddonforClaw rumble adoption. Basic non-gyro Steam Deck input
 has been validated on MSI Claw EX. Lifecycle and recovery validation remains
 pending; rumble/haptics and gyro remain separate feature tracks.</p>
 <h4 id="steam-deck-state-abi">Steam Deck state ABI</h4>
-<p>The canonical <code>SteamDeckDeviceState</code> represents the consumer-facing semantic
-fields used to construct the Valve/SDL/Linux Steam Deck 56-byte payload.
-<code>SteamDeckDeviceState</code> is <strong>72 bytes</strong> and its final two fields are
-<code>LPadForce</code> and <code>RPadForce</code> (<code>uint16_t</code>, offsets 68 and 70).</p>
-<p>An earlier revision of <code>SteamDeckDeviceState</code> was 76 bytes and additionally
-exposed <code>LStickForce</code>/<code>RStickForce</code> after <code>LPadForce</code>/<code>RPadForce</code>. Those two
-fields were removed as a breaking ABI correction: they serialized outside
-the declared 56-byte Deck payload and have no corresponding wire field in
-current Linux <code>hid-steam</code> or SDL's Valve-derived <code>SteamDeckStatePacket_t</code>.
-All field offsets before the removed tail are unchanged.</p>
-<p>Consumers <strong>must</strong> use a matching generated <code>libVIIPER.h</code>/DLL (or <code>.so</code>) pair
-for this revision. Loading this DLL against an older 76-byte
-<code>SteamDeckDeviceState</code> definition, or vice versa, is a native/managed struct
+<p>The canonical <code>SteamDeckDeviceState</code> is <strong>76 bytes</strong>. Its final four
+<code>uint16_t</code> fields are <code>LPadForce</code>, <code>RPadForce</code>, <code>LStickForce</code>, and
+<code>RStickForce</code>, at offsets 68, 70, 72, and 74 respectively.</p>
+<p>Steam Deck input transport uses a 64-byte report with report type <code>0x09</code>
+and header length <code>64</code>. OpenSD's Steam Deck hardware userspace driver --
+the original physical-device report model -- documents byte 3 as "Always
+64 for input reports" and identifies bytes 60:64 as <code>l_stick_force</code>/
+<code>r_stick_force</code>. InputPlumber carries and consumes that same report model.
+Linux <code>hid-steam</code> currently documents and decodes 56 bytes of known Deck
+state ending at the two pad-pressure values, and current SDL's
+<code>SteamDeckStatePacket_t</code> likewise only exposes fields through pad pressure.
+Those two consumer-visible structures do not establish report bytes 60:64
+as padding: they only mean Linux and SDL do not currently read that far.
+Handheld Companion also preserves the same tail in its virtual Steam Deck
+target.</p>
+<p><code>LStickForce</code>/<code>RStickForce</code> are independent from the <code>L3</code>/<code>R3</code> digital
+click bits earlier in the report. VIIPER preserves the raw tail generically;
+a consumer without corresponding thumbstick sensor data may leave both
+fields zero. The exact physical interpretation and units of these two raw
+values should not be inferred beyond the available implementation evidence
+-- treat them as a raw capacitive-related signal traceable to OpenSD's
+hardware-driver report model, not a confirmed Valve pressure-sensor
+specification.</p>
+<p>A prior revision of this document and of <code>SteamDeckDeviceState</code> removed
+<code>LStickForce</code>/<code>RStickForce</code> and shrank the struct to 72 bytes. That
+revision kept the pre-existing <code>DeckInputPayloadLen = 56</code> header value
+unchanged and interpreted it as the canonical wire-state boundary, reasoning
+that Linux/SDL's shorter consumer-visible Deck state proved bytes 60:64
+unused. That reasoning was incomplete: it did not check OpenSD's or
+InputPlumber's physical Steam Deck report model or Handheld Companion's
+Steam Deck implementation, all of which read/write that same tail. This
+revision restores the 76-byte contract and the evidence above so the same
+mistake is not repeated from a partial read of Linux/SDL alone.</p>
+<p>Consumers <strong>must</strong> use a matching generated <code>libVIIPER.h</code>/DLL (or <code>.so</code>)
+pair for this revision. Mixing a 72-byte <code>SteamDeckDeviceState</code> definition
+with a 76-byte DLL, or a 76-byte definition with a 72-byte DLL, is an ABI
 mismatch and will corrupt or misread trailing state fields.</p>
 <h3 id="classified-typed-device-removal">Classified typed-device removal</h3>
 <p>Each typed device family has its own classified removal enum and <code>*Ex</code>
