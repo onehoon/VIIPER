@@ -320,8 +320,14 @@ type RumbleCommand struct {
 	RightGain  int8
 }
 
+const (
+	rumbleCommandLen      = 11
+	hapticCommandLen      = 6
+	hapticPulseCommandLen = 10
+)
+
 func (o OutputState) AsRumble() (RumbleCommand, bool) {
-	if o.Data[0] != FeatureTriggerRumbleCommand {
+	if o.Data[0] != FeatureTriggerRumbleCommand || o.Length() < rumbleCommandLen {
 		return RumbleCommand{}, false
 	}
 	return RumbleCommand{
@@ -342,7 +348,7 @@ type HapticCommand struct {
 }
 
 func (o OutputState) AsHaptic() (HapticCommand, bool) {
-	if o.Data[0] != FeatureTriggerHapticCommand {
+	if o.Data[0] != FeatureTriggerHapticCommand || o.Length() < hapticCommandLen {
 		return HapticCommand{}, false
 	}
 	return HapticCommand{
@@ -362,7 +368,7 @@ type HapticPulseCommand struct {
 }
 
 func (o OutputState) AsHapticPulse() (HapticPulseCommand, bool) {
-	if o.Data[0] != FeatureTriggerHapticPulse {
+	if o.Data[0] != FeatureTriggerHapticPulse || o.Length() < hapticPulseCommandLen {
 		return HapticPulseCommand{}, false
 	}
 	return HapticPulseCommand{
@@ -379,15 +385,12 @@ type PlayAudioCommand struct {
 }
 
 func (o OutputState) AsPlayAudio() (PlayAudioCommand, bool) {
-	if o.Data[0] != FeaturePlayAudio {
+	if o.Data[0] != FeaturePlayAudio || o.Length() < 2 {
 		return PlayAudioCommand{}, false
 	}
 	payloadLen := int(o.Data[1])
-	if payloadLen < 0 {
-		payloadLen = 0
-	}
-	if payloadLen > len(o.Data)-2 {
-		payloadLen = len(o.Data) - 2
+	if payloadLen > len(o.Data)-2 || 2+payloadLen > o.Length() {
+		return PlayAudioCommand{}, false
 	}
 	payload := make([]byte, payloadLen)
 	copy(payload, o.Data[2:2+payloadLen])
