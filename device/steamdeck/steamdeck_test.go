@@ -38,7 +38,7 @@ func TestInputReports(t *testing.T) {
 				assert.Equal(t, byte(0x00), got[1])
 				assert.Equal(t, byte(steamdeck.InputReportID), got[2])
 				assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3])
-				assert.Equal(t, make([]byte, 7), got[8:15])
+				assert.Equal(t, make([]byte, 8), got[8:16])
 				// Pads, sticks, triggers, and force fields must all be zero on a
 				// neutral report; the quaternion-zero behavior is intentional
 				// (see TestMotionFieldWireOrderMatchesSteamConsumers) and unchanged here.
@@ -147,10 +147,13 @@ func TestSteamDeckReportHeaderInvariants(t *testing.T) {
 }
 
 // TestSteamDeckButtonWireSemantics freezes each individual button/digital
-// control at its currently hardware-validated byte and bit, one control at a
+// control at its current protocol-defined byte and bit, one control at a
 // time, so an accidental swap between two neighboring bits (or a bit leaking
 // into an unrelated byte) fails clearly instead of hiding inside a mixed
-// bitmask assertion.
+// bitmask assertion. Basic non-gyro Steam Deck input has been hardware
+// validated on MSI Claw EX; that validation covers the overall input path
+// rather than certifying every individual bit in this table, so this
+// comment does not claim per-control hardware validation.
 //
 // The button region currently spans bytes 8-14 (byte 12 is unused/reserved);
 // every case asserts both the exact expected byte and that all other bytes
@@ -290,14 +293,24 @@ func TestSteamDeckAnalogAndCoordinateWireOffsets(t *testing.T) {
 }
 
 // TestSteamDeckForceWireOffsets verifies the distinct little-endian offsets
-// for trackpad/stick force-sense fields, kept separate per field so a swap
-// among them cannot hide behind a generic "tail bytes changed" assertion.
+// for trackpad force-sense fields, kept separate per field so a swap among
+// them cannot hide behind a generic "tail bytes changed" assertion.
+//
+// LStickForce/RStickForce are intentionally NOT covered here. VIIPER
+// declares DeckInputPayloadLen = 56, so the source-verified Deck payload
+// spans bytes 4-59 and ends immediately after RPadForce (bytes 56:58 /
+// 58:60) -- matching both current Linux hid-steam and SDL's Valve-derived
+// SteamDeckStatePacket_t, which have no stick-force fields at all.
+// InputState.LStickForce/RStickForce currently serialize to bytes 60:64,
+// outside that declared payload. This PR is test-only and does not change
+// production code, so those two fields are deliberately left out of this
+// regression rather than frozen as canonical wire contract; see the PR
+// description for the flagged discrepancy to track as a separate protocol
+// investigation.
 func TestSteamDeckForceWireOffsets(t *testing.T) {
 	state := steamdeck.InputState{
-		LPadForce:   1111,
-		RPadForce:   2222,
-		LStickForce: 3333,
-		RStickForce: 4444,
+		LPadForce: 1111,
+		RPadForce: 2222,
 	}
 	got := steamDeckInputReport(t, &state)
 	if !assert.NotNil(t, got) {
@@ -306,8 +319,6 @@ func TestSteamDeckForceWireOffsets(t *testing.T) {
 
 	assert.Equal(t, uint16(1111), binary.LittleEndian.Uint16(got[56:58]), "LPadForce offset")
 	assert.Equal(t, uint16(2222), binary.LittleEndian.Uint16(got[58:60]), "RPadForce offset")
-	assert.Equal(t, uint16(3333), binary.LittleEndian.Uint16(got[60:62]), "LStickForce offset")
-	assert.Equal(t, uint16(4444), binary.LittleEndian.Uint16(got[62:64]), "RStickForce offset")
 }
 
 // TestSteamDeckReserved15Passthrough freezes the current direct passthrough
@@ -333,7 +344,7 @@ func TestSteamDeckNonMotionReportRoundTrips(t *testing.T) {
 		LPadX:      -100, LPadY: 200, RPadX: -300, RPadY: 400,
 		LTrigger: 1000, RTrigger: 54321,
 		LStickX: -12345, LStickY: 6789, RStickX: -6789, RStickY: 12345,
-		LPadForce: 1111, RPadForce: 2222, LStickForce: 3333, RStickForce: 4444,
+		LPadForce: 1111, RPadForce: 2222,
 	}
 
 	data, err := original.MarshalBinary()
@@ -365,8 +376,6 @@ func TestSteamDeckNonMotionReportRoundTrips(t *testing.T) {
 	assert.Equal(t, original.RStickY, decoded.RStickY)
 	assert.Equal(t, original.LPadForce, decoded.LPadForce)
 	assert.Equal(t, original.RPadForce, decoded.RPadForce)
-	assert.Equal(t, original.LStickForce, decoded.LStickForce)
-	assert.Equal(t, original.RStickForce, decoded.RStickForce)
 }
 
 func TestFeedbackCommands(t *testing.T) {
