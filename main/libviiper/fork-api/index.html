@@ -1381,6 +1381,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnostic-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic logging
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#minimal-c-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2113,6 +2124,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnostic-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic logging
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#minimal-c-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2590,51 +2612,115 @@ async non-EP0 IN workers have drained.</p>
 <p>Applications should keep callback code short and avoid blocking unrelated
 application threads. If a callback must wait for application work, ensure the
 application can release it during device removal or server shutdown.</p>
+<h2 id="diagnostic-logging">Diagnostic logging</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">typedef</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="n">VIIPER_LOG_DEBUG</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-4</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="n">VIIPER_LOG_INFO</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="n">VIIPER_LOG_WARN</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="n">VIIPER_LOG_ERROR</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">}</span><span class="w"> </span><span class="n">VIIPERLogLevel</span><span class="p">;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">typedef</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">VIIPERLogCallback</span><span class="p">)(</span><span class="n">VIIPERLogLevel</span><span class="w"> </span><span class="n">level</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">message</span><span class="p">);</span>
+</code></pre></div>
+<p><code>NewUSBServer</code>'s <code>logCallback</code> parameter is unchanged. What changed is
+ownership: <code>libVIIPER</code> owns its own diagnostic log and does not depend on
+the embedding application to persist it.</p>
+<ul>
+<li>On Windows, <code>NewUSBServer</code> independently attempts to provide <code>libVIIPER.log</code>
+  beside the directory containing the actually loaded <code>libVIIPER.dll</code>
+  module, regardless of whether <code>logCallback</code> is <code>NULL</code> — module-path
+  resolution or the file open can still fail safely (see below), in which
+  case there is simply no file sink for that process. This fork has no
+  file-sink implementation for non-Windows builds; a supplied <code>logCallback</code>
+  still works normally there.</li>
+<li>When the owned file sink is available, it uses exactly one <code>libVIIPER.log</code>,
+  containing current-local-calendar-day diagnostics only (local date, no
+  timezone configuration). Records append during the same day. On the first
+  write after the local date changes — including the process simply staying
+  alive across midnight, not only a fresh <code>NewUSBServer</code> — the same file is
+  reset in place and reused for the new day. On a successful reset, the
+  triggering record is preserved as the first record of the new day. If the
+  reset fails, file persistence is suppressed for the rest of that day
+  rather than appending to now-stale content; <code>logCallback</code>, if supplied, is
+  entirely unaffected either way. No dated archive, numbered rotation, size
+  limit, compression, or
+  background cleanup is maintained — retention is deliberately this simple.</li>
+<li><code>VIIPERLogCallback</code> is an optional observer/mirror, not the persistence
+  mechanism, and remains synchronous and entirely unaffected by file
+  retention. Passing <code>NULL</code> does not disable the file; passing a callback
+  does not cause a record to be written into the file twice — both
+  destinations receive the same record.</li>
+<li>The owned file is written asynchronously: a bounded, non-blocking queue
+  decouples <code>AttachUSBDeviceEx</code>/<code>DetachUSBDeviceEx</code>/etc. from the actual
+  filesystem write, so a slow disk, antivirus, or filter driver cannot add
+  to the wall-clock time those calls take to return. The daily reset above
+  happens only inside that same background writer, never on the calling
+  thread. If the queue saturates under a burst, the diagnostic record is
+  dropped and counted rather than blocking the caller; <code>CloseUSBServer</code>
+  requests a best-effort, time-bounded flush of that queue — after
+  releasing its own lifecycle lock — on success, but a flush timeout never
+  changes <code>CloseUSBServer</code>'s own result and never holds that lock while
+  waiting.</li>
+<li>A zero/stale/unresolvable handle has no server to own a callback, so its
+  diagnostics (e.g. an invalid-handle <code>AttachUSBDeviceEx</code> call) go to a
+  library-owned, file-only fallback logger — never to any particular
+  server's <code>VIIPERLogCallback</code>, and never through Go's process-global
+  <code>slog.Default()</code>.</li>
+<li>If module-path resolution, the log file open, or a daily reset fails, that
+  failure is silently absorbed: it never fails <code>NewUSBServer</code>, never changes
+  attachment/removal/lifecycle classification, and never falls back to
+  stdout/stderr.</li>
+<li>Routine lifecycle, attachment, classified-failure, and the attachment-
+  timing diagnostics documented above are low-volume and always active
+  through this path. Per-input/per-frame state updates and report/publisher
+  loops do not log through this mechanism; raw packet logging is a separate,
+  off-by-default facility.</li>
+</ul>
 <h2 id="minimal-c-usage">Minimal C usage</h2>
 <p>The following is a lifecycle sketch. Use the generated
 <code>dist/libVIIPER/libVIIPER.h</code> from the same build as the DLL.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">USBServerConfig</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">USBServerHandle</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">NewUSBServer</span><span class="p">(</span><span class="o">&amp;</span><span class="n">config</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">}</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">bus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bus</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">}</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="n">SteamControllerDeviceHandle</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateSteamControllerDevice</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="p">}</span>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="cm">/* State updates and callback registration happen while the server is active. */</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="n">SetSteamControllerDeviceState</span><span class="p">(</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">);</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="cm">/* Optional Windows-only tracked attachment. */</span>
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="n">AttachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
-<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>
-<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="n">DetachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
-<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="n">RemoveSteamControllerDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
-<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
-<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">USBServerConfig</span><span class="w"> </span><span class="n">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">USBServerHandle</span><span class="w"> </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">NewUSBServer</span><span class="p">(</span><span class="o">&amp;</span><span class="n">config</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">}</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">bus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bus</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="p">}</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="n">SteamControllerDeviceHandle</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">CreateSteamControllerDevice</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">    </span><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">    </span><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="p">}</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="cm">/* State updates and callback registration happen while the server is active. */</span>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="n">SetSteamControllerDeviceState</span><span class="p">(</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">);</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="cm">/* Optional Windows-only tracked attachment. */</span>
+<a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="n">AttachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>
+<a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a><span class="n">DetachUSBDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a><span class="n">RemoveSteamControllerDevice</span><span class="p">(</span><span class="n">device</span><span class="p">);</span>
+<a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a><span class="n">RemoveUSBBus</span><span class="p">(</span><span class="n">server</span><span class="p">,</span><span class="w"> </span><span class="n">bus</span><span class="p">);</span>
+<a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a><span class="n">CloseUSBServer</span><span class="p">(</span><span class="n">server</span><span class="p">);</span>
 </code></pre></div>
 <p>In production code, check every return value and treat a failed close or
 unknown attachment outcome as a lifecycle fault requiring operator or host
 application handling.</p>
 <h2 id="build-and-validation">Build and validation</h2>
 <p>Build the canonical library and generated header with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>just build-libVIIPER Release
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>just build-libVIIPER Release
 </code></pre></div>
 <p>Before consuming a new DLL/header pair, validate:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>go test ./...
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>go test -race ./internal/server/usb ./lib/viiper
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>go vet ./...
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>git diff --check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>go test ./...
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>go test -race ./internal/server/usb ./lib/viiper
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>go vet ./...
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>git diff --check
 </code></pre></div>
 <p>CI additionally validates the Windows shared-library build, generated C
 header layout, exported symbols, and canonical lifecycle race tests. The DLL
@@ -2655,16 +2741,16 @@ adoption. Consumers must pin an exact commit/artifact rather than depending
 on a mutable "latest" build.</p>
 <p>SteamInputAddonforClaw consumes this artifact through a two-repository
 automation pipeline:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>VIIPER main push
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>  -&gt; Dev Snapshot Build completes successfully
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  -&gt; notify-addon-dependency.yml validates success/main/push and the exact
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>     40-character head_sha, then sends repository_dispatch
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>     (viiper-canonical-ready) with that commit
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>  -&gt; SteamInputAddonforClaw&#39;s viiper-dependency-update.yml independently
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>     re-verifies the exact commit&#39;s canonical artifact, manifest, and hashes
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>  -&gt; mechanical Draft dependency PR
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>  -&gt; human ABI/runtime review
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>  -&gt; manual merge only
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>VIIPER main push
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>  -&gt; Dev Snapshot Build completes successfully
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>  -&gt; notify-addon-dependency.yml validates success/main/push and the exact
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>     40-character head_sha, then sends repository_dispatch
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>     (viiper-canonical-ready) with that commit
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>  -&gt; SteamInputAddonforClaw&#39;s viiper-dependency-update.yml independently
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>     re-verifies the exact commit&#39;s canonical artifact, manifest, and hashes
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>  -&gt; mechanical Draft dependency PR
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>  -&gt; human ABI/runtime review
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>  -&gt; manual merge only
 </code></pre></div>
 <p>The dispatch payload's commit is only a hint/input, not dependency
 authority — the generated canonical artifact for that exact commit remains
