@@ -433,13 +433,17 @@ the embedding application to persist it.
   case there is simply no file sink for that process. This fork has no
   file-sink implementation for non-Windows builds; a supplied `logCallback`
   still works normally there.
-- There is always exactly one `libVIIPER.log`, containing current-local-
-  calendar-day diagnostics only (local date, no timezone configuration).
-  Records append during the same day. On the first write after the local
-  date changes — including the process simply staying alive across midnight,
-  not only a fresh `NewUSBServer` — the same file is reset in place and
-  reused for the new day; the new day's first record is preserved, not
-  lost. No dated archive, numbered rotation, size limit, compression, or
+- When the owned file sink is available, it uses exactly one `libVIIPER.log`,
+  containing current-local-calendar-day diagnostics only (local date, no
+  timezone configuration). Records append during the same day. On the first
+  write after the local date changes — including the process simply staying
+  alive across midnight, not only a fresh `NewUSBServer` — the same file is
+  reset in place and reused for the new day. On a successful reset, the
+  triggering record is preserved as the first record of the new day. If the
+  reset fails, file persistence is suppressed for the rest of that day
+  rather than appending to now-stale content; `logCallback`, if supplied, is
+  entirely unaffected either way. No dated archive, numbered rotation, size
+  limit, compression, or
   background cleanup is maintained — retention is deliberately this simple.
 - `VIIPERLogCallback` is an optional observer/mirror, not the persistence
   mechanism, and remains synchronous and entirely unaffected by file
