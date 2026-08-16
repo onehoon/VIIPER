@@ -345,10 +345,10 @@ func TestRumbleCommandDecodesEachFieldFromDistinctOffsets(t *testing.T) {
 	var out steamdeck.OutputState
 	out.Data[0] = steamdeck.FeatureTriggerRumbleCommand
 	out.Data[1] = 9
-	out.Data[2] = 0xAB                                    // RumbleType
-	binary.LittleEndian.PutUint16(out.Data[3:5], 0x1234)   // Intensity
-	binary.LittleEndian.PutUint16(out.Data[5:7], 0x2222)   // LeftSpeed
-	binary.LittleEndian.PutUint16(out.Data[7:9], 0x3333)   // RightSpeed
+	out.Data[2] = 0xAB                                   // RumbleType
+	binary.LittleEndian.PutUint16(out.Data[3:5], 0x1234) // Intensity
+	binary.LittleEndian.PutUint16(out.Data[5:7], 0x2222) // LeftSpeed
+	binary.LittleEndian.PutUint16(out.Data[7:9], 0x3333) // RightSpeed
 	fieldLeftGain, fieldRightGain := int8(-100), int8(100)
 	out.Data[9] = byte(fieldLeftGain)   // LeftGain
 	out.Data[10] = byte(fieldRightGain) // RightGain
