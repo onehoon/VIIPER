@@ -12,6 +12,10 @@ import (
 
 const getModuleHandleExFlagFromAddress = 0x00000004
 
+// embeddedLogFileName is fixed and deliberately unconfigurable in this PR: libVIIPER owns exactly
+// one diagnostic file, written beside the loaded shared library.
+const embeddedLogFileName = "libVIIPER.log"
+
 var (
 	kernel32               = windows.NewLazySystemDLL("kernel32.dll")
 	procGetModuleHandleExW = kernel32.NewProc("GetModuleHandleExW")

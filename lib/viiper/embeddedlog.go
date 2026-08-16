@@ -9,10 +9,6 @@ import (
 	vlog "github.com/Alia5/VIIPER/internal/log"
 )
 
-// embeddedLogFileName is fixed and deliberately unconfigurable in this PR: libVIIPER owns exactly
-// one diagnostic file, written beside the loaded shared library.
-const embeddedLogFileName = "libVIIPER.log"
-
 // embeddedLogLevel intentionally captures the same verbosity a VIIPERLogCallback has always
 // received (Enabled has never filtered levels for the callback path) so the file sink does not
 // silently see less than a callback consumer already does.
