@@ -426,30 +426,44 @@ typedef void (*VIIPERLogCallback)(VIIPERLogLevel level, const char* message);
 ownership: `libVIIPER` owns its own diagnostic log and does not depend on
 the embedding application to persist it.
 
-- On Windows, `NewUSBServer` writes `libVIIPER.log` beside the directory
-  containing the actually loaded `libVIIPER.dll` module, in append mode.
-  This happens whether or not `logCallback` is `NULL`. This fork has no
-  file-sink implementation for non-Windows builds; a supplied
-  `logCallback` still works normally there.
+- On Windows, `NewUSBServer` independently attempts to provide `libVIIPER.log`
+  beside the directory containing the actually loaded `libVIIPER.dll`
+  module, regardless of whether `logCallback` is `NULL` — module-path
+  resolution or the file open can still fail safely (see below), in which
+  case there is simply no file sink for that process. This fork has no
+  file-sink implementation for non-Windows builds; a supplied `logCallback`
+  still works normally there.
+- There is always exactly one `libVIIPER.log`, containing current-local-
+  calendar-day diagnostics only (local date, no timezone configuration).
+  Records append during the same day. On the first write after the local
+  date changes — including the process simply staying alive across midnight,
+  not only a fresh `NewUSBServer` — the same file is reset in place and
+  reused for the new day; the new day's first record is preserved, not
+  lost. No dated archive, numbered rotation, size limit, compression, or
+  background cleanup is maintained — retention is deliberately this simple.
 - `VIIPERLogCallback` is an optional observer/mirror, not the persistence
-  mechanism, and remains synchronous. Passing `NULL` does not disable the
-  file; passing a callback does not cause a record to be written into the
-  file twice — both destinations receive the same record.
+  mechanism, and remains synchronous and entirely unaffected by file
+  retention. Passing `NULL` does not disable the file; passing a callback
+  does not cause a record to be written into the file twice — both
+  destinations receive the same record.
 - The owned file is written asynchronously: a bounded, non-blocking queue
   decouples `AttachUSBDeviceEx`/`DetachUSBDeviceEx`/etc. from the actual
   filesystem write, so a slow disk, antivirus, or filter driver cannot add
-  to the wall-clock time those calls take to return. If the queue saturates
-  under a burst, the diagnostic record is dropped and counted rather than
-  blocking the caller; `CloseUSBServer` requests a best-effort, time-bounded
-  flush of that queue on success, but a flush timeout never changes
-  `CloseUSBServer`'s own result.
+  to the wall-clock time those calls take to return. The daily reset above
+  happens only inside that same background writer, never on the calling
+  thread. If the queue saturates under a burst, the diagnostic record is
+  dropped and counted rather than blocking the caller; `CloseUSBServer`
+  requests a best-effort, time-bounded flush of that queue — after
+  releasing its own lifecycle lock — on success, but a flush timeout never
+  changes `CloseUSBServer`'s own result and never holds that lock while
+  waiting.
 - A zero/stale/unresolvable handle has no server to own a callback, so its
   diagnostics (e.g. an invalid-handle `AttachUSBDeviceEx` call) go to a
   library-owned, file-only fallback logger — never to any particular
   server's `VIIPERLogCallback`, and never through Go's process-global
   `slog.Default()`.
-- If module-path resolution or the log file cannot be opened, that failure
-  is silently absorbed: it never fails `NewUSBServer`, never changes
+- If module-path resolution, the log file open, or a daily reset fails, that
+  failure is silently absorbed: it never fails `NewUSBServer`, never changes
   attachment/removal/lifecycle classification, and never falls back to
   stdout/stderr.
 - Routine lifecycle, attachment, classified-failure, and the attachment-

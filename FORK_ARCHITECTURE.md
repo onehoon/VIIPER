@@ -84,14 +84,22 @@ automatic retry is attempted.
 application to persist it. On Windows, `NewUSBServer` writes `libVIIPER.log`
 beside the directory containing the actually loaded `libVIIPER.dll` module
 (resolved from the loaded module itself, never the process executable path,
-current working directory, or an application-specific data directory), in
-append mode so multiple `NewUSBServer` calls in one process share the same
-file and never truncate earlier diagnostic history. Non-Windows builds have
-no file sink in this fork; a supplied `VIIPERLogCallback` still works
-normally. If module-path resolution or the file open fails, that is
-diagnostic-only: `NewUSBServer` and controller routing are never affected,
-and no fallback stdout/stderr CLI-style output is introduced into the
-embedded DLL.
+current working directory, or an application-specific data directory).
+Non-Windows builds have no file sink in this fork; a supplied
+`VIIPERLogCallback` still works normally. If module-path resolution or the
+file open fails, that is diagnostic-only: `NewUSBServer` and controller
+routing are never affected, and no fallback stdout/stderr CLI-style output is
+introduced into the embedded DLL.
+
+There is always exactly one `libVIIPER.log`, containing current-local-
+calendar-day diagnostics only. Records append during the same day. On the
+first write after the local date changes — whether that is a fresh
+`NewUSBServer` on a new day or the process simply remaining alive across
+midnight — the same file is reset in place and reused for the new day's
+records; the new day's first record is never lost. No dated archive
+(`libVIIPER-2026-08-16.log`), numbered rotation (`libVIIPER.log.1`), size
+limit, compression, or background cleanup is maintained. This uses the
+machine's local date, not UTC, and there is no timezone configuration.
 
 The optional `VIIPERLogCallback` supplied to `NewUSBServer` is an observer,
 not the persistence mechanism: passing `NULL` never disables the file, and
@@ -101,18 +109,22 @@ existing `internal/log.MultiHandler` fan-out. The callback remains
 synchronous and unchanged; callers should still keep callback code short.
 
 File persistence is asynchronous. The owned file's `io.Writer` is a bounded,
-non-blocking FIFO queue drained by one process-wide writer goroutine; a
-producer (e.g. `AttachUSBDeviceEx`/`DetachUSBDeviceEx` recording their
-timing diagnostics) never waits on the filesystem. If the queue saturates,
-the diagnostic record is dropped and counted rather than blocking a
-controller/routing operation; a compact backlog notice is written once
+non-blocking FIFO queue drained by one process-wide writer goroutine (shared
+by every `NewUSBServer` in the process, along with the daily-rollover state
+above — no per-server rollover state, no competing resets); a producer (e.g.
+`AttachUSBDeviceEx`/`DetachUSBDeviceEx` recording their timing diagnostics)
+never waits on the filesystem, and the daily reset itself only ever happens
+inside that same writer goroutine, never on a caller's thread. If the queue
+saturates, the diagnostic record is dropped and counted rather than blocking
+a controller/routing operation; a compact backlog notice is written once
 capacity is available again. `CloseUSBServer` requests a best-effort,
-time-bounded flush of that queue after a successful close, but a stuck or
-slow filesystem never makes close itself appear to hang or fail. None of
-this — module-path resolution failure, file-open failure, write failure,
-queue saturation, or flush timeout — ever changes a classified
-attach/detach/removal result, stored attachment state, or any other
-lifecycle outcome; logging remains diagnostic only.
+time-bounded flush of that queue, after releasing the server's lifecycle
+lock, on a successful close; a stuck or slow filesystem never makes close
+itself appear to hang or fail, and never holds that lock while waiting. None
+of this — module-path resolution failure, file-open failure, write failure,
+queue saturation, flush timeout, or a failed daily reset — ever changes a
+classified attach/detach/removal result, stored attachment state, or any
+other lifecycle outcome; logging remains diagnostic only.
 
 A zero/stale/unresolvable `USBServerHandle` has no server to own a
 `VIIPERLogCallback` for. Diagnostics for that case (e.g. an invalid-handle

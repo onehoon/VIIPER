@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"time"
 
 	vlog "github.com/Alia5/VIIPER/internal/log"
 )
@@ -50,23 +51,39 @@ func embeddedFileHandler(w io.Writer) slog.Handler {
 }
 
 // openEmbeddedLogFileHandler resolves and opens libVIIPER's owned diagnostic file, wrapping it in
-// the bounded asyncLogWriter so the actual (potentially slow) filesystem write never happens on
-// the caller's thread. resolve and openFile are injected so this logic is fully testable without
-// any real module-path Windows API call or real filesystem dependency; failures at either step
-// return a nil handler and a nil writer rather than an error, matching the "logging failures must
-// never become routing failures" contract -- callers must never treat a nil result as anything
-// other than "no file sink this run." The returned *asyncLogWriter (nil on failure) lets a caller
-// request a best-effort flush; it must never be required for correctness.
-func openEmbeddedLogFileHandler(resolve func() (string, bool), openFile func(path string) (io.WriteCloser, error)) (slog.Handler, *asyncLogWriter) {
+// the daily-rollover layer and then the bounded asyncLogWriter, so the actual (potentially slow)
+// filesystem write -- and any same-write daily reset -- never happens on the caller's thread.
+// resolve, statModTime, openFile, and now are injected so this logic is fully testable without
+// any real module-path Windows API call, real filesystem dependency, or real wall-clock time;
+// failures at resolve or openFile return a nil handler and a nil writer rather than an error,
+// matching the "logging failures must never become routing failures" contract -- callers must
+// never treat a nil result as anything other than "no file sink this run." A statModTime failure
+// is handled the same way as "file does not exist yet": the daily-rollover layer simply treats
+// the first write as establishing today with no reset, rather than aborting anything. The
+// returned *asyncLogWriter (nil on failure) lets a caller request a best-effort flush; it must
+// never be required for correctness.
+func openEmbeddedLogFileHandler(
+	resolve func() (string, bool),
+	statModTime func(path string) (modTime time.Time, exists bool, err error),
+	openFile func(path string) (dailyLogWriter, error),
+	now func() time.Time,
+) (slog.Handler, *asyncLogWriter) {
 	path, ok := resolve()
 	if !ok {
 		return nil, nil
+	}
+	var initialDay calendarDay
+	haveInitialDay := false
+	if modTime, exists, err := statModTime(path); err == nil && exists {
+		initialDay = calendarDayOf(modTime)
+		haveInitialDay = true
 	}
 	f, err := openFile(path)
 	if err != nil {
 		return nil, nil
 	}
-	writer := newAsyncLogWriter(f, asyncLogQueueCapacity)
+	rolling := newDailyRolloverWriter(f, now, initialDay, haveInitialDay)
+	writer := newAsyncLogWriter(rolling, asyncLogQueueCapacity)
 	return embeddedFileHandler(writer), writer
 }
 
@@ -76,15 +93,44 @@ var (
 	embeddedLogWriterCache      *asyncLogWriter
 )
 
+// osFileDailyLogWriter adapts a real *os.File to dailyLogWriter: Reset truncates it back to
+// empty in place. The file is opened with O_APPEND, so a write immediately following a
+// successful Truncate(0) lands at the new (zero) end of file -- no close/reopen needed to
+// achieve "the same libVIIPER.log, reset."
+type osFileDailyLogWriter struct{ f *os.File }
+
+func (w *osFileDailyLogWriter) Write(p []byte) (int, error) { return w.f.Write(p) }
+func (w *osFileDailyLogWriter) Reset() error                { return w.f.Truncate(0) }
+
+func realStatModTime(path string) (time.Time, bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, err
+	}
+	return info.ModTime(), true, nil
+}
+
 // openRealEmbeddedLogFileHandler opens (once per process) the real libVIIPER.log beside the
 // loaded shared library in append mode, so multiple NewUSBServer calls in the same process share
-// one file, one async writer goroutine, and never truncate earlier diagnostic history.
+// one file, one daily-rollover state, and one async writer goroutine.
 // resolveEmbeddedLogPath is platform-specific (embeddedlog_windows.go / embeddedlog_other.go).
 func openRealEmbeddedLogFileHandler() slog.Handler {
 	embeddedLogFileHandlerOnce.Do(func() {
-		embeddedLogFileHandlerCache, embeddedLogWriterCache = openEmbeddedLogFileHandler(resolveEmbeddedLogPath, func(path string) (io.WriteCloser, error) {
-			return os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-		})
+		embeddedLogFileHandlerCache, embeddedLogWriterCache = openEmbeddedLogFileHandler(
+			resolveEmbeddedLogPath,
+			realStatModTime,
+			func(path string) (dailyLogWriter, error) {
+				f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+				if err != nil {
+					return nil, err
+				}
+				return &osFileDailyLogWriter{f: f}, nil
+			},
+			time.Now,
+		)
 	})
 	return embeddedLogFileHandlerCache
 }

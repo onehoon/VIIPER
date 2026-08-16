@@ -1,0 +1,70 @@
+package main
+
+import (
+	"io"
+	"time"
+)
+
+// dailyLogWriter is what the daily-rollover layer writes to: the real destination for
+// libVIIPER.log's bytes, plus the ability to reset (truncate) it in place when the local
+// calendar day changes. Deliberately does not require Close: the real file is never closed
+// during the process lifetime (see openRealEmbeddedLogFileHandler).
+type dailyLogWriter interface {
+	io.Writer
+	// Reset truncates the destination back to empty, keeping the same logical file/destination.
+	Reset() error
+}
+
+// calendarDay is the local (never UTC) year/month/day a record or a file's last-modified time
+// belongs to. There is deliberately no public timezone configuration; this always reflects
+// whatever the local machine considers "today."
+type calendarDay struct {
+	year  int
+	month time.Month
+	day   int
+}
+
+func calendarDayOf(t time.Time) calendarDay {
+	y, m, d := t.Local().Date()
+	return calendarDay{year: y, month: m, day: d}
+}
+
+// dailyRolloverWriter is the sole owner of libVIIPER.log's daily retention: exactly one file,
+// current-local-calendar-day diagnostics only, reset in place (never a dated archive, never
+// size-based rotation) on the first write of a new day. It lives entirely inside the async
+// writer goroutine's call chain (asyncLogWriter.run -> this Write), so the day check and any
+// reset never happen on a VIIPER operation thread; a producer only ever touches the bounded
+// queue in asyncLogWriter.Write, never this.
+//
+// haveDay/day distinguish "we know the destination's existing content is from calendar day X"
+// (typically seeded from the file's on-disk modification time at open) from "we don't know," in
+// which case the first Write establishes today as the active day without resetting -- the safe
+// assumption when the destination is new or its age could not be determined, per the "logging
+// failures must never become routing failures" contract.
+type dailyRolloverWriter struct {
+	backing dailyLogWriter
+	now     func() time.Time
+	haveDay bool
+	day     calendarDay
+}
+
+func newDailyRolloverWriter(backing dailyLogWriter, now func() time.Time, initialDay calendarDay, haveInitialDay bool) *dailyRolloverWriter {
+	return &dailyRolloverWriter{backing: backing, now: now, day: initialDay, haveDay: haveInitialDay}
+}
+
+func (d *dailyRolloverWriter) Write(p []byte) (int, error) {
+	today := calendarDayOf(d.now())
+	switch {
+	case !d.haveDay:
+		d.day = today
+		d.haveDay = true
+	case today != d.day:
+		// Reset failure is diagnostic-only: if the backing destination cannot safely be reset,
+		// continue writing to it as-is (mixing a little of the old day's tail into the new day)
+		// rather than losing this record or risking any effect on routing. Either way, advance
+		// the active day so a persistent reset failure does not retry on every single record.
+		_ = d.backing.Reset()
+		d.day = today
+	}
+	return d.backing.Write(p)
+}

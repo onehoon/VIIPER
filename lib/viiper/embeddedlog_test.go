@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"runtime/cgo"
 	"strings"
@@ -113,13 +112,17 @@ func TestEmbeddedFileHandlerPreservesStructuredAttributes(t *testing.T) {
 	}
 }
 
+func noopStatModTime(string) (time.Time, bool, error) { return time.Time{}, false, nil }
+
 func TestOpenEmbeddedLogFileHandlerResolutionFailureReturnsNilNotError(t *testing.T) {
 	handler, writer := openEmbeddedLogFileHandler(
 		func() (string, bool) { return "", false },
-		func(string) (io.WriteCloser, error) {
+		noopStatModTime,
+		func(string) (dailyLogWriter, error) {
 			t.Fatal("openFile must not be called when resolve fails")
 			return nil, nil
 		},
+		time.Now,
 	)
 	if handler != nil || writer != nil {
 		t.Fatal("expected a nil handler and nil writer when path resolution fails")
@@ -129,7 +132,9 @@ func TestOpenEmbeddedLogFileHandlerResolutionFailureReturnsNilNotError(t *testin
 func TestOpenEmbeddedLogFileHandlerOpenFailureReturnsNilNotError(t *testing.T) {
 	handler, writer := openEmbeddedLogFileHandler(
 		func() (string, bool) { return "C:\\nonexistent\\deeply\\nested\\path\\libVIIPER.log", true },
-		func(string) (io.WriteCloser, error) { return nil, errors.New("simulated open failure") },
+		noopStatModTime,
+		func(string) (dailyLogWriter, error) { return nil, errors.New("simulated open failure") },
+		time.Now,
 	)
 	if handler != nil || writer != nil {
 		t.Fatal("expected a nil handler and nil writer when file open fails")
@@ -141,7 +146,9 @@ func TestOpenEmbeddedLogFileHandlerSuccessUsesResolvedPath(t *testing.T) {
 	fw := &recordingWriteCloser{}
 	handler, writer := openEmbeddedLogFileHandler(
 		func() (string, bool) { return "fake/libVIIPER.log", true },
-		func(path string) (io.WriteCloser, error) { openedPath = path; return fw, nil },
+		noopStatModTime,
+		func(path string) (dailyLogWriter, error) { openedPath = path; return fw, nil },
+		time.Now,
 	)
 	if handler == nil || writer == nil {
 		t.Fatal("expected a non-nil handler and writer on success")
@@ -158,13 +165,20 @@ func TestOpenEmbeddedLogFileHandlerSuccessUsesResolvedPath(t *testing.T) {
 	}
 }
 
-type recordingWriteCloser struct{ writes [][]byte }
+type recordingWriteCloser struct {
+	writes     [][]byte
+	resetCalls int
+}
 
 func (w *recordingWriteCloser) Write(p []byte) (int, error) {
 	w.writes = append(w.writes, append([]byte(nil), p...))
 	return len(p), nil
 }
-func (w *recordingWriteCloser) Close() error { return nil }
+func (w *recordingWriteCloser) Reset() error {
+	w.resetCalls++
+	w.writes = nil
+	return nil
+}
 
 // TestAttachmentTimingFieldsSurviveIntoOwnedFile proves PR #26's attachment-timing diagnostics
 // are unaffected by routing them through the new owned-file sink: the same stable field
