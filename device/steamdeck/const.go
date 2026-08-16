@@ -66,7 +66,7 @@ const (
 const (
 	SettingLeftTrackpadMode           = 0x07
 	SettingRightTrackpadMode          = 0x08
-	SettingLizardMode                 = 0x09
+	SettingMousePointerEnabled        = 0x09
 	SettingSmoothAbsoluteMouse        = 0x18
 	SettingIMUMode                    = 0x30
 	SettingLeftTrackpadClickPressure  = 0x34
@@ -87,6 +87,11 @@ const (
 	TrackpadModeNone = 0x07
 	LizardModeOff    = 0x00
 	LizardModeOn     = 0x01
+)
+
+const (
+	MousePointerDisabled = 0x00
+	MousePointerEnabled  = 0x01
 )
 
 const (
