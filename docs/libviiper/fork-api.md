@@ -298,7 +298,7 @@ legacy error-only attachment with typed ownership records.
 The canonical wrappers currently include:
 
 | Device | Create | State/callback | Remove |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | Steam Controller | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice`, `RemoveSteamControllerDeviceEx` |
 | Xbox 360 | `CreateXbox360Device` | `SetXbox360DeviceState`, `SetXbox360RumbleCallback` | `RemoveXbox360Device` |
 | DualShock 4 | `CreateDS4Device` | `SetDS4DeviceState`, `SetDS4OutputCallback` | `RemoveDS4Device` |
@@ -324,9 +324,9 @@ pending; rumble/haptics and gyro remain separate feature tracks.
 
 #### Steam Deck state ABI
 
-The canonical `SteamDeckDeviceState` mirrors the Valve/SDL/Linux Steam Deck
-Deck payload, which is 56 bytes and ends with the left/right pad pressure
-fields. `SteamDeckDeviceState` is **72 bytes** and its final two fields are
+The canonical `SteamDeckDeviceState` represents the consumer-facing semantic
+fields used to construct the Valve/SDL/Linux Steam Deck 56-byte payload.
+`SteamDeckDeviceState` is **72 bytes** and its final two fields are
 `LPadForce` and `RPadForce` (`uint16_t`, offsets 68 and 70).
 
 An earlier revision of `SteamDeckDeviceState` was 76 bytes and additionally
