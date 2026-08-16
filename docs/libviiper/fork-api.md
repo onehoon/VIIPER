@@ -329,38 +329,42 @@ The canonical `SteamDeckDeviceState` is **76 bytes**. Its final four
 `RStickForce`, at offsets 68, 70, 72, and 74 respectively.
 
 Steam Deck input transport uses a 64-byte report with report type `0x09`
-and header length `64`. Linux `hid-steam` currently documents and decodes
-56 bytes of known Deck state ending at the two pad-pressure values, and
-current SDL's `SteamDeckStatePacket_t` likewise only exposes fields through
-pad pressure. Those two consumer-visible structures do not establish report
-bytes 60:64 as padding: InputPlumber's physical Steam Deck report
-implementation decodes those bytes as left/right stick-force values, and
-Handheld Companion preserves the same tail in its virtual Steam Deck target.
-Neither Linux nor SDL currently consuming those four bytes is evidence they
-are unused -- it only means those two consumers do not read that far.
+and header length `64`. OpenSD's Steam Deck hardware userspace driver --
+the original physical-device report model -- documents byte 3 as "Always
+64 for input reports" and identifies bytes 60:64 as `l_stick_force`/
+`r_stick_force`. InputPlumber carries and consumes that same report model.
+Linux `hid-steam` currently documents and decodes 56 bytes of known Deck
+state ending at the two pad-pressure values, and current SDL's
+`SteamDeckStatePacket_t` likewise only exposes fields through pad pressure.
+Those two consumer-visible structures do not establish report bytes 60:64
+as padding: they only mean Linux and SDL do not currently read that far.
+Handheld Companion independently preserves the same tail in its virtual
+Steam Deck target.
 
 `LStickForce`/`RStickForce` are independent from the `L3`/`R3` digital
 click bits earlier in the report. VIIPER preserves the raw tail generically;
 a consumer without corresponding thumbstick sensor data may leave both
 fields zero. The exact physical interpretation and units of these two raw
 values should not be inferred beyond the available implementation evidence
--- treat them as a raw capacitive-related signal, not a confirmed pressure
-sensor specification.
+-- treat them as a raw capacitive-related signal traceable to OpenSD's
+hardware-driver report model, not a confirmed Valve pressure-sensor
+specification.
 
 A prior revision of this document and of `SteamDeckDeviceState` removed
-`LStickForce`/`RStickForce` and shrank the struct to 72 bytes, reasoning
-that Linux/SDL's shorter consumer-visible Deck state proved those bytes
-unused. That reasoning was incomplete: it did not check InputPlumber's or
-Handheld Companion's Steam Deck implementations, both of which read/write
-that same tail. This revision restores the 76-byte contract and the
-evidence above so the same mistake is not repeated from a partial read of
-Linux/SDL alone.
+`LStickForce`/`RStickForce` and shrank the struct to 72 bytes. That
+revision kept the pre-existing `DeckInputPayloadLen = 56` header value
+unchanged and interpreted it as the canonical wire-state boundary, reasoning
+that Linux/SDL's shorter consumer-visible Deck state proved bytes 60:64
+unused. That reasoning was incomplete: it did not check OpenSD's or
+InputPlumber's physical Steam Deck report model or Handheld Companion's
+Steam Deck implementation, all of which read/write that same tail. This
+revision restores the 76-byte contract and the evidence above so the same
+mistake is not repeated from a partial read of Linux/SDL alone.
 
 Consumers **must** use a matching generated `libVIIPER.h`/DLL (or `.so`)
-pair for this revision. Loading this DLL against a `SteamDeckDeviceState`
-definition of a different size (72 or 76 bytes), or vice versa, is a
-native/managed struct mismatch and will corrupt or misread trailing state
-fields.
+pair for this revision. Mixing a 72-byte `SteamDeckDeviceState` definition
+with a 76-byte DLL, or a 76-byte definition with a 72-byte DLL, is an ABI
+mismatch and will corrupt or misread trailing state fields.
 
 ### Classified typed-device removal
 

@@ -189,12 +189,14 @@ func TestSteamDeckABIFieldOffsets(t *testing.T) {
 	// LStickForce/RStickForce (68/70/72/74). Steam Deck input transport uses
 	// a 64-byte report; Linux hid-steam's "56 bytes" description covers only
 	// the span of Deck state it currently decodes (through pad pressure) and
-	// is not proof that the report's final four bytes are unused. InputPlumber
-	// and Handheld Companion both decode/preserve that same 64-byte tail as
-	// left/right stick-force. See the InputReportLen and buildReport comments
-	// in device/steamdeck for the full evidence trail; do not shrink this
-	// struct back to 72 bytes based on Linux/SDL's shorter consumer-visible
-	// state alone.
+	// is not proof that the report's final four bytes are unused. OpenSD's
+	// Steam Deck hardware userspace driver (the original physical-device
+	// report model) identifies that tail as l_stick_force/r_stick_force;
+	// InputPlumber carries that same model, and Handheld Companion
+	// independently preserves the same 64-byte tail. See the InputReportLen
+	// and buildReport comments in device/steamdeck for the full evidence
+	// trail; do not shrink this struct back to 72 bytes based on Linux/SDL's
+	// shorter consumer-visible state alone.
 	if got, want := steamDeckDeviceStateSize(), uintptr(76); got != want {
 		t.Fatalf("SteamDeckDeviceState C ABI size = %d, want %d", got, want)
 	}

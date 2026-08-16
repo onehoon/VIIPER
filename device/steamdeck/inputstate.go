@@ -56,7 +56,7 @@ type InputState struct {
 }
 
 func (s *InputState) MarshalBinary() ([]byte, error) {
-	return s.buildReport(s.Frame, InputReportLen), nil
+	return s.buildReport(s.Frame), nil
 }
 
 func (s *InputState) UnmarshalBinary(data []byte) error {
@@ -135,12 +135,15 @@ func (s *InputState) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func (s *InputState) buildReport(frame uint32, payloadLen byte) []byte {
+func (s *InputState) buildReport(frame uint32) []byte {
 	b := make([]byte, InputReportLen)
 	b[0] = 0x01
 	b[1] = 0x00
 	b[2] = InputReportID
-	b[3] = payloadLen
+	// Always declare the full 64-byte report length; do not accept a
+	// caller-supplied value here. See the InputReportLen comment in
+	// const.go for why this must never be 56.
+	b[3] = byte(InputReportLen)
 	binary.LittleEndian.PutUint32(b[4:8], frame)
 
 	if s.A {
@@ -264,10 +267,14 @@ func (s *InputState) buildReport(frame uint32, payloadLen byte) []byte {
 	binary.LittleEndian.PutUint16(b[56:58], s.LPadForce)
 	binary.LittleEndian.PutUint16(b[58:60], s.RPadForce)
 	// Bytes 60:64 are the established Steam Deck stick-sensor tail used by
-	// existing Deck implementations. InputPlumber's physical Steam Deck
-	// report model decodes them as l_stick_force/r_stick_force and describes
-	// them as thumbstick capacitive-sensor data; Handheld Companion also
-	// preserves the same two uint16 fields in its virtual Steam Deck report.
+	// existing Deck implementations. OpenSD's Steam Deck hardware userspace
+	// driver -- the original physical-device report model -- identifies
+	// these bytes as l_stick_force/r_stick_force (with its own
+	// STICK_FORCE_MAX constant). InputPlumber carries and consumes that same
+	// report model, decoding them as l_stick_force/r_stick_force and
+	// describing them as thumbstick capacitive-sensor data; Handheld
+	// Companion independently preserves the same two uint16 fields in its
+	// virtual Steam Deck report.
 	//
 	// These fields are NOT the L3/R3 stick-click buttons. L3 and R3 have
 	// independent digital bits earlier in the report (byte 10 bit 0x40 and
@@ -282,8 +289,9 @@ func (s *InputState) buildReport(frame uint32, payloadLen byte) []byte {
 	// and do not reinterpret Linux's "56 bytes" description as proof that
 	// bytes 60:64 are unused. The exact physical units of LStickForce/
 	// RStickForce are not authoritatively documented by Linux or SDL; treat
-	// them as a raw capacitive-related signal, not a confirmed pressure
-	// sensor specification.
+	// them as a raw capacitive-related signal traceable to OpenSD's
+	// hardware-driver report model, not a confirmed Valve pressure-sensor
+	// specification.
 	binary.LittleEndian.PutUint16(b[60:62], s.LStickForce)
 	binary.LittleEndian.PutUint16(b[62:64], s.RStickForce)
 	return b

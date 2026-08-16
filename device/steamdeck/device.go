@@ -163,7 +163,7 @@ func (d *SteamDeck) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 			return append([]byte(nil), zeroKeyboardReport...)
 		case controllerEndpointNumber:
 			st := d.snapshotInputState()
-			return st.buildReport(st.Frame, InputReportLen)
+			return st.buildReport(st.Frame)
 		default:
 			return nil
 		}
@@ -191,7 +191,7 @@ func (d *SteamDeck) HandleControl(bmRequestType, bRequest uint8, wValue, _ /* wI
 		switch reportType {
 		case reportTypeInput:
 			st := d.snapshotInputState()
-			report := st.buildReport(st.Frame, InputReportLen)
+			report := st.buildReport(st.Frame)
 			if wLength > 0 && int(wLength) < len(report) {
 				return report[:wLength], true
 			}
