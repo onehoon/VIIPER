@@ -324,22 +324,43 @@ pending; rumble/haptics and gyro remain separate feature tracks.
 
 #### Steam Deck state ABI
 
-The canonical `SteamDeckDeviceState` represents the consumer-facing semantic
-fields used to construct the Valve/SDL/Linux Steam Deck 56-byte payload.
-`SteamDeckDeviceState` is **72 bytes** and its final two fields are
-`LPadForce` and `RPadForce` (`uint16_t`, offsets 68 and 70).
+The canonical `SteamDeckDeviceState` is **76 bytes**. Its final four
+`uint16_t` fields are `LPadForce`, `RPadForce`, `LStickForce`, and
+`RStickForce`, at offsets 68, 70, 72, and 74 respectively.
 
-An earlier revision of `SteamDeckDeviceState` was 76 bytes and additionally
-exposed `LStickForce`/`RStickForce` after `LPadForce`/`RPadForce`. Those two
-fields were removed as a breaking ABI correction: they serialized outside
-the declared 56-byte Deck payload and have no corresponding wire field in
-current Linux `hid-steam` or SDL's Valve-derived `SteamDeckStatePacket_t`.
-All field offsets before the removed tail are unchanged.
+Steam Deck input transport uses a 64-byte report with report type `0x09`
+and header length `64`. Linux `hid-steam` currently documents and decodes
+56 bytes of known Deck state ending at the two pad-pressure values, and
+current SDL's `SteamDeckStatePacket_t` likewise only exposes fields through
+pad pressure. Those two consumer-visible structures do not establish report
+bytes 60:64 as padding: InputPlumber's physical Steam Deck report
+implementation decodes those bytes as left/right stick-force values, and
+Handheld Companion preserves the same tail in its virtual Steam Deck target.
+Neither Linux nor SDL currently consuming those four bytes is evidence they
+are unused -- it only means those two consumers do not read that far.
 
-Consumers **must** use a matching generated `libVIIPER.h`/DLL (or `.so`) pair
-for this revision. Loading this DLL against an older 76-byte
-`SteamDeckDeviceState` definition, or vice versa, is a native/managed struct
-mismatch and will corrupt or misread trailing state fields.
+`LStickForce`/`RStickForce` are independent from the `L3`/`R3` digital
+click bits earlier in the report. VIIPER preserves the raw tail generically;
+a consumer without corresponding thumbstick sensor data may leave both
+fields zero. The exact physical interpretation and units of these two raw
+values should not be inferred beyond the available implementation evidence
+-- treat them as a raw capacitive-related signal, not a confirmed pressure
+sensor specification.
+
+A prior revision of this document and of `SteamDeckDeviceState` removed
+`LStickForce`/`RStickForce` and shrank the struct to 72 bytes, reasoning
+that Linux/SDL's shorter consumer-visible Deck state proved those bytes
+unused. That reasoning was incomplete: it did not check InputPlumber's or
+Handheld Companion's Steam Deck implementations, both of which read/write
+that same tail. This revision restores the 76-byte contract and the
+evidence above so the same mistake is not repeated from a partial read of
+Linux/SDL alone.
+
+Consumers **must** use a matching generated `libVIIPER.h`/DLL (or `.so`)
+pair for this revision. Loading this DLL against a `SteamDeckDeviceState`
+definition of a different size (72 or 76 bytes), or vice versa, is a
+native/managed struct mismatch and will corrupt or misread trailing state
+fields.
 
 ### Classified typed-device removal
 

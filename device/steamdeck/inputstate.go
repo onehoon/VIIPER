@@ -7,7 +7,7 @@ import (
 
 // InputState represents a Steam Deck input report.
 //
-// viiper:wire steamdeck c2s a:bool x:bool b:bool y:bool l1:bool r1:bool l2Digital:bool r2Digital:bool l5:bool menu:bool steam:bool options:bool dpadDown:bool dpadLeft:bool dpadRight:bool dpadUp:bool l3:bool rPadTouch:bool lPadTouch:bool rPadPress:bool lPadPress:bool r5:bool r3:bool rStickTouch:bool lStickTouch:bool r4:bool l4:bool quickAccess:bool lPadX:i16 lPadY:i16 rPadX:i16 rPadY:i16 accelX:i16 accelY:i16 accelZ:i16 pitch:i16 yaw:i16 roll:i16 gyroQuatW:i16 gyroQuatX:i16 gyroQuatY:i16 gyroQuatZ:i16 lTrigger:u16 rTrigger:u16 lStickX:i16 lStickY:i16 rStickX:i16 rStickY:i16 lPadForce:u16 rPadForce:u16
+// viiper:wire steamdeck c2s a:bool x:bool b:bool y:bool l1:bool r1:bool l2Digital:bool r2Digital:bool l5:bool menu:bool steam:bool options:bool dpadDown:bool dpadLeft:bool dpadRight:bool dpadUp:bool l3:bool rPadTouch:bool lPadTouch:bool rPadPress:bool lPadPress:bool r5:bool r3:bool rStickTouch:bool lStickTouch:bool r4:bool l4:bool quickAccess:bool lPadX:i16 lPadY:i16 rPadX:i16 rPadY:i16 accelX:i16 accelY:i16 accelZ:i16 pitch:i16 yaw:i16 roll:i16 gyroQuatW:i16 gyroQuatX:i16 gyroQuatY:i16 gyroQuatZ:i16 lTrigger:u16 rTrigger:u16 lStickX:i16 lStickY:i16 rStickX:i16 rStickY:i16 lPadForce:u16 rPadForce:u16 lStickForce:u16 rStickForce:u16
 type InputState struct {
 	A, X, B, Y     bool
 	L1, R1         bool
@@ -50,11 +50,13 @@ type InputState struct {
 	RStickX, RStickY int16
 	LPadForce        uint16
 	RPadForce        uint16
+	LStickForce      uint16
+	RStickForce      uint16
 	Frame            uint32
 }
 
 func (s *InputState) MarshalBinary() ([]byte, error) {
-	return s.buildReport(s.Frame, DeckInputPayloadLen), nil
+	return s.buildReport(s.Frame, InputReportLen), nil
 }
 
 func (s *InputState) UnmarshalBinary(data []byte) error {
@@ -128,6 +130,8 @@ func (s *InputState) UnmarshalBinary(data []byte) error {
 	s.RStickY = int16(binary.LittleEndian.Uint16(data[54:56]))
 	s.LPadForce = binary.LittleEndian.Uint16(data[56:58])
 	s.RPadForce = binary.LittleEndian.Uint16(data[58:60])
+	s.LStickForce = binary.LittleEndian.Uint16(data[60:62])
+	s.RStickForce = binary.LittleEndian.Uint16(data[62:64])
 	return nil
 }
 
@@ -259,9 +263,29 @@ func (s *InputState) buildReport(frame uint32, payloadLen byte) []byte {
 	binary.LittleEndian.PutUint16(b[54:56], uint16(s.RStickY))
 	binary.LittleEndian.PutUint16(b[56:58], s.LPadForce)
 	binary.LittleEndian.PutUint16(b[58:60], s.RPadForce)
-	// Bytes 60:64 are trailing report bytes outside the declared 56-byte Deck
-	// payload (DeckInputPayloadLen) and must stay zero; there is no canonical
-	// field here in the current Valve-derived SDL/Linux Steam Deck definitions.
+	// Bytes 60:64 are the established Steam Deck stick-sensor tail used by
+	// existing Deck implementations. InputPlumber's physical Steam Deck
+	// report model decodes them as l_stick_force/r_stick_force and describes
+	// them as thumbstick capacitive-sensor data; Handheld Companion also
+	// preserves the same two uint16 fields in its virtual Steam Deck report.
+	//
+	// These fields are NOT the L3/R3 stick-click buttons. L3 and R3 have
+	// independent digital bits earlier in the report (byte 10 bit 0x40 and
+	// byte 11 bit 0x04 respectively). Keep the raw tail independent so
+	// consumers with real capacitive-stick data can publish it while devices
+	// without that capability can leave it zero.
+	//
+	// SDL and Linux currently do not expose these two raw values through
+	// their normal Deck state APIs. Their omission there is not evidence
+	// that the final four bytes of the 64-byte wire report are padding: see
+	// the InputReportLen comment in const.go for the header-length evidence,
+	// and do not reinterpret Linux's "56 bytes" description as proof that
+	// bytes 60:64 are unused. The exact physical units of LStickForce/
+	// RStickForce are not authoritatively documented by Linux or SDL; treat
+	// them as a raw capacitive-related signal, not a confirmed pressure
+	// sensor specification.
+	binary.LittleEndian.PutUint16(b[60:62], s.LStickForce)
+	binary.LittleEndian.PutUint16(b[62:64], s.RStickForce)
 	return b
 }
 

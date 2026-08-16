@@ -40,6 +40,7 @@ func TestSteamDeckStateConversion(t *testing.T) {
 		LStickX: -8888, LStickY: 9999,
 		RStickX: -1010, RStickY: 2020,
 		LPadForce: 555, RPadForce: 666,
+		LStickForce: 777, RStickForce: 888,
 	}
 	got := steamDeckInputState(input)
 	want := &steamdeck.InputState{
@@ -65,6 +66,7 @@ func TestSteamDeckStateConversion(t *testing.T) {
 		LStickX: -8888, LStickY: 9999,
 		RStickX: -1010, RStickY: 2020,
 		LPadForce: 555, RPadForce: 666,
+		LStickForce: 777, RStickForce: 888,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("state conversion lost fields: %#v", got)
@@ -94,6 +96,7 @@ type steamDeckDeviceStateABI struct {
 	LStickX, LStickY                           int16
 	RStickX, RStickY                           int16
 	LPadForce, RPadForce                       uint16
+	LStickForce, RStickForce                   uint16
 }
 
 func TestSteamDeckABIStateBoundaryConversion(t *testing.T) {
@@ -120,6 +123,7 @@ func TestSteamDeckABIStateBoundaryConversion(t *testing.T) {
 		LStickX: -8888, LStickY: 9999,
 		RStickX: -1010, RStickY: 2020,
 		LPadForce: 555, RPadForce: 666,
+		LStickForce: 777, RStickForce: 888,
 	}
 	if unsafe.Sizeof(raw) != steamDeckDeviceStateSize() {
 		t.Fatalf("Go ABI size = %d, C ABI size = %d", unsafe.Sizeof(raw), steamDeckDeviceStateSize())
@@ -148,6 +152,7 @@ func TestSteamDeckABIStateBoundaryConversion(t *testing.T) {
 		LStickX: -8888, LStickY: 9999,
 		RStickX: -1010, RStickY: 2020,
 		LPadForce: 555, RPadForce: 666,
+		LStickForce: 777, RStickForce: 888,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("C ABI boundary conversion lost fields: %#v", got)
@@ -172,19 +177,25 @@ func TestSteamDeckABIFieldOffsets(t *testing.T) {
 		{"RStickX", cOffsets.RStickX, unsafe.Offsetof(steamDeckDeviceStateABI{}.RStickX), 64},
 		{"LPadForce", cOffsets.LPadForce, unsafe.Offsetof(steamDeckDeviceStateABI{}.LPadForce), 68},
 		{"RPadForce", cOffsets.RPadForce, unsafe.Offsetof(steamDeckDeviceStateABI{}.RPadForce), 70},
+		{"LStickForce", cOffsets.LStickForce, unsafe.Offsetof(steamDeckDeviceStateABI{}.LStickForce), 72},
+		{"RStickForce", cOffsets.RStickForce, unsafe.Offsetof(steamDeckDeviceStateABI{}.RStickForce), 74},
 	}
 	for _, field := range fields {
 		if field.c != field.mirror || field.c != field.want {
 			t.Fatalf("%s offsets: C=%d, Go mirror=%d, want=%d", field.name, field.c, field.mirror, field.want)
 		}
 	}
-	// SteamDeckDeviceState now ends with LPadForce/RPadForce (68/70), matching
-	// the canonical Valve/SDL/Linux 56-byte Steam Deck Deck payload; the
-	// previously exposed LStickForce/RStickForce tail fields were removed
-	// because they serialized outside that declared payload and have no
-	// wire definition in current Linux hid-steam or SDL's Valve-derived
-	// SteamDeckStatePacket_t.
-	if got, want := steamDeckDeviceStateSize(), uintptr(72); got != want {
+	// SteamDeckDeviceState is 76 bytes and ends with LPadForce/RPadForce/
+	// LStickForce/RStickForce (68/70/72/74). Steam Deck input transport uses
+	// a 64-byte report; Linux hid-steam's "56 bytes" description covers only
+	// the span of Deck state it currently decodes (through pad pressure) and
+	// is not proof that the report's final four bytes are unused. InputPlumber
+	// and Handheld Companion both decode/preserve that same 64-byte tail as
+	// left/right stick-force. See the InputReportLen and buildReport comments
+	// in device/steamdeck for the full evidence trail; do not shrink this
+	// struct back to 72 bytes based on Linux/SDL's shorter consumer-visible
+	// state alone.
+	if got, want := steamDeckDeviceStateSize(), uintptr(76); got != want {
 		t.Fatalf("SteamDeckDeviceState C ABI size = %d, want %d", got, want)
 	}
 	if got, want := steamDeckDeviceRemoveResultSize(), uintptr(4); got != want {

@@ -37,7 +37,7 @@ func TestInputReports(t *testing.T) {
 				assert.Equal(t, byte(0x01), got[0])
 				assert.Equal(t, byte(0x00), got[1])
 				assert.Equal(t, byte(steamdeck.InputReportID), got[2])
-				assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3])
+				assert.Equal(t, byte(steamdeck.InputReportLen), got[3])
 				assert.Equal(t, make([]byte, 8), got[8:16])
 				// Pads, sticks, triggers, and force fields must all be zero on a
 				// neutral report; the quaternion-zero behavior is intentional
@@ -143,7 +143,10 @@ func TestSteamDeckReportHeaderInvariants(t *testing.T) {
 	assert.Equal(t, byte(0x01), got[0])
 	assert.Equal(t, byte(0x00), got[1])
 	assert.Equal(t, byte(steamdeck.InputReportID), got[2])
-	assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3])
+	// Byte 3 declares the full 64-byte input report length. See the
+	// InputReportLen comment in const.go for why this is 64 and not the
+	// 56-byte span Linux hid-steam currently decodes.
+	assert.Equal(t, byte(steamdeck.InputReportLen), got[3])
 }
 
 // TestSteamDeckButtonWireSemantics freezes each individual button/digital
@@ -293,53 +296,84 @@ func TestSteamDeckAnalogAndCoordinateWireOffsets(t *testing.T) {
 }
 
 // TestSteamDeckForceWireOffsets verifies the distinct little-endian offsets
-// for trackpad force-sense fields, kept separate per field so a swap among
-// them cannot hide behind a generic "tail bytes changed" assertion.
+// for the pad/stick force-sense fields, kept separate per field so a swap
+// among them cannot hide behind a generic "tail bytes changed" assertion.
+// Values are chosen so no field aliases another, which would hide an offset
+// mixup.
 //
-// InputState no longer has LStickForce/RStickForce fields (removed as a
-// canonical ABI correction -- see TestSteamDeckDeclaredPayloadEndsAtPadPressure):
-// the source-verified Deck payload spans bytes 4-59 and ends immediately
-// after RPadForce (bytes 56:58 / 58:60), matching both current Linux
-// hid-steam and SDL's Valve-derived SteamDeckStatePacket_t, which have no
-// stick-force fields at all.
+// LStickForce/RStickForce occupy report bytes 60:64. This is the same tail
+// InputPlumber's physical Steam Deck report model decodes as
+// l_stick_force/r_stick_force (documented there as thumbstick
+// capacitive-sensor data) and that Handheld Companion's virtual Steam Deck
+// target also builds. Linux hid-steam's "56 bytes" description and SDL's
+// current SteamDeckStatePacket_t both stop at RPadForce, but that reflects
+// what those two consumers currently decode/expose, not proof that the
+// wire's final four bytes are unused -- see the InputReportLen comment in
+// const.go and the tail comment in buildReport for the full evidence trail.
 func TestSteamDeckForceWireOffsets(t *testing.T) {
 	state := steamdeck.InputState{
-		LPadForce: 1111,
-		RPadForce: 2222,
+		LPadForce:   0x1122,
+		RPadForce:   0x3344,
+		LStickForce: 0x5566,
+		RStickForce: 0x7788,
 	}
 	got := steamDeckInputReport(t, &state)
 	if !assert.NotNil(t, got) {
 		return
 	}
 
-	assert.Equal(t, uint16(1111), binary.LittleEndian.Uint16(got[56:58]), "LPadForce offset")
-	assert.Equal(t, uint16(2222), binary.LittleEndian.Uint16(got[58:60]), "RPadForce offset")
+	assert.Equal(t, uint16(0x1122), binary.LittleEndian.Uint16(got[56:58]), "LPadForce offset")
+	assert.Equal(t, uint16(0x3344), binary.LittleEndian.Uint16(got[58:60]), "RPadForce offset")
+	assert.Equal(t, uint16(0x5566), binary.LittleEndian.Uint16(got[60:62]), "LStickForce offset")
+	assert.Equal(t, uint16(0x7788), binary.LittleEndian.Uint16(got[62:64]), "RStickForce offset")
 }
 
-// TestSteamDeckDeclaredPayloadEndsAtPadPressure locks in the canonical ABI
-// correction that removed the non-canonical LStickForce/RStickForce tail
-// fields: the declared 56-byte Deck payload (DeckInputPayloadLen) ends
-// immediately after RPadForce, and the four trailing report bytes (60:64)
-// must stay zero -- they carry no canonical semantics -- even when every
-// other populated field is non-zero.
-func TestSteamDeckDeclaredPayloadEndsAtPadPressure(t *testing.T) {
-	state := steamdeck.InputState{
-		A: true, DPadUp: true, Menu: true,
-		LPadX: -100, LPadY: 200, RPadX: -300, RPadY: 400,
-		LTrigger: 1000, RTrigger: 54321,
-		LStickX: -12345, LStickY: 6789, RStickX: -6789, RStickY: 12345,
-		LPadForce: 1111, RPadForce: 2222,
-	}
-	got := steamDeckInputReport(t, &state)
+// TestSteamDeckFullReportContract locks in the full 64-byte Steam Deck input
+// report header: transport length, report ID, and the byte-3 declared
+// length, which must be 64 (not the 56-byte span Linux hid-steam currently
+// decodes -- see the InputReportLen comment in const.go).
+func TestSteamDeckFullReportContract(t *testing.T) {
+	got := steamDeckInputReport(t, &steamdeck.InputState{})
 	if !assert.NotNil(t, got) {
 		return
 	}
+	assert.Len(t, got, steamdeck.InputReportLen, "transport report is a 64-byte buffer")
+	assert.Equal(t, byte(0x01), got[0])
+	assert.Equal(t, byte(0x00), got[1])
+	assert.Equal(t, byte(steamdeck.InputReportID), got[2])
+	assert.Equal(t, byte(64), got[3], "byte 3 declares the full 64-byte report length")
+}
 
-	assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3], "declared Deck payload length must remain 56")
-	assert.Equal(t, uint16(1111), binary.LittleEndian.Uint16(got[56:58]), "LPadForce offset")
-	assert.Equal(t, uint16(2222), binary.LittleEndian.Uint16(got[58:60]), "RPadForce offset")
-	assert.Equal(t, make([]byte, 4), got[60:64], "trailing bytes outside the declared 56-byte Deck payload must stay zero")
-	assert.Len(t, got, steamdeck.InputReportLen, "transport report remains a 64-byte buffer")
+// TestSteamDeckStickForceIndependentFromStickClick proves LStickForce/
+// RStickForce (report bytes 60:64) are decoded completely independently
+// from the L3/R3 digital stick-click bits (byte 10 bit 0x40 and byte 11 bit
+// 0x04 respectively). VIIPER must expose generic protocol state here and
+// must not bake a click-derived force policy into the device layer -- that
+// kind of synthesis (as Handheld Companion's consumer-side mapper currently
+// does) belongs in a downstream consumer, not in VIIPER.
+func TestSteamDeckStickForceIndependentFromStickClick(t *testing.T) {
+	clicked := steamDeckInputReport(t, &steamdeck.InputState{
+		L3: true, R3: true,
+		LStickForce: 0, RStickForce: 0,
+	})
+	if !assert.NotNil(t, clicked) {
+		return
+	}
+	assert.Equal(t, byte(0x40), clicked[10], "L3 must still set its own digital bit")
+	assert.Equal(t, byte(0x04), clicked[11], "R3 must still set its own digital bit")
+	assert.Equal(t, make([]byte, 4), clicked[60:64], "stick-force tail stays zero when clicks are set but force is not")
+
+	forced := steamDeckInputReport(t, &steamdeck.InputState{
+		L3: false, R3: false,
+		LStickForce: 0x1234, RStickForce: 0x5678,
+	})
+	if !assert.NotNil(t, forced) {
+		return
+	}
+	assert.Zero(t, forced[10]&0x40, "L3 digital bit must stay clear when only force is set")
+	assert.Zero(t, forced[11]&0x04, "R3 digital bit must stay clear when only force is set")
+	assert.Equal(t, uint16(0x1234), binary.LittleEndian.Uint16(forced[60:62]), "LStickForce must be set independent of L3")
+	assert.Equal(t, uint16(0x5678), binary.LittleEndian.Uint16(forced[62:64]), "RStickForce must be set independent of R3")
 }
 
 // TestSteamDeckReserved15Passthrough freezes the current direct passthrough
@@ -366,6 +400,7 @@ func TestSteamDeckNonMotionReportRoundTrips(t *testing.T) {
 		LTrigger: 1000, RTrigger: 54321,
 		LStickX: -12345, LStickY: 6789, RStickX: -6789, RStickY: 12345,
 		LPadForce: 1111, RPadForce: 2222,
+		LStickForce: 3333, RStickForce: 4444,
 	}
 
 	data, err := original.MarshalBinary()
@@ -397,6 +432,8 @@ func TestSteamDeckNonMotionReportRoundTrips(t *testing.T) {
 	assert.Equal(t, original.RStickY, decoded.RStickY)
 	assert.Equal(t, original.LPadForce, decoded.LPadForce)
 	assert.Equal(t, original.RPadForce, decoded.RPadForce)
+	assert.Equal(t, original.LStickForce, decoded.LStickForce)
+	assert.Equal(t, original.RStickForce, decoded.RStickForce)
 }
 
 func TestFeedbackCommands(t *testing.T) {
