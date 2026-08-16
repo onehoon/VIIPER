@@ -411,6 +411,171 @@ func TestOutputParsers(t *testing.T) {
 	assert.Equal(t, []byte{0xaa, 0xbb, 0xcc}, audio.Payload)
 }
 
+func captureOutputState(t *testing.T, dev *steamdeck.SteamDeck, cmd []byte) steamdeck.OutputState {
+	t.Helper()
+	var got steamdeck.OutputState
+	dev.SetOutputCallback(func(out steamdeck.OutputState) {
+		got = out
+	})
+	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(cmd)), cmd)
+	if !assert.True(t, handled) {
+		return got
+	}
+	return got
+}
+
+func TestRumbleRequiresActualCapturedLength(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	valid := []byte{steamdeck.FeatureTriggerRumbleCommand, 9, 5, 0, 0, 0xC8, 0, 0x2C, 1, 0xFB, 5}
+	if !assert.Len(t, valid, 11) {
+		return
+	}
+	rumble, ok := captureOutputState(t, dev, valid).AsRumble()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Equal(t, uint8(5), rumble.RumbleType)
+	assert.Equal(t, uint16(200), rumble.LeftSpeed)
+	assert.Equal(t, uint16(300), rumble.RightSpeed)
+	assert.Equal(t, int8(-5), rumble.LeftGain)
+	assert.Equal(t, int8(5), rumble.RightGain)
+
+	truncated := valid[:10]
+	_, ok = captureOutputState(t, dev, truncated).AsRumble()
+	assert.False(t, ok)
+
+	commandIDOnly := []byte{steamdeck.FeatureTriggerRumbleCommand}
+	_, ok = captureOutputState(t, dev, commandIDOnly).AsRumble()
+	assert.False(t, ok)
+
+	wrongCommand := append([]byte{steamdeck.FeatureTriggerHapticCommand}, valid[1:]...)
+	_, ok = captureOutputState(t, dev, wrongCommand).AsRumble()
+	assert.False(t, ok)
+}
+
+func TestHapticRequiresActualCapturedLength(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	gain := int8(-7)
+	valid := []byte{steamdeck.FeatureTriggerHapticCommand, 4, 1, 2, 3, byte(gain)}
+	if !assert.Len(t, valid, 6) {
+		return
+	}
+	haptic, ok := captureOutputState(t, dev, valid).AsHaptic()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Equal(t, uint8(1), haptic.Side)
+	assert.Equal(t, uint8(2), haptic.Type)
+	assert.Equal(t, uint8(3), haptic.Intensity)
+	assert.Equal(t, int8(-7), haptic.Gain)
+
+	truncated := valid[:5]
+	_, ok = captureOutputState(t, dev, truncated).AsHaptic()
+	assert.False(t, ok)
+}
+
+func TestHapticPulseRequiresActualCapturedLength(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	valid := make([]byte, 10)
+	valid[0] = steamdeck.FeatureTriggerHapticPulse
+	valid[1] = 8
+	valid[2] = 1
+	binary.LittleEndian.PutUint16(valid[3:5], 0x01f4)
+	binary.LittleEndian.PutUint16(valid[5:7], 0x0064)
+	binary.LittleEndian.PutUint16(valid[7:9], 0x001e)
+	valid[9] = 9
+	pulse, ok := captureOutputState(t, dev, valid).AsHapticPulse()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Equal(t, uint16(0x01f4), pulse.Duration)
+	assert.Equal(t, uint16(0x0064), pulse.Interval)
+	assert.Equal(t, uint16(0x001e), pulse.Count)
+	assert.Equal(t, uint8(9), pulse.Gain)
+
+	truncated := valid[:9]
+	_, ok = captureOutputState(t, dev, truncated).AsHapticPulse()
+	assert.False(t, ok)
+}
+
+func TestPlayAudioRequiresActualCapturedLength(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	exact := []byte{steamdeck.FeaturePlayAudio, 3, 0xAA, 0xBB, 0xCC}
+	audio, ok := captureOutputState(t, dev, exact).AsPlayAudio()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Equal(t, []byte{0xAA, 0xBB, 0xCC}, audio.Payload)
+
+	declaredLargerThanActual := []byte{steamdeck.FeaturePlayAudio, 3, 0xAA, 0xBB}
+	_, ok = captureOutputState(t, dev, declaredLargerThanActual).AsPlayAudio()
+	assert.False(t, ok)
+
+	shorterThanHeader := []byte{steamdeck.FeaturePlayAudio}
+	_, ok = captureOutputState(t, dev, shorterThanHeader).AsPlayAudio()
+	assert.False(t, ok)
+
+	beyondFixedCapacity := []byte{steamdeck.FeaturePlayAudio, 200}
+	_, ok = captureOutputState(t, dev, beyondFixedCapacity).AsPlayAudio()
+	assert.False(t, ok)
+}
+
+func TestLeadingReportIDNormalizationPreservesActualLength(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	normGain := int8(-1)
+	validWithLeadingReportID := []byte{0x00, steamdeck.FeatureTriggerHapticCommand, 4, 1, 2, 3, byte(normGain)}
+	got := captureOutputState(t, dev, validWithLeadingReportID)
+	assert.Equal(t, 6, got.Length())
+	haptic, ok := got.AsHaptic()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Equal(t, uint8(1), haptic.Side)
+
+	shortWithLeadingReportID := []byte{0x00, steamdeck.FeatureTriggerHapticCommand, 4, 1, 2, 3}
+	got = captureOutputState(t, dev, shortWithLeadingReportID)
+	assert.Equal(t, 5, got.Length())
+	_, ok = got.AsHaptic()
+	assert.False(t, ok)
+}
+
+func TestLegacyDirectlyConstructedOutputStateUsesFixedBufferSentinel(t *testing.T) {
+	var out steamdeck.OutputState
+	assert.Equal(t, steamdeck.InputReportLen, out.Length())
+
+	out.Data[0] = steamdeck.FeatureTriggerHapticCommand
+	out.Data[2] = 1
+	out.Data[3] = 2
+	out.Data[4] = 3
+	legacyGain := int8(-1)
+	out.Data[5] = byte(legacyGain)
+	haptic, ok := out.AsHaptic()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Equal(t, uint8(1), haptic.Side)
+}
+
 func TestFeatureResponses(t *testing.T) {
 	dev, err := steamdeck.New(nil)
 	if !assert.NoError(t, err) {
