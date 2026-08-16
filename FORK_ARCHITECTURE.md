@@ -78,6 +78,73 @@ usbip-win2 import port. Detach uses that stored token only. Unknown attach or
 detach outcomes transition the owning server to `close-failed`; no destructive
 automatic retry is attempted.
 
+## Diagnostic logging
+
+`libVIIPER` owns its own diagnostic log rather than depending on an embedding
+application to persist it. On Windows, `NewUSBServer` writes `libVIIPER.log`
+beside the directory containing the actually loaded `libVIIPER.dll` module
+(resolved from the loaded module itself, never the process executable path,
+current working directory, or an application-specific data directory).
+Non-Windows builds have no file sink in this fork; a supplied
+`VIIPERLogCallback` still works normally. If module-path resolution or the
+file open fails, that is diagnostic-only: `NewUSBServer` and controller
+routing are never affected, and no fallback stdout/stderr CLI-style output is
+introduced into the embedded DLL.
+
+When the Windows owned file sink is available, it uses exactly one
+`libVIIPER.log`, containing current-local-calendar-day diagnostics only.
+Records append during the same day. On the first write after the local date
+changes — whether that is a fresh `NewUSBServer` on a new day or the process
+simply remaining alive across midnight — the same file is reset in place and
+reused for the new day. On a successful reset, the triggering record is
+preserved as the first record of the new day. If the reset fails, file
+persistence is suppressed for the rest of that day rather than appending to
+now-stale content; a `VIIPERLogCallback`, if supplied, is entirely
+unaffected either way. No dated archive (`libVIIPER-2026-08-16.log`),
+numbered rotation (`libVIIPER.log.1`), size limit, compression, or
+background cleanup is maintained. This uses the
+machine's local date, not UTC, and there is no timezone configuration.
+
+The optional `VIIPERLogCallback` supplied to `NewUSBServer` is an observer,
+not the persistence mechanism: passing `NULL` never disables the file, and
+supplying a callback never causes a record to be written into the file
+twice. Both destinations receive the same structured record through the
+existing `internal/log.MultiHandler` fan-out. The callback remains
+synchronous and unchanged; callers should still keep callback code short.
+
+File persistence is asynchronous. The owned file's `io.Writer` is a bounded,
+non-blocking FIFO queue drained by one process-wide writer goroutine (shared
+by every `NewUSBServer` in the process, along with the daily-rollover state
+above — no per-server rollover state, no competing resets); a producer (e.g.
+`AttachUSBDeviceEx`/`DetachUSBDeviceEx` recording their timing diagnostics)
+never waits on the filesystem, and the daily reset itself only ever happens
+inside that same writer goroutine, never on a caller's thread. If the queue
+saturates, the diagnostic record is dropped and counted rather than blocking
+a controller/routing operation; a compact backlog notice is written once
+capacity is available again. `CloseUSBServer` requests a best-effort,
+time-bounded flush of that queue, after releasing the server's lifecycle
+lock, on a successful close; a stuck or slow filesystem never makes close
+itself appear to hang or fail, and never holds that lock while waiting. None
+of this — module-path resolution failure, file-open failure, write failure,
+queue saturation, flush timeout, or a failed daily reset — ever changes a
+classified attach/detach/removal result, stored attachment state, or any
+other lifecycle outcome; logging remains diagnostic only.
+
+A zero/stale/unresolvable `USBServerHandle` has no server to own a
+`VIIPERLogCallback` for. Diagnostics for that case (e.g. an invalid-handle
+`AttachUSBDeviceEx` call) go to a library-owned, file-only fallback logger —
+never to any particular server's callback, and never through Go's
+process-global `slog.Default()`. `libVIIPER` never calls `slog.SetDefault`
+at all: every logger it constructs and uses is its own explicit logger, so
+neither the embedding process's global default logger nor any other
+`USBServerHandle` in the same process is ever affected by one server's
+construction.
+
+Routine lifecycle, attach/detach, classified-failure, and PR #26 attachment-
+timing diagnostics are low-volume and always active. Per-input/per-frame
+paths (state setters, input reports, publisher loops) do not log; raw packet
+logging remains a separate, off-by-default mechanism (`internal/log.RawLogger`).
+
 ## Build and CI
 
 Build the canonical embedded library with:

@@ -409,6 +409,73 @@ Applications should keep callback code short and avoid blocking unrelated
 application threads. If a callback must wait for application work, ensure the
 application can release it during device removal or server shutdown.
 
+## Diagnostic logging
+
+```c
+typedef enum {
+    VIIPER_LOG_DEBUG = -4,
+    VIIPER_LOG_INFO  = 0,
+    VIIPER_LOG_WARN  = 4,
+    VIIPER_LOG_ERROR = 8,
+} VIIPERLogLevel;
+
+typedef void (*VIIPERLogCallback)(VIIPERLogLevel level, const char* message);
+```
+
+`NewUSBServer`'s `logCallback` parameter is unchanged. What changed is
+ownership: `libVIIPER` owns its own diagnostic log and does not depend on
+the embedding application to persist it.
+
+- On Windows, `NewUSBServer` independently attempts to provide `libVIIPER.log`
+  beside the directory containing the actually loaded `libVIIPER.dll`
+  module, regardless of whether `logCallback` is `NULL` — module-path
+  resolution or the file open can still fail safely (see below), in which
+  case there is simply no file sink for that process. This fork has no
+  file-sink implementation for non-Windows builds; a supplied `logCallback`
+  still works normally there.
+- When the owned file sink is available, it uses exactly one `libVIIPER.log`,
+  containing current-local-calendar-day diagnostics only (local date, no
+  timezone configuration). Records append during the same day. On the first
+  write after the local date changes — including the process simply staying
+  alive across midnight, not only a fresh `NewUSBServer` — the same file is
+  reset in place and reused for the new day. On a successful reset, the
+  triggering record is preserved as the first record of the new day. If the
+  reset fails, file persistence is suppressed for the rest of that day
+  rather than appending to now-stale content; `logCallback`, if supplied, is
+  entirely unaffected either way. No dated archive, numbered rotation, size
+  limit, compression, or
+  background cleanup is maintained — retention is deliberately this simple.
+- `VIIPERLogCallback` is an optional observer/mirror, not the persistence
+  mechanism, and remains synchronous and entirely unaffected by file
+  retention. Passing `NULL` does not disable the file; passing a callback
+  does not cause a record to be written into the file twice — both
+  destinations receive the same record.
+- The owned file is written asynchronously: a bounded, non-blocking queue
+  decouples `AttachUSBDeviceEx`/`DetachUSBDeviceEx`/etc. from the actual
+  filesystem write, so a slow disk, antivirus, or filter driver cannot add
+  to the wall-clock time those calls take to return. The daily reset above
+  happens only inside that same background writer, never on the calling
+  thread. If the queue saturates under a burst, the diagnostic record is
+  dropped and counted rather than blocking the caller; `CloseUSBServer`
+  requests a best-effort, time-bounded flush of that queue — after
+  releasing its own lifecycle lock — on success, but a flush timeout never
+  changes `CloseUSBServer`'s own result and never holds that lock while
+  waiting.
+- A zero/stale/unresolvable handle has no server to own a callback, so its
+  diagnostics (e.g. an invalid-handle `AttachUSBDeviceEx` call) go to a
+  library-owned, file-only fallback logger — never to any particular
+  server's `VIIPERLogCallback`, and never through Go's process-global
+  `slog.Default()`.
+- If module-path resolution, the log file open, or a daily reset fails, that
+  failure is silently absorbed: it never fails `NewUSBServer`, never changes
+  attachment/removal/lifecycle classification, and never falls back to
+  stdout/stderr.
+- Routine lifecycle, attachment, classified-failure, and the attachment-
+  timing diagnostics documented above are low-volume and always active
+  through this path. Per-input/per-frame state updates and report/publisher
+  loops do not log through this mechanism; raw packet logging is a separate,
+  off-by-default facility.
+
 ## Minimal C usage
 
 The following is a lifecycle sketch. Use the generated

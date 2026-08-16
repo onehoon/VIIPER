@@ -462,12 +462,12 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	opStart := time.Now()
 	v, ok := deviceHandleRecords.Load(handle)
 	if !ok {
-		logCanonicalAttachmentTiming(slog.Default(), "attach", attachResultTimingLabel(deviceAttachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
+		logCanonicalAttachmentTiming(invalidHandleLoggerFunc(), "attach", attachResultTimingLabel(deviceAttachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceAttachInvalid
 	}
 	dhw, ok := v.(*deviceHandleWrapper)
 	if !ok {
-		logCanonicalAttachmentTiming(slog.Default(), "attach", attachResultTimingLabel(deviceAttachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
+		logCanonicalAttachmentTiming(invalidHandleLoggerFunc(), "attach", attachResultTimingLabel(deviceAttachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceAttachInvalid
 	}
 	hw := dhw.usbServer
@@ -507,12 +507,12 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	opStart := time.Now()
 	v, ok := deviceHandleRecords.Load(handle)
 	if !ok {
-		logCanonicalAttachmentTiming(slog.Default(), "detach", detachResultTimingLabel(deviceDetachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
+		logCanonicalAttachmentTiming(invalidHandleLoggerFunc(), "detach", detachResultTimingLabel(deviceDetachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceDetachInvalid
 	}
 	dhw, ok := v.(*deviceHandleWrapper)
 	if !ok {
-		logCanonicalAttachmentTiming(slog.Default(), "detach", detachResultTimingLabel(deviceDetachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
+		logCanonicalAttachmentTiming(invalidHandleLoggerFunc(), "detach", detachResultTimingLabel(deviceDetachInvalid), operationTiming{}, time.Since(opStart).Microseconds(), 0)
 		return deviceDetachInvalid
 	}
 	hw := dhw.usbServer
