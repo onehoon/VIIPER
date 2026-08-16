@@ -298,7 +298,7 @@ legacy error-only attachment with typed ownership records.
 The canonical wrappers currently include:
 
 | Device | Create | State/callback | Remove |
-| --- | --- | --- |
+| --- | --- | --- | --- |
 | Steam Controller | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice`, `RemoveSteamControllerDeviceEx` |
 | Xbox 360 | `CreateXbox360Device` | `SetXbox360DeviceState`, `SetXbox360RumbleCallback` | `RemoveXbox360Device` |
 | DualShock 4 | `CreateDS4Device` | `SetDS4DeviceState`, `SetDS4OutputCallback` | `RemoveDS4Device` |
