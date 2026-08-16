@@ -64,9 +64,14 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 		busCleanupTimeout = 5 * time.Second
 	}
 
-	var logger *slog.Logger
+	// libVIIPER owns its diagnostic log: openRealEmbeddedLogFileHandler is libVIIPER.log beside
+	// the loaded shared library, always present regardless of logCallback. logCallback, when
+	// supplied, is an additional observer -- never a replacement for the file sink, and never a
+	// reason to write a record into the file twice. This never calls slog.SetDefault: the
+	// embedding process's own global default logger is left alone.
+	var callbackHandler slog.Handler
 	if logCallback != nil {
-		logger = slog.New(&funcLogHandler{
+		callbackHandler = &funcLogHandler{
 			func(level slog.Level, msg string) {
 				if logCallback == nil {
 					return
@@ -75,11 +80,9 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 				defer C.free(unsafe.Pointer(cMsg))
 				C.viiper_call_log(logCallback, C.VIIPERLogLevel(level), cMsg)
 			},
-		})
-	} else {
-		logger = slog.New(slog.DiscardHandler)
+		}
 	}
-	slog.SetDefault(logger)
+	logger := buildEmbeddedLogger(openRealEmbeddedLogFileHandler(), callbackHandler)
 
 	s := usb.New(usb.ServerConfig{
 		Addr:                      addr,

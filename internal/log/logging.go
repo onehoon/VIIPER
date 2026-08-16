@@ -61,6 +61,12 @@ func SetupLogger(logLevel, logFile string) (*slog.Logger, []io.Closer, error) {
 // MultiHandler fans out records to multiple handlers.
 type MultiHandler struct{ hs []slog.Handler }
 
+// NewMultiHandler builds a MultiHandler over the given handlers, in order. Nil handlers must not
+// be passed; filter them out before calling.
+func NewMultiHandler(hs ...slog.Handler) MultiHandler {
+	return MultiHandler{hs: hs}
+}
+
 func (m MultiHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	for _, h := range m.hs {
 		if h.Enabled(ctx, level) {

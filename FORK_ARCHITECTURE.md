@@ -78,6 +78,35 @@ usbip-win2 import port. Detach uses that stored token only. Unknown attach or
 detach outcomes transition the owning server to `close-failed`; no destructive
 automatic retry is attempted.
 
+## Diagnostic logging
+
+`libVIIPER` owns its own diagnostic log rather than depending on an embedding
+application to persist it. `NewUSBServer` writes `libVIIPER.log` beside the
+directory containing the actually loaded `libVIIPER.dll` module (resolved
+from the loaded module itself on Windows, never the process executable path,
+current working directory, or an application-specific data directory), in
+append mode so multiple `NewUSBServer` calls in one process share the same
+file and never truncate earlier diagnostic history. If module-path
+resolution or the file open fails, that is diagnostic-only: `NewUSBServer`
+and controller routing are never affected, and no fallback stdout/stderr
+CLI-style output is introduced into the embedded DLL.
+
+The optional `VIIPERLogCallback` supplied to `NewUSBServer` is an observer,
+not the persistence mechanism: passing `NULL` never disables the file, and
+supplying a callback never causes a record to be written into the file
+twice. Both destinations receive the same structured record through the
+existing `internal/log.MultiHandler` fan-out.
+
+`libVIIPER` never calls Go's `slog.SetDefault`: it constructs and uses its
+own explicit logger. An embedding process's global default logger, and any
+other `USBServerHandle` in the same process, are never affected by one
+server's construction.
+
+Routine lifecycle, attach/detach, classified-failure, and PR #26 attachment-
+timing diagnostics are low-volume and always active. Per-input/per-frame
+paths (state setters, input reports, publisher loops) do not log; raw packet
+logging remains a separate, off-by-default mechanism (`internal/log.RawLogger`).
+
 ## Build and CI
 
 Build the canonical embedded library with:

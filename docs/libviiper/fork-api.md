@@ -409,6 +409,40 @@ Applications should keep callback code short and avoid blocking unrelated
 application threads. If a callback must wait for application work, ensure the
 application can release it during device removal or server shutdown.
 
+## Diagnostic logging
+
+```c
+typedef enum {
+    VIIPER_LOG_DEBUG = -4,
+    VIIPER_LOG_INFO  = 0,
+    VIIPER_LOG_WARN  = 4,
+    VIIPER_LOG_ERROR = 8,
+} VIIPERLogLevel;
+
+typedef void (*VIIPERLogCallback)(VIIPERLogLevel level, const char* message);
+```
+
+`NewUSBServer`'s `logCallback` parameter is unchanged. What changed is
+ownership: `libVIIPER` owns its own diagnostic log and does not depend on
+the embedding application to persist it.
+
+- `NewUSBServer` always writes `libVIIPER.log` beside the directory
+  containing the actually loaded `libVIIPER.dll` module, in append mode.
+  This happens whether or not `logCallback` is `NULL`.
+- `VIIPERLogCallback` is an optional observer/mirror, not the persistence
+  mechanism. Passing `NULL` does not disable the file; passing a callback
+  does not cause a record to be written into the file twice — both
+  destinations receive the same record.
+- If module-path resolution or the log file cannot be opened, that failure
+  is silently absorbed: it never fails `NewUSBServer`, never changes
+  attachment/removal/lifecycle classification, and never falls back to
+  stdout/stderr.
+- Routine lifecycle, attachment, classified-failure, and the attachment-
+  timing diagnostics documented above are low-volume and always active
+  through this path. Per-input/per-frame state updates and report/publisher
+  loops do not log through this mechanism; raw packet logging is a separate,
+  off-by-default facility.
+
 ## Minimal C usage
 
 The following is a lifecycle sketch. Use the generated
