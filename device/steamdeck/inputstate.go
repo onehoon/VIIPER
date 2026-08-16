@@ -273,8 +273,8 @@ func (s *InputState) buildReport(frame uint32) []byte {
 	// STICK_FORCE_MAX constant). InputPlumber carries and consumes that same
 	// report model, decoding them as l_stick_force/r_stick_force and
 	// describing them as thumbstick capacitive-sensor data; Handheld
-	// Companion independently preserves the same two uint16 fields in its
-	// virtual Steam Deck report.
+	// Companion also preserves the same two uint16 fields in its virtual
+	// Steam Deck report.
 	//
 	// These fields are NOT the L3/R3 stick-click buttons. L3 and R3 have
 	// independent digital bits earlier in the report (byte 10 bit 0x40 and

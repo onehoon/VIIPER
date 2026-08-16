@@ -338,8 +338,8 @@ state ending at the two pad-pressure values, and current SDL's
 `SteamDeckStatePacket_t` likewise only exposes fields through pad pressure.
 Those two consumer-visible structures do not establish report bytes 60:64
 as padding: they only mean Linux and SDL do not currently read that far.
-Handheld Companion independently preserves the same tail in its virtual
-Steam Deck target.
+Handheld Companion also preserves the same tail in its virtual Steam Deck
+target.
 
 `LStickForce`/`RStickForce` are independent from the `L3`/`R3` digital
 click bits earlier in the report. VIIPER preserves the raw tail generically;

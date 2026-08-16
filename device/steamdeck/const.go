@@ -14,8 +14,8 @@ const (
 	// original physical-device report model that InputPlumber carries
 	// forward -- documents byte 3 as "Always 64 for input reports". Current
 	// SDL requires ucLength == 64 for a Steam Deck input report; Handheld
-	// Companion's SteamDeckTarget independently builds/consumes a 64-byte
-	// report and sets/expects byte 3 == 64 as well.
+	// Companion's SteamDeckTarget also builds a 64-byte virtual Steam Deck
+	// input report and writes byte 3 == 64.
 	//
 	// Linux hid-steam documents report type 0x09 as "Steam Deck input data
 	// (56 bytes)", but its receive path still reads a full 64-byte report and

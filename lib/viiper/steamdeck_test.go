@@ -192,8 +192,8 @@ func TestSteamDeckABIFieldOffsets(t *testing.T) {
 	// is not proof that the report's final four bytes are unused. OpenSD's
 	// Steam Deck hardware userspace driver (the original physical-device
 	// report model) identifies that tail as l_stick_force/r_stick_force;
-	// InputPlumber carries that same model, and Handheld Companion
-	// independently preserves the same 64-byte tail. See the InputReportLen
+	// InputPlumber carries that same model, and Handheld Companion also
+	// preserves the same 64-byte tail. See the InputReportLen
 	// and buildReport comments in device/steamdeck for the full evidence
 	// trail; do not shrink this struct back to 72 bytes based on Linux/SDL's
 	// shorter consumer-visible state alone.
