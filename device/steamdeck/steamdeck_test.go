@@ -134,10 +134,13 @@ func TestFeedbackCommands(t *testing.T) {
 	cmd := make([]byte, steamdeck.InputReportLen)
 	cmd[0] = steamdeck.FeatureTriggerRumbleCommand
 	cmd[1] = 9
-	cmd[3] = 7
-	cmd[4] = steamdeck.IntensityMedium
+	cmd[2] = 7
+	binary.LittleEndian.PutUint16(cmd[3:5], 0x0321)
 	binary.LittleEndian.PutUint16(cmd[5:7], 500)
 	binary.LittleEndian.PutUint16(cmd[7:9], 900)
+	leftGain, rightGain := int8(-40), int8(60)
+	cmd[9] = byte(leftGain)
+	cmd[10] = byte(rightGain)
 
 	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(cmd)), cmd)
 	if !assert.True(t, handled) {
@@ -147,10 +150,12 @@ func TestFeedbackCommands(t *testing.T) {
 	if !assert.True(t, ok) {
 		return
 	}
-	assert.Equal(t, uint8(7), rumble.EventType)
-	assert.Equal(t, uint8(steamdeck.IntensityMedium), rumble.Intensity)
+	assert.Equal(t, uint8(7), rumble.RumbleType)
+	assert.Equal(t, uint16(0x0321), rumble.Intensity)
 	assert.Equal(t, uint16(500), rumble.LeftSpeed)
 	assert.Equal(t, uint16(900), rumble.RightSpeed)
+	assert.Equal(t, int8(-40), rumble.LeftGain)
+	assert.Equal(t, int8(60), rumble.RightGain)
 }
 
 func TestOutputCallbackPreservesCompatibilityNormalizationAndLength(t *testing.T) {
@@ -308,9 +313,13 @@ func TestFeedbackCommandsWithLeadingReportID(t *testing.T) {
 	cmd[0] = 0x00
 	cmd[1] = steamdeck.FeatureTriggerRumbleCommand
 	cmd[2] = 9
-	cmd[4] = steamdeck.IntensityShort
+	cmd[3] = 3
+	binary.LittleEndian.PutUint16(cmd[4:6], 0x0456)
 	binary.LittleEndian.PutUint16(cmd[6:8], 250)
 	binary.LittleEndian.PutUint16(cmd[8:10], 750)
+	leadingLeftGain, leadingRightGain := int8(-10), int8(90)
+	cmd[10] = byte(leadingLeftGain)
+	cmd[11] = byte(leadingRightGain)
 
 	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(cmd)), cmd)
 	if !assert.True(t, handled) {
@@ -320,8 +329,40 @@ func TestFeedbackCommandsWithLeadingReportID(t *testing.T) {
 	if !assert.True(t, ok) {
 		return
 	}
+	assert.Equal(t, uint8(3), rumble.RumbleType)
+	assert.Equal(t, uint16(0x0456), rumble.Intensity)
 	assert.Equal(t, uint16(250), rumble.LeftSpeed)
 	assert.Equal(t, uint16(750), rumble.RightSpeed)
+	assert.Equal(t, int8(-10), rumble.LeftGain)
+	assert.Equal(t, int8(90), rumble.RightGain)
+}
+
+func TestRumbleCommandDecodesEachFieldFromDistinctOffsets(t *testing.T) {
+	// Golden packet chosen so each field lands in a distinct, non-aliasing
+	// range: RumbleType != any byte of Intensity/speeds, Intensity > 0xFF so
+	// a truncated uint8 read would fail, LeftSpeed != RightSpeed, and the
+	// gains have opposite signs so a signed/unsigned or offset mixup shows up.
+	var out steamdeck.OutputState
+	out.Data[0] = steamdeck.FeatureTriggerRumbleCommand
+	out.Data[1] = 9
+	out.Data[2] = 0xAB                                   // RumbleType
+	binary.LittleEndian.PutUint16(out.Data[3:5], 0x1234) // Intensity
+	binary.LittleEndian.PutUint16(out.Data[5:7], 0x2222) // LeftSpeed
+	binary.LittleEndian.PutUint16(out.Data[7:9], 0x3333) // RightSpeed
+	fieldLeftGain, fieldRightGain := int8(-100), int8(100)
+	out.Data[9] = byte(fieldLeftGain)   // LeftGain
+	out.Data[10] = byte(fieldRightGain) // RightGain
+
+	rumble, ok := out.AsRumble()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Equal(t, uint8(0xAB), rumble.RumbleType)
+	assert.Equal(t, uint16(0x1234), rumble.Intensity)
+	assert.Equal(t, uint16(0x2222), rumble.LeftSpeed)
+	assert.Equal(t, uint16(0x3333), rumble.RightSpeed)
+	assert.Equal(t, int8(-100), rumble.LeftGain)
+	assert.Equal(t, int8(100), rumble.RightGain)
 }
 
 func TestOutputCallbackReceivesNonHapticCommands(t *testing.T) {
