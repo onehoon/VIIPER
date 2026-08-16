@@ -81,26 +81,48 @@ automatic retry is attempted.
 ## Diagnostic logging
 
 `libVIIPER` owns its own diagnostic log rather than depending on an embedding
-application to persist it. `NewUSBServer` writes `libVIIPER.log` beside the
-directory containing the actually loaded `libVIIPER.dll` module (resolved
-from the loaded module itself on Windows, never the process executable path,
+application to persist it. On Windows, `NewUSBServer` writes `libVIIPER.log`
+beside the directory containing the actually loaded `libVIIPER.dll` module
+(resolved from the loaded module itself, never the process executable path,
 current working directory, or an application-specific data directory), in
 append mode so multiple `NewUSBServer` calls in one process share the same
-file and never truncate earlier diagnostic history. If module-path
-resolution or the file open fails, that is diagnostic-only: `NewUSBServer`
-and controller routing are never affected, and no fallback stdout/stderr
-CLI-style output is introduced into the embedded DLL.
+file and never truncate earlier diagnostic history. Non-Windows builds have
+no file sink in this fork; a supplied `VIIPERLogCallback` still works
+normally. If module-path resolution or the file open fails, that is
+diagnostic-only: `NewUSBServer` and controller routing are never affected,
+and no fallback stdout/stderr CLI-style output is introduced into the
+embedded DLL.
 
 The optional `VIIPERLogCallback` supplied to `NewUSBServer` is an observer,
 not the persistence mechanism: passing `NULL` never disables the file, and
 supplying a callback never causes a record to be written into the file
 twice. Both destinations receive the same structured record through the
-existing `internal/log.MultiHandler` fan-out.
+existing `internal/log.MultiHandler` fan-out. The callback remains
+synchronous and unchanged; callers should still keep callback code short.
 
-`libVIIPER` never calls Go's `slog.SetDefault`: it constructs and uses its
-own explicit logger. An embedding process's global default logger, and any
-other `USBServerHandle` in the same process, are never affected by one
-server's construction.
+File persistence is asynchronous. The owned file's `io.Writer` is a bounded,
+non-blocking FIFO queue drained by one process-wide writer goroutine; a
+producer (e.g. `AttachUSBDeviceEx`/`DetachUSBDeviceEx` recording their
+timing diagnostics) never waits on the filesystem. If the queue saturates,
+the diagnostic record is dropped and counted rather than blocking a
+controller/routing operation; a compact backlog notice is written once
+capacity is available again. `CloseUSBServer` requests a best-effort,
+time-bounded flush of that queue after a successful close, but a stuck or
+slow filesystem never makes close itself appear to hang or fail. None of
+this — module-path resolution failure, file-open failure, write failure,
+queue saturation, or flush timeout — ever changes a classified
+attach/detach/removal result, stored attachment state, or any other
+lifecycle outcome; logging remains diagnostic only.
+
+A zero/stale/unresolvable `USBServerHandle` has no server to own a
+`VIIPERLogCallback` for. Diagnostics for that case (e.g. an invalid-handle
+`AttachUSBDeviceEx` call) go to a library-owned, file-only fallback logger —
+never to any particular server's callback, and never through Go's
+process-global `slog.Default()`. `libVIIPER` never calls `slog.SetDefault`
+at all: every logger it constructs and uses is its own explicit logger, so
+neither the embedding process's global default logger nor any other
+`USBServerHandle` in the same process is ever affected by one server's
+construction.
 
 Routine lifecycle, attach/detach, classified-failure, and PR #26 attachment-
 timing diagnostics are low-volume and always active. Per-input/per-frame

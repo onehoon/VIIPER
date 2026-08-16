@@ -42,6 +42,10 @@ func resolveEmbeddedLogPath() (string, bool) {
 
 func loadedModuleDir() (string, error) {
 	var handle windows.Handle
+	// GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS (as opposed to the deprecated
+	// ...UNCHANGED_REFCOUNT flag, and never PIN) increments this module's reference count on
+	// success; that reference must be balanced with FreeLibrary once the filename has been
+	// copied, or every diagnostic-log write leaks one module reference.
 	r0, _, callErr := procGetModuleHandleExW.Call(
 		uintptr(getModuleHandleExFlagFromAddress),
 		uintptr(unsafe.Pointer(&moduleAnchor)),
@@ -50,6 +54,12 @@ func loadedModuleDir() (string, error) {
 	if r0 == 0 {
 		return "", fmt.Errorf("GetModuleHandleExW failed: %w", callErr)
 	}
+	defer func() {
+		// Diagnostic-only: a FreeLibrary failure here must never affect routing, and this
+		// module's own code stays mapped regardless (this call only releases the extra
+		// reference GetModuleHandleExW just added, not the loader's original one).
+		_ = windows.FreeLibrary(handle)
+	}()
 	path, err := moduleFileName(handle)
 	if err != nil {
 		return "", err

@@ -203,6 +203,10 @@ func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr) bool {
 	serverHandleRecords.Delete(handle)
 	cgo.Handle(handle).Delete()
 	hw.logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", hw.state.String())
+	// Best-effort only: the result is never surfaced and never changes CloseUSBServer's own
+	// result, which has already succeeded by this point. A stuck/slow filesystem must never make
+	// server close itself appear to hang or fail.
+	flushEmbeddedLogBestEffort()
 	return true
 }
 
