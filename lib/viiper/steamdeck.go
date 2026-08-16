@@ -43,7 +43,6 @@ typedef struct {
 	int16_t LStickX, LStickY;
 	int16_t RStickX, RStickY;
 	uint16_t LPadForce, RPadForce;
-	uint16_t LStickForce, RStickForce;
 } SteamDeckDeviceState;
 */
 import "C"
@@ -131,7 +130,6 @@ type steamDeckState struct {
 	LStickX, LStickY                           int16
 	RStickX, RStickY                           int16
 	LPadForce, RPadForce                       uint16
-	LStickForce, RStickForce                   uint16
 }
 
 func steamDeckStateFromC(state C.SteamDeckDeviceState) steamDeckState {
@@ -163,7 +161,6 @@ func steamDeckStateFromPointer(pointer unsafe.Pointer) steamDeckState {
 		LStickX: int16(state.LStickX), LStickY: int16(state.LStickY),
 		RStickX: int16(state.RStickX), RStickY: int16(state.RStickY),
 		LPadForce: uint16(state.LPadForce), RPadForce: uint16(state.RPadForce),
-		LStickForce: uint16(state.LStickForce), RStickForce: uint16(state.RStickForce),
 	}
 }
 
@@ -177,6 +174,7 @@ type steamDeckDeviceStateCOffsets struct {
 	L2Digital, R2Digital, R3, QuickAccess uintptr
 	LPadX, AccelX, LTrigger, LStickX      uintptr
 	RStickX                               uintptr
+	LPadForce, RPadForce                  uintptr
 }
 
 func steamDeckDeviceStateABIOffsets() steamDeckDeviceStateCOffsets {
@@ -190,6 +188,8 @@ func steamDeckDeviceStateABIOffsets() steamDeckDeviceStateCOffsets {
 		LTrigger:    unsafe.Offsetof(C.SteamDeckDeviceState{}.LTrigger),
 		LStickX:     unsafe.Offsetof(C.SteamDeckDeviceState{}.LStickX),
 		RStickX:     unsafe.Offsetof(C.SteamDeckDeviceState{}.RStickX),
+		LPadForce:   unsafe.Offsetof(C.SteamDeckDeviceState{}.LPadForce),
+		RPadForce:   unsafe.Offsetof(C.SteamDeckDeviceState{}.RPadForce),
 	}
 }
 
@@ -228,7 +228,6 @@ func steamDeckInputState(state steamDeckState) *steamdeck.InputState {
 		LStickX: state.LStickX, LStickY: state.LStickY,
 		RStickX: state.RStickX, RStickY: state.RStickY,
 		LPadForce: state.LPadForce, RPadForce: state.RPadForce,
-		LStickForce: state.LStickForce, RStickForce: state.RStickForce,
 	}
 }
 

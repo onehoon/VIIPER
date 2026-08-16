@@ -296,17 +296,12 @@ func TestSteamDeckAnalogAndCoordinateWireOffsets(t *testing.T) {
 // for trackpad force-sense fields, kept separate per field so a swap among
 // them cannot hide behind a generic "tail bytes changed" assertion.
 //
-// LStickForce/RStickForce are intentionally NOT covered here. VIIPER
-// declares DeckInputPayloadLen = 56, so the source-verified Deck payload
-// spans bytes 4-59 and ends immediately after RPadForce (bytes 56:58 /
-// 58:60) -- matching both current Linux hid-steam and SDL's Valve-derived
-// SteamDeckStatePacket_t, which have no stick-force fields at all.
-// InputState.LStickForce/RStickForce currently serialize to bytes 60:64,
-// outside that declared payload. This PR is test-only and does not change
-// production code, so those two fields are deliberately left out of this
-// regression rather than frozen as canonical wire contract; see the PR
-// description for the flagged discrepancy to track as a separate protocol
-// investigation.
+// InputState no longer has LStickForce/RStickForce fields (removed as a
+// canonical ABI correction -- see TestSteamDeckDeclaredPayloadEndsAtPadPressure):
+// the source-verified Deck payload spans bytes 4-59 and ends immediately
+// after RPadForce (bytes 56:58 / 58:60), matching both current Linux
+// hid-steam and SDL's Valve-derived SteamDeckStatePacket_t, which have no
+// stick-force fields at all.
 func TestSteamDeckForceWireOffsets(t *testing.T) {
 	state := steamdeck.InputState{
 		LPadForce: 1111,
@@ -319,6 +314,32 @@ func TestSteamDeckForceWireOffsets(t *testing.T) {
 
 	assert.Equal(t, uint16(1111), binary.LittleEndian.Uint16(got[56:58]), "LPadForce offset")
 	assert.Equal(t, uint16(2222), binary.LittleEndian.Uint16(got[58:60]), "RPadForce offset")
+}
+
+// TestSteamDeckDeclaredPayloadEndsAtPadPressure locks in the canonical ABI
+// correction that removed the non-canonical LStickForce/RStickForce tail
+// fields: the declared 56-byte Deck payload (DeckInputPayloadLen) ends
+// immediately after RPadForce, and the four trailing report bytes (60:64)
+// must stay zero -- they carry no canonical semantics -- even when every
+// other populated field is non-zero.
+func TestSteamDeckDeclaredPayloadEndsAtPadPressure(t *testing.T) {
+	state := steamdeck.InputState{
+		A: true, DPadUp: true, Menu: true,
+		LPadX: -100, LPadY: 200, RPadX: -300, RPadY: 400,
+		LTrigger: 1000, RTrigger: 54321,
+		LStickX: -12345, LStickY: 6789, RStickX: -6789, RStickY: 12345,
+		LPadForce: 1111, RPadForce: 2222,
+	}
+	got := steamDeckInputReport(t, &state)
+	if !assert.NotNil(t, got) {
+		return
+	}
+
+	assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3], "declared Deck payload length must remain 56")
+	assert.Equal(t, uint16(1111), binary.LittleEndian.Uint16(got[56:58]), "LPadForce offset")
+	assert.Equal(t, uint16(2222), binary.LittleEndian.Uint16(got[58:60]), "RPadForce offset")
+	assert.Equal(t, make([]byte, 4), got[60:64], "trailing bytes outside the declared 56-byte Deck payload must stay zero")
+	assert.Len(t, got, steamdeck.InputReportLen, "transport report remains a 64-byte buffer")
 }
 
 // TestSteamDeckReserved15Passthrough freezes the current direct passthrough

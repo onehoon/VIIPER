@@ -322,6 +322,25 @@ claim SteamInputAddonforClaw rumble adoption. Basic non-gyro Steam Deck input
 has been validated on MSI Claw EX. Lifecycle and recovery validation remains
 pending; rumble/haptics and gyro remain separate feature tracks.
 
+#### Steam Deck state ABI
+
+The canonical `SteamDeckDeviceState` represents the consumer-facing semantic
+fields used to construct the Valve/SDL/Linux Steam Deck 56-byte payload.
+`SteamDeckDeviceState` is **72 bytes** and its final two fields are
+`LPadForce` and `RPadForce` (`uint16_t`, offsets 68 and 70).
+
+An earlier revision of `SteamDeckDeviceState` was 76 bytes and additionally
+exposed `LStickForce`/`RStickForce` after `LPadForce`/`RPadForce`. Those two
+fields were removed as a breaking ABI correction: they serialized outside
+the declared 56-byte Deck payload and have no corresponding wire field in
+current Linux `hid-steam` or SDL's Valve-derived `SteamDeckStatePacket_t`.
+All field offsets before the removed tail are unchanged.
+
+Consumers **must** use a matching generated `libVIIPER.h`/DLL (or `.so`) pair
+for this revision. Loading this DLL against an older 76-byte
+`SteamDeckDeviceState` definition, or vice versa, is a native/managed struct
+mismatch and will corrupt or misread trailing state fields.
+
 ### Classified typed-device removal
 
 Each typed device family has its own classified removal enum and `*Ex`
