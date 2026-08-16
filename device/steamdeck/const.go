@@ -6,10 +6,29 @@ const (
 )
 
 const (
-	DefaultProfile      = "steamdeck"
-	InputReportID       = 0x09
-	InputReportLen      = 64
-	DeckInputPayloadLen = 56
+	DefaultProfile = "steamdeck"
+	InputReportID  = 0x09
+	// InputReportLen is the full Steam Deck input report length, transported
+	// as a 64-byte packet, and is also what report byte 3 declares as the
+	// report length. OpenSD's Steam Deck hardware userspace driver -- the
+	// original physical-device report model that InputPlumber carries
+	// forward -- documents byte 3 as "Always 64 for input reports". Current
+	// SDL requires ucLength == 64 for a Steam Deck input report; Handheld
+	// Companion's SteamDeckTarget also builds a 64-byte virtual Steam Deck
+	// input report and writes byte 3 == 64.
+	//
+	// Linux hid-steam documents report type 0x09 as "Steam Deck input data
+	// (56 bytes)", but its receive path still reads a full 64-byte report and
+	// does not use byte 3 to reject or truncate the trailing bytes. That
+	// 56-byte description reflects the span of Deck state fields Linux
+	// currently decodes (ending at LPadForce/RPadForce); it is not proof that
+	// report bytes 60:64 are invalid or that byte 3 should declare 56. Do not
+	// re-derive "56" from Linux's documentation alone and pass it as this
+	// value or as buildReport's declared length -- buildReport intentionally
+	// takes no length parameter and always declares 64. See buildReport's
+	// LStickForce/RStickForce comment for the evidence on the trailing
+	// four-byte tail specifically.
+	InputReportLen = 64
 )
 
 const (
