@@ -38,11 +38,16 @@ func TestInputReports(t *testing.T) {
 				assert.Equal(t, byte(0x00), got[1])
 				assert.Equal(t, byte(steamdeck.InputReportID), got[2])
 				assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3])
-				assert.Equal(t, make([]byte, 7), got[8:15])
+				assert.Equal(t, make([]byte, 8), got[8:16])
+				// Pads, sticks, triggers, and force fields must all be zero on a
+				// neutral report; the quaternion-zero behavior is intentional
+				// (see TestMotionFieldWireOrderMatchesSteamConsumers) and unchanged here.
+				assert.Equal(t, make([]byte, 8), got[16:24])
 				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[36:38]))
 				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[38:40]))
 				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[40:42]))
 				assert.Equal(t, uint16(0), binary.LittleEndian.Uint16(got[42:44]))
+				assert.Equal(t, make([]byte, 20), got[44:64])
 			},
 		},
 		{
@@ -118,6 +123,259 @@ func TestMotionFieldWireOrderMatchesSteamConsumers(t *testing.T) {
 	assert.Equal(t, uint16(0x0888), binary.LittleEndian.Uint16(got[38:40]))
 	assert.Equal(t, uint16(0x0999), binary.LittleEndian.Uint16(got[40:42]))
 	assert.Equal(t, uint16(0x0aaa), binary.LittleEndian.Uint16(got[42:44]))
+}
+
+func steamDeckInputReport(t *testing.T, state *steamdeck.InputState) []byte {
+	t.Helper()
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return nil
+	}
+	dev.UpdateInputState(state)
+	return dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
+}
+
+func TestSteamDeckReportHeaderInvariants(t *testing.T) {
+	got := steamDeckInputReport(t, &steamdeck.InputState{})
+	if !assert.NotNil(t, got) {
+		return
+	}
+	assert.Equal(t, byte(0x01), got[0])
+	assert.Equal(t, byte(0x00), got[1])
+	assert.Equal(t, byte(steamdeck.InputReportID), got[2])
+	assert.Equal(t, byte(steamdeck.DeckInputPayloadLen), got[3])
+}
+
+// TestSteamDeckButtonWireSemantics freezes each individual button/digital
+// control at its current protocol-defined byte and bit, one control at a
+// time, so an accidental swap between two neighboring bits (or a bit leaking
+// into an unrelated byte) fails clearly instead of hiding inside a mixed
+// bitmask assertion. Basic non-gyro Steam Deck input has been hardware
+// validated on MSI Claw EX; that validation covers the overall input path
+// rather than certifying every individual bit in this table, so this
+// comment does not claim per-control hardware validation.
+//
+// The button region currently spans bytes 8-14 (byte 12 is unused/reserved);
+// every case asserts both the exact expected byte and that all other bytes
+// in that region remain zero.
+func TestSteamDeckButtonWireSemantics(t *testing.T) {
+	buttonRegion := []int{8, 9, 10, 11, 12, 13, 14}
+
+	cases := []struct {
+		name   string
+		set    func(*steamdeck.InputState)
+		offset int
+		mask   byte
+	}{
+		// Byte 8
+		{"A", func(s *steamdeck.InputState) { s.A = true }, 8, 0x80},
+		{"X", func(s *steamdeck.InputState) { s.X = true }, 8, 0x40},
+		{"B", func(s *steamdeck.InputState) { s.B = true }, 8, 0x20},
+		{"Y", func(s *steamdeck.InputState) { s.Y = true }, 8, 0x10},
+		{"L1", func(s *steamdeck.InputState) { s.L1 = true }, 8, 0x08},
+		{"R1", func(s *steamdeck.InputState) { s.R1 = true }, 8, 0x04},
+		{"L2Digital", func(s *steamdeck.InputState) { s.L2Digital = true }, 8, 0x02},
+		{"R2Digital", func(s *steamdeck.InputState) { s.R2Digital = true }, 8, 0x01},
+
+		// Byte 9 -- L5/Menu/Steam/Options, plus D-pad tested individually
+		// (not as a combined mask) per each direction below.
+		{"L5", func(s *steamdeck.InputState) { s.L5 = true }, 9, 0x80},
+		// Menu (0x40) is the Steam Deck MENU/Start semantic; Options (0x10) is
+		// the VIEW/Back semantic. See TestSteamDeckMenuAndViewWireSemantics
+		// for the dedicated regression on this pair.
+		{"Menu", func(s *steamdeck.InputState) { s.Menu = true }, 9, 0x40},
+		{"Steam", func(s *steamdeck.InputState) { s.Steam = true }, 9, 0x20},
+		{"Options", func(s *steamdeck.InputState) { s.Options = true }, 9, 0x10},
+		{"DPadDown", func(s *steamdeck.InputState) { s.DPadDown = true }, 9, 0x08},
+		{"DPadLeft", func(s *steamdeck.InputState) { s.DPadLeft = true }, 9, 0x04},
+		{"DPadRight", func(s *steamdeck.InputState) { s.DPadRight = true }, 9, 0x02},
+		{"DPadUp", func(s *steamdeck.InputState) { s.DPadUp = true }, 9, 0x01},
+
+		// Byte 10
+		{"L3", func(s *steamdeck.InputState) { s.L3 = true }, 10, 0x40},
+		{"RPadTouch", func(s *steamdeck.InputState) { s.RPadTouch = true }, 10, 0x10},
+		{"LPadTouch", func(s *steamdeck.InputState) { s.LPadTouch = true }, 10, 0x08},
+		{"RPadPress", func(s *steamdeck.InputState) { s.RPadPress = true }, 10, 0x04},
+		{"LPadPress", func(s *steamdeck.InputState) { s.LPadPress = true }, 10, 0x02},
+		{"R5", func(s *steamdeck.InputState) { s.R5 = true }, 10, 0x01},
+
+		// Byte 11
+		{"R3", func(s *steamdeck.InputState) { s.R3 = true }, 11, 0x04},
+
+		// Byte 13
+		{"RStickTouch", func(s *steamdeck.InputState) { s.RStickTouch = true }, 13, 0x80},
+		{"LStickTouch", func(s *steamdeck.InputState) { s.LStickTouch = true }, 13, 0x40},
+		{"R4", func(s *steamdeck.InputState) { s.R4 = true }, 13, 0x04},
+		{"L4", func(s *steamdeck.InputState) { s.L4 = true }, 13, 0x02},
+
+		// Byte 14
+		{"QuickAccess", func(s *steamdeck.InputState) { s.QuickAccess = true }, 14, 0x04},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := steamdeck.InputState{}
+			tc.set(&state)
+			got := steamDeckInputReport(t, &state)
+			if !assert.NotNil(t, got) {
+				return
+			}
+			assert.Equal(t, tc.mask, got[tc.offset], "expected %s to set byte %d to 0x%02x", tc.name, tc.offset, tc.mask)
+			for _, b := range buttonRegion {
+				if b == tc.offset {
+					continue
+				}
+				assert.Equalf(t, byte(0), got[b], "%s unexpectedly set byte %d", tc.name, b)
+			}
+		})
+	}
+}
+
+// TestSteamDeckMenuAndViewWireSemantics is a focused regression proving the
+// currently correct VIIPER Steam Deck wire semantics for the two center
+// buttons: Menu is the MENU/Start button (byte 9, 0x40) and Options is the
+// VIEW/Back button (byte 9, 0x10). VIIPER's field names are unchanged by this
+// test; a consumer that maps Start/Back must map onto these fields correctly
+// rather than the other way around.
+func TestSteamDeckMenuAndViewWireSemantics(t *testing.T) {
+	menu := steamDeckInputReport(t, &steamdeck.InputState{Menu: true})
+	if !assert.NotNil(t, menu) {
+		return
+	}
+	assert.Equal(t, byte(0x40), menu[9], "Menu (MENU/Start semantic) must set byte 9 bit 0x40")
+
+	options := steamDeckInputReport(t, &steamdeck.InputState{Options: true})
+	if !assert.NotNil(t, options) {
+		return
+	}
+	assert.Equal(t, byte(0x10), options[9], "Options (VIEW/Back semantic) must set byte 9 bit 0x10")
+}
+
+// TestSteamDeckAnalogAndCoordinateWireOffsets verifies the little-endian byte
+// offsets for analog triggers, sticks, and trackpad coordinates using
+// distinct, non-aliasing signed/unsigned values chosen so that an X/Y or
+// left/right swap would fail obviously.
+func TestSteamDeckAnalogAndCoordinateWireOffsets(t *testing.T) {
+	state := steamdeck.InputState{
+		LTrigger: 1000,
+		RTrigger: 54321,
+		LStickX:  -12345,
+		LStickY:  6789,
+		RStickX:  -6789,
+		RStickY:  12345,
+		LPadX:    -100,
+		LPadY:    200,
+		RPadX:    -300,
+		RPadY:    400,
+	}
+	got := steamDeckInputReport(t, &state)
+	if !assert.NotNil(t, got) {
+		return
+	}
+
+	assert.Equal(t, uint16(1000), binary.LittleEndian.Uint16(got[44:46]), "LTrigger offset")
+	assert.Equal(t, uint16(54321), binary.LittleEndian.Uint16(got[46:48]), "RTrigger offset")
+
+	// Analog trigger travel must not implicitly set the independent digital
+	// trigger click flags (byte 8, 0x02/0x01).
+	assert.Zero(t, got[8]&0x02, "LTrigger must not set L2Digital")
+	assert.Zero(t, got[8]&0x01, "RTrigger must not set R2Digital")
+
+	assert.Equal(t, int16(-12345), int16(binary.LittleEndian.Uint16(got[48:50])), "LStickX offset")
+	assert.Equal(t, int16(6789), int16(binary.LittleEndian.Uint16(got[50:52])), "LStickY offset")
+	assert.Equal(t, int16(-6789), int16(binary.LittleEndian.Uint16(got[52:54])), "RStickX offset")
+	assert.Equal(t, int16(12345), int16(binary.LittleEndian.Uint16(got[54:56])), "RStickY offset")
+
+	assert.Equal(t, int16(-100), int16(binary.LittleEndian.Uint16(got[16:18])), "LPadX offset")
+	assert.Equal(t, int16(200), int16(binary.LittleEndian.Uint16(got[18:20])), "LPadY offset")
+	assert.Equal(t, int16(-300), int16(binary.LittleEndian.Uint16(got[20:22])), "RPadX offset")
+	assert.Equal(t, int16(400), int16(binary.LittleEndian.Uint16(got[22:24])), "RPadY offset")
+}
+
+// TestSteamDeckForceWireOffsets verifies the distinct little-endian offsets
+// for trackpad force-sense fields, kept separate per field so a swap among
+// them cannot hide behind a generic "tail bytes changed" assertion.
+//
+// LStickForce/RStickForce are intentionally NOT covered here. VIIPER
+// declares DeckInputPayloadLen = 56, so the source-verified Deck payload
+// spans bytes 4-59 and ends immediately after RPadForce (bytes 56:58 /
+// 58:60) -- matching both current Linux hid-steam and SDL's Valve-derived
+// SteamDeckStatePacket_t, which have no stick-force fields at all.
+// InputState.LStickForce/RStickForce currently serialize to bytes 60:64,
+// outside that declared payload. This PR is test-only and does not change
+// production code, so those two fields are deliberately left out of this
+// regression rather than frozen as canonical wire contract; see the PR
+// description for the flagged discrepancy to track as a separate protocol
+// investigation.
+func TestSteamDeckForceWireOffsets(t *testing.T) {
+	state := steamdeck.InputState{
+		LPadForce: 1111,
+		RPadForce: 2222,
+	}
+	got := steamDeckInputReport(t, &state)
+	if !assert.NotNil(t, got) {
+		return
+	}
+
+	assert.Equal(t, uint16(1111), binary.LittleEndian.Uint16(got[56:58]), "LPadForce offset")
+	assert.Equal(t, uint16(2222), binary.LittleEndian.Uint16(got[58:60]), "RPadForce offset")
+}
+
+// TestSteamDeckReserved15Passthrough freezes the current direct passthrough
+// of InputState.Reserved15 to byte 15. No semantics are asserted for this
+// byte beyond its existing wire position.
+func TestSteamDeckReserved15Passthrough(t *testing.T) {
+	got := steamDeckInputReport(t, &steamdeck.InputState{Reserved15: 0xAB})
+	if !assert.NotNil(t, got) {
+		return
+	}
+	assert.Equal(t, byte(0xAB), got[15])
+}
+
+// TestSteamDeckNonMotionReportRoundTrips proves a fully populated non-motion
+// InputState survives a MarshalBinary/UnmarshalBinary round trip unchanged.
+// Motion fields are covered separately by
+// TestMotionFieldWireOrderMatchesSteamConsumers and are intentionally not
+// exercised here.
+func TestSteamDeckNonMotionReportRoundTrips(t *testing.T) {
+	original := steamdeck.InputState{
+		A: true, DPadUp: true, Menu: true, Options: true, R4: true, QuickAccess: true,
+		Reserved15: 0x2A,
+		LPadX:      -100, LPadY: 200, RPadX: -300, RPadY: 400,
+		LTrigger: 1000, RTrigger: 54321,
+		LStickX: -12345, LStickY: 6789, RStickX: -6789, RStickY: 12345,
+		LPadForce: 1111, RPadForce: 2222,
+	}
+
+	data, err := original.MarshalBinary()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	var decoded steamdeck.InputState
+	if !assert.NoError(t, decoded.UnmarshalBinary(data)) {
+		return
+	}
+
+	assert.Equal(t, original.A, decoded.A)
+	assert.Equal(t, original.DPadUp, decoded.DPadUp)
+	assert.Equal(t, original.Menu, decoded.Menu)
+	assert.Equal(t, original.Options, decoded.Options)
+	assert.Equal(t, original.R4, decoded.R4)
+	assert.Equal(t, original.QuickAccess, decoded.QuickAccess)
+	assert.Equal(t, original.Reserved15, decoded.Reserved15)
+	assert.Equal(t, original.LPadX, decoded.LPadX)
+	assert.Equal(t, original.LPadY, decoded.LPadY)
+	assert.Equal(t, original.RPadX, decoded.RPadX)
+	assert.Equal(t, original.RPadY, decoded.RPadY)
+	assert.Equal(t, original.LTrigger, decoded.LTrigger)
+	assert.Equal(t, original.RTrigger, decoded.RTrigger)
+	assert.Equal(t, original.LStickX, decoded.LStickX)
+	assert.Equal(t, original.LStickY, decoded.LStickY)
+	assert.Equal(t, original.RStickX, decoded.RStickX)
+	assert.Equal(t, original.RStickY, decoded.RStickY)
+	assert.Equal(t, original.LPadForce, decoded.LPadForce)
+	assert.Equal(t, original.RPadForce, decoded.RPadForce)
 }
 
 func TestFeedbackCommands(t *testing.T) {
