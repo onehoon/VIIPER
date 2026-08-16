@@ -52,7 +52,7 @@ type controllerState struct {
 var defaultSettings = map[uint8]uint16{
 	SettingLeftTrackpadMode:    TrackpadModeNone,
 	SettingRightTrackpadMode:   TrackpadModeNone,
-	SettingMousePointerEnabled: LizardModeOff,
+	SettingMousePointerEnabled: MousePointerDisabled,
 	SettingSmoothAbsoluteMouse: 0,
 	// Advertise raw gyro + raw accel only (no SendOrientation): we don't compute a live
 	// orientation quaternion, so claiming orientation made Steam lean on a frozen identity
@@ -67,7 +67,7 @@ var defaultSettings = map[uint8]uint16{
 var maxSettings = map[uint8]uint16{
 	SettingLeftTrackpadMode:           TrackpadModeNone,
 	SettingRightTrackpadMode:          TrackpadModeNone,
-	SettingMousePointerEnabled:        LizardModeOn,
+	SettingMousePointerEnabled:        MousePointerEnabled,
 	SettingSmoothAbsoluteMouse:        1,
 	SettingIMUMode:                    GyroModeSteering | GyroModeTilt | GyroModeSendRawAccel | GyroModeSendRawGyro,
 	SettingLeftTrackpadClickPressure:  0xffff,

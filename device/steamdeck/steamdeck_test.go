@@ -461,7 +461,7 @@ func TestSetSettingsAndControllerMode(t *testing.T) {
 		steamdeck.FeatureSetSettingsValues,
 		0x06,
 		steamdeck.SettingLeftTrackpadMode, byte(steamdeck.TrackpadModeNone), 0x00,
-		steamdeck.SettingMousePointerEnabled, byte(steamdeck.LizardModeOff), 0x00,
+		steamdeck.SettingMousePointerEnabled, byte(steamdeck.MousePointerDisabled), 0x00,
 	}
 	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(settings)), settings)
 	if !assert.True(t, handled) {
@@ -491,7 +491,7 @@ func TestSettingMousePointerEnabledIsPlainSetting(t *testing.T) {
 		0x00,
 		steamdeck.FeatureSetSettingsValues,
 		0x03,
-		steamdeck.SettingMousePointerEnabled, byte(steamdeck.LizardModeOn), 0x00,
+		steamdeck.SettingMousePointerEnabled, byte(steamdeck.MousePointerEnabled), 0x00,
 	}
 	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(settings)), settings)
 	if !assert.True(t, handled) {
@@ -503,7 +503,19 @@ func TestSettingMousePointerEnabledIsPlainSetting(t *testing.T) {
 		return
 	}
 	assert.Equal(t, byte(steamdeck.FeatureGetSettingsValues), resp[0])
-	assert.Contains(t, resp[2:2+int(resp[1])], byte(steamdeck.SettingMousePointerEnabled))
+	payload := resp[2 : 2+int(resp[1])]
+	if !assert.Contains(t, payload, byte(steamdeck.SettingMousePointerEnabled)) {
+		return
+	}
+	for offset := 0; offset+3 <= len(payload); offset += 3 {
+		if payload[offset] != byte(steamdeck.SettingMousePointerEnabled) {
+			continue
+		}
+		value := binary.LittleEndian.Uint16(payload[offset+1 : offset+3])
+		assert.Equal(t, uint16(steamdeck.MousePointerEnabled), value)
+		return
+	}
+	t.Fatal("SettingMousePointerEnabled triple not found in response")
 }
 
 func TestSettingMousePointerEnabledDoesNotChangeControllerMode(t *testing.T) {
@@ -522,7 +534,7 @@ func TestSettingMousePointerEnabledDoesNotChangeControllerMode(t *testing.T) {
 		0x00,
 		steamdeck.FeatureSetSettingsValues,
 		0x03,
-		steamdeck.SettingMousePointerEnabled, byte(initialMode ^ 0x01), 0x00,
+		steamdeck.SettingMousePointerEnabled, initialMode ^ 0x01, 0x00,
 	}
 	_, handled = dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(settings)), settings)
 	if !assert.True(t, handled) {

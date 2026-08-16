@@ -90,6 +90,11 @@ const (
 )
 
 const (
+	MousePointerDisabled = 0x00
+	MousePointerEnabled  = 0x01
+)
+
+const (
 	CapabilityGamepad = 0x00000004
 )
 
