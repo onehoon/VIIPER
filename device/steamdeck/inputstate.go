@@ -312,10 +312,12 @@ func (o OutputState) CommandID() uint8 { return o.Data[0] }
 func (o OutputState) ReportSize() uint8 { return o.Data[1] }
 
 type RumbleCommand struct {
-	EventType  uint8
-	Intensity  uint8
+	RumbleType uint8
+	Intensity  uint16
 	LeftSpeed  uint16
 	RightSpeed uint16
+	LeftGain   int8
+	RightGain  int8
 }
 
 func (o OutputState) AsRumble() (RumbleCommand, bool) {
@@ -323,10 +325,12 @@ func (o OutputState) AsRumble() (RumbleCommand, bool) {
 		return RumbleCommand{}, false
 	}
 	return RumbleCommand{
-		EventType:  o.Data[3],
-		Intensity:  o.Data[4],
+		RumbleType: o.Data[2],
+		Intensity:  binary.LittleEndian.Uint16(o.Data[3:5]),
 		LeftSpeed:  binary.LittleEndian.Uint16(o.Data[5:7]),
 		RightSpeed: binary.LittleEndian.Uint16(o.Data[7:9]),
+		LeftGain:   int8(o.Data[9]),
+		RightGain:  int8(o.Data[10]),
 	}, true
 }
 
