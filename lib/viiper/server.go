@@ -65,10 +65,12 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 	}
 
 	// libVIIPER owns its diagnostic log: openRealEmbeddedLogFileHandler is libVIIPER.log beside
-	// the loaded shared library, always present regardless of logCallback. logCallback, when
-	// supplied, is an additional observer -- never a replacement for the file sink, and never a
-	// reason to write a record into the file twice. This never calls slog.SetDefault: the
-	// embedding process's own global default logger is left alone.
+	// the loaded shared library, whose sink is attempted independently of logCallback (module-path
+	// resolution or the file open can still fail, in which case there is simply no file handler --
+	// see embeddedlog.go). logCallback, when supplied, is an additional observer -- never a
+	// replacement for the file sink, and never a reason to write a record into the file twice.
+	// This never calls slog.SetDefault: the embedding process's own global default logger is left
+	// alone.
 	var callbackHandler slog.Handler
 	if logCallback != nil {
 		callbackHandler = &funcLogHandler{
@@ -192,20 +194,28 @@ func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownRes
 func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr) bool {
 	err := hw.ops.close(hw.s)
 	hw.lifecycleMu.Lock()
-	defer hw.lifecycleMu.Unlock()
 	if err != nil {
 		hw.state = serverCloseFailed
-		hw.logger.Error("failed to close USB server", "operation", "CloseUSBServer", "serverState", hw.state.String(), "remainingBusCount", len(hw.s.ListBuses()), "error", err)
+		logger, state, remainingBusCount := hw.logger, hw.state, len(hw.s.ListBuses())
+		hw.lifecycleMu.Unlock()
+		// Logging happens after the lock is released, same as the classified Attach/Detach path:
+		// lifecycle state transition, consumer callback latency, and filesystem flush latency
+		// must never be serialized behind lifecycleMu.
+		logger.Error("failed to close USB server", "operation", "CloseUSBServer", "serverState", state.String(), "remainingBusCount", remainingBusCount, "error", err)
 		return false
 	}
 	hw.state = serverClosed
 	hw.closePhase = closeComplete
 	serverHandleRecords.Delete(handle)
 	cgo.Handle(handle).Delete()
-	hw.logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", hw.state.String())
-	// Best-effort only: the result is never surfaced and never changes CloseUSBServer's own
-	// result, which has already succeeded by this point. A stuck/slow filesystem must never make
-	// server close itself appear to hang or fail.
+	logger, state := hw.logger, hw.state
+	hw.lifecycleMu.Unlock()
+
+	logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", state.String())
+	// Best-effort only, and only after the lock is released: the result is never surfaced and
+	// never changes CloseUSBServer's own result, which has already succeeded by this point. A
+	// stuck/slow filesystem must never make server close itself appear to hang or fail, and must
+	// never hold lifecycleMu for up to ~1s (asyncLogFlushTimeout in both directions) while doing so.
 	flushEmbeddedLogBestEffort()
 	return true
 }

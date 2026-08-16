@@ -45,7 +45,9 @@ func loadedModuleDir() (string, error) {
 	// GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS (as opposed to the deprecated
 	// ...UNCHANGED_REFCOUNT flag, and never PIN) increments this module's reference count on
 	// success; that reference must be balanced with FreeLibrary once the filename has been
-	// copied, or every diagnostic-log write leaks one module reference.
+	// copied, or every successful module-resolution attempt would leak one module reference.
+	// (This runs once per process, behind openRealEmbeddedLogFileHandler's sync.Once -- not once
+	// per log write.)
 	r0, _, callErr := procGetModuleHandleExW.Call(
 		uintptr(getModuleHandleExFlagFromAddress),
 		uintptr(unsafe.Pointer(&moduleAnchor)),

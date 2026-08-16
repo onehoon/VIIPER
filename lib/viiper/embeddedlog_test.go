@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"runtime/cgo"
 	"strings"
 	"testing"
 	"time"
@@ -356,6 +357,58 @@ func TestAttachDetachReturnPromptlyDespiteStuckBackingWriter(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("detachUSBDeviceResult blocked on a stuck backing log writer")
+	}
+}
+
+// anyRecordLockCheckingHandler records, for every log record it receives, whether
+// hw.lifecycleMu was already free at that moment (via TryLock). Unlike
+// attachment_timing_test.go's lockCheckingHandler (which only watches "attachment-timing"
+// records), this watches every record, so it can guard CloseUSBServer's final "USB server
+// closed"/"failed to close USB server" log as well as the bounded flush that follows it.
+type anyRecordLockCheckingHandler struct {
+	hw          *usbServerHandleWrapper
+	lockWasFree []bool
+}
+
+func (h *anyRecordLockCheckingHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *anyRecordLockCheckingHandler) Handle(_ context.Context, _ slog.Record) error {
+	free := h.hw.lifecycleMu.TryLock()
+	if free {
+		h.hw.lifecycleMu.Unlock()
+	}
+	h.lockWasFree = append(h.lockWasFree, free)
+	return nil
+}
+
+func (h *anyRecordLockCheckingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *anyRecordLockCheckingHandler) WithGroup(string) slog.Handler      { return h }
+
+// TestCloseUSBServerFinalLogAndFlushRunAfterLockRelease proves finishTransportClose's success
+// path -- the final "USB server closed" log and the best-effort flush that follows it -- happens
+// entirely after lifecycleMu has been released, not while still holding it. Before this fix, the
+// bounded flush (up to ~1s across both of its own internal timeouts) could hold lifecycleMu for
+// that entire duration, serializing an unrelated lifecycle operation behind a slow/stuck
+// filesystem exactly the way PR #26 already fixed for the classified Attach/Detach path.
+func TestCloseUSBServerFinalLogAndFlushRunAfterLockRelease(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9604)
+	checker := &anyRecordLockCheckingHandler{hw: hw}
+	hw.logger = slog.New(checker)
+
+	serverHandle := cgo.NewHandle(hw)
+	serverHandleRecords.Store(uintptr(serverHandle), hw)
+
+	if !hw.finishTransportClose(uintptr(serverHandle)) {
+		t.Fatal("finishTransportClose failed")
+	}
+
+	if len(checker.lockWasFree) == 0 {
+		t.Fatal("no log records observed; test did not exercise the code path it is guarding")
+	}
+	for i, free := range checker.lockWasFree {
+		if !free {
+			t.Fatalf("record %d was logged while lifecycleMu was still held", i)
+		}
 	}
 }
 
