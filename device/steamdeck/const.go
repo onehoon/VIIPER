@@ -66,7 +66,7 @@ const (
 const (
 	SettingLeftTrackpadMode           = 0x07
 	SettingRightTrackpadMode          = 0x08
-	SettingLizardMode                 = 0x09
+	SettingMousePointerEnabled        = 0x09
 	SettingSmoothAbsoluteMouse        = 0x18
 	SettingIMUMode                    = 0x30
 	SettingLeftTrackpadClickPressure  = 0x34

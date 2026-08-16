@@ -267,7 +267,7 @@ func TestSteamDeckRuntimeStateAndCallbackRaces(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 100; j++ {
-				settings := []byte{0x00, steamdeck.FeatureSetSettingsValues, 0x03, steamdeck.SettingLizardMode, byte(j), 0x00}
+				settings := []byte{0x00, steamdeck.FeatureSetSettingsValues, 0x03, steamdeck.SettingMousePointerEnabled, byte(j), 0x00}
 				dev.HandleControl(0x21, 0x09, 0x0300, 0, uint16(len(settings)), settings)
 			}
 		}()
@@ -461,7 +461,7 @@ func TestSetSettingsAndControllerMode(t *testing.T) {
 		steamdeck.FeatureSetSettingsValues,
 		0x06,
 		steamdeck.SettingLeftTrackpadMode, byte(steamdeck.TrackpadModeNone), 0x00,
-		steamdeck.SettingLizardMode, byte(steamdeck.LizardModeOff), 0x00,
+		steamdeck.SettingMousePointerEnabled, byte(steamdeck.LizardModeOff), 0x00,
 	}
 	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(settings)), settings)
 	if !assert.True(t, handled) {
@@ -470,6 +470,80 @@ func TestSetSettingsAndControllerMode(t *testing.T) {
 
 	mode := []byte{0x00, steamdeck.FeatureSetControllerMode, 0x01, steamdeck.LizardModeOff}
 	_, handled = dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(mode)), mode)
+	if !assert.True(t, handled) {
+		return
+	}
+
+	resp, handled := dev.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetDeviceInfo), 0, steamdeck.InputReportLen, nil)
+	if !assert.True(t, handled) {
+		return
+	}
+	assert.Equal(t, byte(steamdeck.LizardModeOff), resp[9])
+}
+
+func TestSettingMousePointerEnabledIsPlainSetting(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	settings := []byte{
+		0x00,
+		steamdeck.FeatureSetSettingsValues,
+		0x03,
+		steamdeck.SettingMousePointerEnabled, byte(steamdeck.LizardModeOn), 0x00,
+	}
+	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(settings)), settings)
+	if !assert.True(t, handled) {
+		return
+	}
+
+	resp, handled := dev.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetSettingsValues), 0, steamdeck.InputReportLen, nil)
+	if !assert.True(t, handled) {
+		return
+	}
+	assert.Equal(t, byte(steamdeck.FeatureGetSettingsValues), resp[0])
+	assert.Contains(t, resp[2:2+int(resp[1])], byte(steamdeck.SettingMousePointerEnabled))
+}
+
+func TestSettingMousePointerEnabledDoesNotChangeControllerMode(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	before, handled := dev.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetDeviceInfo), 0, steamdeck.InputReportLen, nil)
+	if !assert.True(t, handled) {
+		return
+	}
+	initialMode := before[9]
+
+	settings := []byte{
+		0x00,
+		steamdeck.FeatureSetSettingsValues,
+		0x03,
+		steamdeck.SettingMousePointerEnabled, byte(initialMode ^ 0x01), 0x00,
+	}
+	_, handled = dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(settings)), settings)
+	if !assert.True(t, handled) {
+		return
+	}
+
+	after, handled := dev.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetDeviceInfo), 0, steamdeck.InputReportLen, nil)
+	if !assert.True(t, handled) {
+		return
+	}
+	assert.Equal(t, initialMode, after[9])
+}
+
+func TestSetControllerModeStillChangesMode(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	mode := []byte{0x00, steamdeck.FeatureSetControllerMode, 0x01, steamdeck.LizardModeOff}
+	_, handled := dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(mode)), mode)
 	if !assert.True(t, handled) {
 		return
 	}

@@ -52,7 +52,7 @@ type controllerState struct {
 var defaultSettings = map[uint8]uint16{
 	SettingLeftTrackpadMode:    TrackpadModeNone,
 	SettingRightTrackpadMode:   TrackpadModeNone,
-	SettingLizardMode:          LizardModeOff,
+	SettingMousePointerEnabled: LizardModeOff,
 	SettingSmoothAbsoluteMouse: 0,
 	// Advertise raw gyro + raw accel only (no SendOrientation): we don't compute a live
 	// orientation quaternion, so claiming orientation made Steam lean on a frozen identity
@@ -67,7 +67,7 @@ var defaultSettings = map[uint8]uint16{
 var maxSettings = map[uint8]uint16{
 	SettingLeftTrackpadMode:           TrackpadModeNone,
 	SettingRightTrackpadMode:          TrackpadModeNone,
-	SettingLizardMode:                 LizardModeOn,
+	SettingMousePointerEnabled:        LizardModeOn,
 	SettingSmoothAbsoluteMouse:        1,
 	SettingIMUMode:                    GyroModeSteering | GyroModeTilt | GyroModeSendRawAccel | GyroModeSendRawGyro,
 	SettingLeftTrackpadClickPressure:  0xffff,
@@ -78,7 +78,7 @@ var maxSettings = map[uint8]uint16{
 var settingsOrder = []uint8{
 	SettingLeftTrackpadMode,
 	SettingRightTrackpadMode,
-	SettingLizardMode,
+	SettingMousePointerEnabled,
 	SettingSmoothAbsoluteMouse,
 	SettingIMUMode,
 	SettingLeftTrackpadClickPressure,
@@ -291,9 +291,6 @@ func (d *SteamDeck) applySettingsLocked(data []byte) {
 		setting := data[offset]
 		value := binary.LittleEndian.Uint16(data[offset+1 : offset+3])
 		d.controller.settings[setting] = value
-		if setting == SettingLizardMode {
-			d.controller.mode = byte(value)
-		}
 	}
 }
 
