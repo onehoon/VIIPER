@@ -40,7 +40,10 @@ func TestConcurrentXbox360AttachUsesOneBackendInitiator(t *testing.T) {
 	secondNotContending := make(chan struct{})
 	var lockAttempts int
 	var lockAttemptsMu sync.Mutex
-	hw.onAttachLockAttempt = func() {
+	hw.onLifecycleLockAttempt = func(operation string) {
+		if operation != "attach" {
+			return
+		}
 		lockAttemptsMu.Lock()
 		lockAttempts++
 		attempt := lockAttempts
