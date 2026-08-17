@@ -569,11 +569,12 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	stateAfter := dhw.attachment.state
 	serverStateAfter := hw.state
 	listenPort := hw.s.GetListenPort()
+	busID, deviceID := dhw.exportMeta.BusID, dhw.exportMeta.DevID
 	logger := hw.logger
 	hw.lifecycleMu.Unlock()
 
 	logCanonicalAttachmentTiming(logger, "detach", detachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
-		"busID", dhw.exportMeta.BusID, "deviceID", dhw.exportMeta.DevID, "listenPort", listenPort,
+		"busID", busID, "deviceID", deviceID, "listenPort", listenPort,
 		"attachmentStateBefore", attachmentStateName(stateBefore), "attachmentStateAfter", attachmentStateName(stateAfter),
 		"serverStateBefore", serverStateBefore.String(), "serverStateAfter", serverStateAfter.String(),
 		"attachmentBackend", trackedBackend, "importPort", trackedPort)

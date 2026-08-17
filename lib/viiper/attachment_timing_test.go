@@ -177,6 +177,9 @@ func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 	if first["result"] != "unsafe-outcome-unknown" || first["backendCalled"] != true {
 		t.Fatalf("first timing attrs = %+v", first)
 	}
+	if first["attachmentStateBefore"] != "detached" || first["attachmentStateAfter"] != "outcome-unknown" || first["serverStateBefore"] != "active" || first["serverStateAfter"] != "close-failed" || fmt.Sprint(first["importPort"]) != "0" {
+		t.Fatalf("first unknown state/token attrs = %+v", first)
+	}
 
 	// Second call must classify the same way, must not touch the backend again, and its timing
 	// summary must report backendCalled=false -- proving the resolver's fast-path (not the
@@ -194,6 +197,33 @@ func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 	second := recordAttrs(records[1])
 	if second["result"] != "unsafe-outcome-unknown" || second["backendCalled"] != false {
 		t.Fatalf("second timing attrs = %+v", second)
+	}
+	if second["attachmentStateBefore"] != "outcome-unknown" || second["attachmentStateAfter"] != "outcome-unknown" || second["serverStateBefore"] != "close-failed" || second["serverStateAfter"] != "close-failed" {
+		t.Fatalf("second unknown state attrs = %+v", second)
+	}
+}
+
+func TestCanonicalAttachTimingKnownFailureRetainsDetachedState(t *testing.T) {
+	hw, handler := newTimingTestServer(t, 9504)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{}, errors.New("known attach failure")
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9504, mustNewTestMouse(t), false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("create failed")
+	}
+	if got := attachUSBDeviceResult(uintptr(h)); got != deviceAttachRetryableFailure {
+		t.Fatalf("result = %d, want retryable failure", got)
+	}
+	records := handler.timingRecords()
+	if len(records) != 1 {
+		t.Fatalf("timing records = %d, want 1", len(records))
+	}
+	attrs := recordAttrs(records[0])
+	if attrs["attachmentStateBefore"] != "detached" || attrs["attachmentStateAfter"] != "detached" || attrs["serverStateBefore"] != "active" || attrs["serverStateAfter"] != "active" || fmt.Sprint(attrs["importPort"]) != "0" {
+		t.Fatalf("known failure state/token attrs = %+v", attrs)
 	}
 }
 
