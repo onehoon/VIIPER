@@ -206,6 +206,212 @@ func TestAttachmentBackendFailureLogsReplayAfterUnlock(t *testing.T) {
 	}
 }
 
+func TestExplicitDetachFailureAndUnknownReplayAfterUnlock(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want deviceDetachResult
+	}{
+		{name: "retryable", err: errors.New("detach failed"), want: deviceDetachRetryableFailure},
+		{name: "unknown", err: api.ErrDetachmentOutcomeUnknown, want: deviceDetachUnsafeOutcomeUnknown},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hw, hlog := newTeardownTestServer(t, 10074)
+			h := addTestMouse(t, hw, 10074)
+			token := api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5374}
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+				return token, nil
+			}
+			detachCalls := 0
+			hw.ops.detachLocalhost = func(_ context.Context, got api.LocalhostAttachment, logger *slog.Logger) error {
+				detachCalls++
+				if got != token {
+					t.Fatalf("detach token=%v want=%v", got, token)
+				}
+				logger.Warn("backend-probe-detach-failure", "port", got.Port)
+				return tc.err
+			}
+			if attachUSBDeviceResult(uintptr(h)) != deviceAttachSuccess {
+				t.Fatal("attach setup failed")
+			}
+			if got := detachUSBDeviceResult(uintptr(h)); got != tc.want {
+				t.Fatalf("result=%v want=%v", got, tc.want)
+			}
+			if tc.want == deviceDetachUnsafeOutcomeUnknown {
+				if got := detachUSBDeviceResult(uintptr(h)); got != tc.want {
+					t.Fatalf("repeated result=%v want=%v", got, tc.want)
+				}
+			}
+			if detachCalls != 1 {
+				t.Fatalf("detach calls=%d want=1", detachCalls)
+			}
+			dhw := hw.deviceHandleRecords[h]
+			if dhw == nil || dhw.attachment.attachment != token {
+				t.Fatalf("retained token=%v want=%v", dhw.attachment.attachment, token)
+			}
+			if tc.want == deviceDetachRetryableFailure && hw.state != serverActive {
+				t.Fatalf("server state=%s want active", hw.state)
+			}
+			if tc.want == deviceDetachUnsafeOutcomeUnknown && (dhw.attachment.state != attachmentOutcomeUnknown || hw.state != serverCloseFailed) {
+				t.Fatalf("state=%v server=%s", dhw.attachment.state, hw.state)
+			}
+			assertBackendRecordsLockFree(t, hlog)
+		})
+	}
+}
+
+func TestAttachmentBackendRecordsPrecedeCanonicalSummaries(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10075)
+	h := addTestMouse(t, hw, 10075)
+	token := api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5375}
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, logger *slog.Logger) (api.LocalhostAttachment, error) {
+		logger.Info("backend-probe-attach-order")
+		return token, nil
+	}
+	hw.ops.detachLocalhost = func(_ context.Context, _ api.LocalhostAttachment, logger *slog.Logger) error {
+		logger.Info("backend-probe-detach-order")
+		return nil
+	}
+	if attachUSBDeviceResult(uintptr(h)) != deviceAttachSuccess || detachUSBDeviceResult(uintptr(h)) != deviceDetachSuccess {
+		t.Fatal("attach/detach failed")
+	}
+	hlog.mu.Lock()
+	defer hlog.mu.Unlock()
+	attachBackend, attachSummary, detachBackend, detachSummary := -1, -1, -1, -1
+	for i, record := range hlog.records {
+		switch record.Message {
+		case "backend-probe-attach-order":
+			attachBackend = i
+		case "backend-probe-detach-order":
+			detachBackend = i
+		case "attachment-timing":
+			attrs := recordAttrs(record)
+			if attrs["operation"] == "attach" {
+				attachSummary = i
+			}
+			if attrs["operation"] == "detach" {
+				detachSummary = i
+			}
+		}
+	}
+	if !(attachBackend >= 0 && attachSummary > attachBackend && detachBackend > attachSummary && detachSummary > detachBackend) {
+		t.Fatalf("record order backend attach=%d attach summary=%d backend detach=%d detach summary=%d", attachBackend, attachSummary, detachBackend, detachSummary)
+	}
+}
+
+func TestTypedRemoveBackendRecordPrecedesTeardown(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10076)
+	h := addTestMouse(t, hw, 10076)
+	token := api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5376}
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return token, nil
+	}
+	hw.ops.detachLocalhost = func(_ context.Context, _ api.LocalhostAttachment, logger *slog.Logger) error {
+		logger.Info("backend-probe-typed-remove")
+		return nil
+	}
+	if attachUSBDeviceResult(uintptr(h)) != deviceAttachSuccess || removeTypedDeviceResult(uintptr(h), func(any) bool { return true }) != typedDeviceRemoveSuccess {
+		t.Fatal("setup or typed remove failed")
+	}
+	hlog.mu.Lock()
+	defer hlog.mu.Unlock()
+	backend, teardown := -1, -1
+	for i, record := range hlog.records {
+		if record.Message == "backend-probe-typed-remove" {
+			backend = i
+		}
+		if record.Message == "typed-device-remove teardown" {
+			teardown = i
+		}
+	}
+	if backend < 0 || teardown <= backend {
+		t.Fatalf("backend index=%d teardown index=%d", backend, teardown)
+	}
+}
+
+func TestRemoveUSBBusPreservesDeferredDetachOrder(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10077)
+	serverHandle := diagnosticServerHandle(t, hw)
+	first := addTestMouse(t, hw, 10077)
+	second := addTestMouse(t, hw, 10077)
+	// Use registration order explicitly: each attach receives its own token.
+	attachCount := 0
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ *slog.Logger) (api.LocalhostAttachment, error) {
+		attachCount++
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(5377 + attachCount - 1)}, nil
+	}
+	hw.ops.detachLocalhost = func(_ context.Context, token api.LocalhostAttachment, logger *slog.Logger) error {
+		logger.Info("backend-probe-bus-order", "port", token.Port)
+		return nil
+	}
+	if attachUSBDeviceResult(uintptr(first)) != deviceAttachSuccess || attachUSBDeviceResult(uintptr(second)) != deviceAttachSuccess {
+		t.Fatal("attach setup failed")
+	}
+	if !callRemoveUSBBusForTest(serverHandle, 10077) {
+		t.Fatal("bus remove failed")
+	}
+	hlog.mu.Lock()
+	defer hlog.mu.Unlock()
+	var got []int64
+	for _, record := range hlog.records {
+		if record.Message == "backend-probe-bus-order" {
+			got = append(got, recordAttrs(record)["port"].(int64))
+		}
+	}
+	if fmt.Sprint(got) != "[5377 5378]" {
+		t.Fatalf("detach order=%v want=[5377 5378]", got)
+	}
+}
+
+func TestAttachmentTimingSnapshotsBeforeReplay(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10078)
+	h := addTestMouse(t, hw, 10078)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var snapshot int64
+	hw.onAttachmentTimingSnapshot = func(totalUs int64) {
+		snapshot = totalUs
+	}
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, logger *slog.Logger) (api.LocalhostAttachment, error) {
+		logger.Info("backend-probe-timing")
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5378}, nil
+	}
+	// The handler blocks replay deterministically, after the snapshot hook ran.
+	blocking := &blockingBackendHandler{inner: hlog, entered: entered, release: release}
+	hw.logger = slog.New(blocking)
+	done := make(chan deviceAttachResult, 1)
+	go func() { done <- attachUSBDeviceResult(uintptr(h)) }()
+	<-entered
+	if snapshot < 0 {
+		t.Fatalf("snapshot totalUs=%d", snapshot)
+	}
+	close(release)
+	if got := <-done; got != deviceAttachSuccess {
+		t.Fatalf("attach result=%v", got)
+	}
+	attrs := recordAttrs(hlog.records[len(hlog.records)-1])
+	if attrs["operation"] != "attach" || attrs["totalUs"] != snapshot {
+		t.Fatalf("timing attrs=%v snapshot=%d", attrs, snapshot)
+	}
+}
+
+type blockingBackendHandler struct {
+	inner   *teardownRecordingHandler
+	entered chan<- struct{}
+	release <-chan struct{}
+}
+
+func (h *blockingBackendHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *blockingBackendHandler) Handle(ctx context.Context, record slog.Record) error {
+	if record.Message == "backend-probe-timing" {
+		close(h.entered)
+		<-h.release
+	}
+	return h.inner.Handle(ctx, record)
+}
+func (h *blockingBackendHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *blockingBackendHandler) WithGroup(string) slog.Handler      { return h }
+
 func TestBackendLogReplayAcrossCreateRemoveBusAndClose(t *testing.T) {
 	for _, tc := range []struct {
 		name string

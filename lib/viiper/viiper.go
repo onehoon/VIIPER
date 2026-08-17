@@ -65,20 +65,21 @@ func defaultServerOperations() serverOperations {
 }
 
 type usbServerHandleWrapper struct {
-	s                      *usb.Server
-	lifecycleMu            sync.Mutex
-	mtx                    sync.Mutex // Legacy wrapper synchronization; lifecycleMu gates mutations.
-	state                  serverLifecycleState
-	deviceHandles          map[uint32][]deviceHandle
-	deviceHandleRecords    map[deviceHandle]*deviceHandleWrapper
-	ops                    serverOperations
-	logger                 *slog.Logger
-	rejectionWarnings      map[string]bool
-	onCallbackCleared      func(*deviceHandleWrapper)
-	onLifecycleLockAttempt func(operation string)
-	closePhase             canonicalClosePhase
-	logicalCloseInProgress bool
-	backendLogLogger       *slog.Logger
+	s                          *usb.Server
+	lifecycleMu                sync.Mutex
+	mtx                        sync.Mutex // Legacy wrapper synchronization; lifecycleMu gates mutations.
+	state                      serverLifecycleState
+	deviceHandles              map[uint32][]deviceHandle
+	deviceHandleRecords        map[deviceHandle]*deviceHandleWrapper
+	ops                        serverOperations
+	logger                     *slog.Logger
+	rejectionWarnings          map[string]bool
+	onCallbackCleared          func(*deviceHandleWrapper)
+	onLifecycleLockAttempt     func(operation string)
+	closePhase                 canonicalClosePhase
+	logicalCloseInProgress     bool
+	backendLogLogger           *slog.Logger
+	onAttachmentTimingSnapshot func(totalUs int64)
 }
 
 // notifyLifecycleLockAttempt is a nil-by-default, behavior-neutral seam used only by
@@ -686,6 +687,9 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	operationTotalUs := time.Since(opStart).Microseconds()
+	if hw.onAttachmentTimingSnapshot != nil {
+		hw.onAttachmentTimingSnapshot(operationTotalUs)
+	}
 	backendLogs.replay(logger)
 
 	logCanonicalAttachmentTiming(logger, "attach", attachResultTimingLabel(result), timing, operationTotalUs, lockWaitUs,
@@ -747,6 +751,9 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	operationTotalUs := time.Since(opStart).Microseconds()
+	if hw.onAttachmentTimingSnapshot != nil {
+		hw.onAttachmentTimingSnapshot(operationTotalUs)
+	}
 	backendLogs.replay(logger)
 
 	logCanonicalAttachmentTiming(logger, "detach", detachResultTimingLabel(result), timing, operationTotalUs, lockWaitUs,
