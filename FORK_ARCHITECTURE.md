@@ -141,7 +141,11 @@ neither the embedding process's global default logger nor any other
 construction.
 
 Routine lifecycle, attach/detach, classified-failure, and PR #26 attachment-
-timing diagnostics are low-volume and always active. Per-input/per-frame
+timing diagnostics are low-volume and always active. Canonical attachment
+timing records include the logical/export identity, tracked attachment token
+identity, and before/after attachment and server lifecycle state. They are
+snapshotted under the lifecycle lock and emitted after that lock is released;
+they remain behavior-neutral. Per-input/per-frame
 paths (state setters, input reports, publisher loops) do not log; raw packet
 logging remains a separate, off-by-default mechanism (`internal/log.RawLogger`).
 
