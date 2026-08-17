@@ -50,10 +50,97 @@ func TestDeferredBackendLogBatchPreservesStructuredRecord(t *testing.T) {
 		t.Fatalf("record=%+v lockFree=%v", record, hlog.lockFree[0])
 	}
 	attrs := recordAttrs(record)
-	if attrs["native"] == nil || !strings.Contains(fmt.Sprint(attrs["native"]), "scope") || !strings.Contains(fmt.Sprint(attrs["native"]), "port") {
-		t.Fatalf("attrs=%v", attrs)
+	if attrs["scope"] != "backend" {
+		t.Fatalf("root attrs=%v, want scope=backend", attrs)
+	}
+	nativeAttrs, ok := groupAttrs(attrs["native"])
+	if !ok {
+		t.Fatalf("native=%v, want group", attrs["native"])
+	}
+	if nativeAttrs["port"] != int64(5373) {
+		t.Fatalf("native attrs=%v, want port=5373", nativeAttrs)
 	}
 }
+
+func recordAttrsFromAttrs(attrs []slog.Attr) map[string]any {
+	m := make(map[string]any, len(attrs))
+	for _, attr := range attrs {
+		m[attr.Key] = attr.Value.Any()
+	}
+	return m
+}
+
+func groupAttrs(value any) (map[string]any, bool) {
+	switch group := value.(type) {
+	case []slog.Attr:
+		return recordAttrsFromAttrs(group), true
+	case slog.Value:
+		if group.Kind() == slog.KindGroup {
+			return recordAttrsFromAttrs(group.Group()), true
+		}
+	}
+	return nil, false
+}
+
+func TestDeferredBackendLogBatchPreservesOrderedGroups(t *testing.T) {
+	batch := newDeferredLogBatch()
+	batch.logger.WithGroup("g1").With("a", 1).WithGroup("g2").With("b", 2).Info("ordered", "c", 3)
+
+	var captured slog.Record
+	handler := &recordingHandler{}
+	logger := slog.New(handler)
+	batch.replay(logger)
+	if len(handler.records) != 1 {
+		t.Fatalf("records=%d want=1", len(handler.records))
+	}
+	captured = handler.records[0]
+	root := recordAttrs(captured)
+	if len(root) != 1 {
+		t.Fatalf("root=%v want only g1", root)
+	}
+	g1Attrs, ok := groupAttrs(root["g1"])
+	if !ok {
+		t.Fatalf("g1=%v want group", root["g1"])
+	}
+	if g1Attrs["a"] != int64(1) {
+		t.Fatalf("g1=%v want a=1", g1Attrs)
+	}
+	g2Attrs, ok := groupAttrs(g1Attrs["g2"])
+	if !ok {
+		t.Fatalf("g1=%v want nested g2", g1Attrs)
+	}
+	if g2Attrs["b"] != int64(2) || g2Attrs["c"] != int64(3) {
+		t.Fatalf("g2=%v want b=2,c=3", g2Attrs)
+	}
+}
+
+func TestDeferredBackendLogBatchHonorsDestinationEnabled(t *testing.T) {
+	batch := newDeferredLogBatch()
+	batch.logger.Info("enabled-check")
+	handler := &levelRecordingHandler{enabled: false}
+	batch.replay(slog.New(handler))
+	if handler.handleCalls != 0 {
+		t.Fatalf("destination Handle calls=%d want=0", handler.handleCalls)
+	}
+	handler.enabled = true
+	batch.replay(slog.New(handler))
+	if handler.handleCalls != 1 {
+		t.Fatalf("enabled destination Handle calls=%d want=1", handler.handleCalls)
+	}
+}
+
+type levelRecordingHandler struct {
+	enabled     bool
+	handleCalls int
+}
+
+func (h *levelRecordingHandler) Enabled(context.Context, slog.Level) bool { return h.enabled }
+func (h *levelRecordingHandler) Handle(context.Context, slog.Record) error {
+	h.handleCalls++
+	return nil
+}
+func (h *levelRecordingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *levelRecordingHandler) WithGroup(string) slog.Handler      { return h }
 
 func TestAttachmentBackendLogsReplayAfterUnlock(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10070)

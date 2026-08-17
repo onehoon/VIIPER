@@ -14,8 +14,23 @@ type deferredLogBatch struct {
 
 type deferredLogHandler struct {
 	batch  *deferredLogBatch
-	attrs  []slog.Attr
+	sets   []deferredAttrSet
 	groups []string
+}
+
+type deferredAttrSet struct {
+	groups []string
+	attrs  []slog.Attr
+}
+
+type deferredAttrNode struct {
+	entries  []deferredAttrEntry
+	children map[string]*deferredAttrNode
+}
+
+type deferredAttrEntry struct {
+	attr  *slog.Attr
+	group string
 }
 
 func newDeferredLogBatch() *deferredLogBatch {
@@ -28,24 +43,62 @@ func (h *deferredLogHandler) Enabled(context.Context, slog.Level) bool { return 
 
 func (h *deferredLogHandler) Handle(_ context.Context, record slog.Record) error {
 	clone := slog.NewRecord(record.Time, record.Level, record.Message, record.PC)
-	attrs := append([]slog.Attr(nil), h.attrs...)
+	root := &deferredAttrNode{}
+	for _, set := range h.sets {
+		addDeferredAttrs(root, set.groups, set.attrs)
+	}
+	var recordAttrs []slog.Attr
 	record.Attrs(func(attr slog.Attr) bool {
-		attrs = append(attrs, attr)
+		recordAttrs = append(recordAttrs, attr)
 		return true
 	})
-	if len(h.groups) > 0 {
-		group := slog.Group(h.groups[len(h.groups)-1], attrsToAny(attrs)...)
-		for i := len(h.groups) - 2; i >= 0; i-- {
-			group = slog.Group(h.groups[i], group)
-		}
-		clone.AddAttrs(group)
-	} else {
-		clone.AddAttrs(attrs...)
-	}
+	addDeferredAttrs(root, h.groups, recordAttrs)
+	clone.AddAttrs(deferredNodeAttrs(root)...)
 	h.batch.mu.Lock()
 	h.batch.records = append(h.batch.records, clone.Clone())
 	h.batch.mu.Unlock()
 	return nil
+}
+
+func addDeferredAttrs(root *deferredAttrNode, groups []string, attrs []slog.Attr) {
+	node := root
+	for _, name := range groups {
+		if name == "" {
+			continue
+		}
+		if node.children == nil {
+			node.children = make(map[string]*deferredAttrNode)
+		}
+		child := node.children[name]
+		if child == nil {
+			child = &deferredAttrNode{}
+			node.children[name] = child
+			node.entries = append(node.entries, deferredAttrEntry{group: name})
+		}
+		node = child
+	}
+	node.entries = append(node.entries, attrsToDeferredEntries(attrs)...)
+}
+
+func attrsToDeferredEntries(attrs []slog.Attr) []deferredAttrEntry {
+	entries := make([]deferredAttrEntry, 0, len(attrs))
+	for i := range attrs {
+		attr := attrs[i]
+		entries = append(entries, deferredAttrEntry{attr: &attr})
+	}
+	return entries
+}
+
+func deferredNodeAttrs(node *deferredAttrNode) []slog.Attr {
+	attrs := make([]slog.Attr, 0, len(node.entries))
+	for _, entry := range node.entries {
+		if entry.attr != nil {
+			attrs = append(attrs, *entry.attr)
+			continue
+		}
+		attrs = append(attrs, slog.Group(entry.group, attrsToAny(deferredNodeAttrs(node.children[entry.group]))...))
+	}
+	return attrs
 }
 
 func attrsToAny(attrs []slog.Attr) []any {
@@ -58,7 +111,10 @@ func attrsToAny(attrs []slog.Attr) []any {
 
 func (h *deferredLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	clone := *h
-	clone.attrs = append(append([]slog.Attr(nil), h.attrs...), attrs...)
+	clone.sets = append(append([]deferredAttrSet(nil), h.sets...), deferredAttrSet{
+		groups: append([]string(nil), h.groups...),
+		attrs:  append([]slog.Attr(nil), attrs...),
+	})
 	return &clone
 }
 
@@ -73,6 +129,8 @@ func (b *deferredLogBatch) replay(logger *slog.Logger) {
 	records := append([]slog.Record(nil), b.records...)
 	b.mu.Unlock()
 	for _, record := range records {
-		_ = logger.Handler().Handle(context.Background(), record)
+		if logger.Enabled(context.Background(), record.Level) {
+			_ = logger.Handler().Handle(context.Background(), record)
+		}
 	}
 }
