@@ -91,8 +91,10 @@ func createSteamDeckDevice(serverHandle uintptr, outDeviceHandle *deviceHandle, 
 		return false
 	}
 	hw.lifecycleMu.Lock()
-	defer hw.lifecycleMu.Unlock()
-	h, ok := hw.createDeviceLocked(busID, d, autoAttachLocalhost)
+	h, ok, warning, rollback := hw.createDeviceLockedPublic(busID, d, autoAttachLocalhost)
+	hw.lifecycleMu.Unlock()
+	emitMutationRejectedWarning(warning)
+	emitRollbackDiagnostic(rollback)
 	if !ok {
 		return false
 	}

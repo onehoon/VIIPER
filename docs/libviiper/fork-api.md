@@ -174,6 +174,9 @@ before/after lifecycle state. These records are diagnostic evidence only, are
 not a public ABI contract, and are emitted after the owning lifecycle lock is
 released.
 
+Rejected mutation warnings are also emitted after the owning lifecycle lock is
+released; only their bounded de-duplication bookkeeping occurs under the lock.
+
 ## Attachment API
 
 The tracked attachment functions operate on a typed device handle:
