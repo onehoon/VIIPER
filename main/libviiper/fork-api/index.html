@@ -2370,6 +2370,14 @@ field-layout change with a newer DLL (or vice versa).</p>
 diagnostic/identity operations and retry <code>CloseUSBServer</code> according to the
 failure state. A failed close is fail-closed; callers must not recreate buses,
 retry an unknown attachment outcome, or continue normal mutation.</p>
+<p>All typed mutations owned by one <code>USBServerHandle</code> serialize at that server's
+lifecycle boundary. A queued operation observes the committed attachment
+state and exact backend/import token from the operation before it. The
+<code>close-failed</code> state is server-wide: it blocks ordinary mutation for every
+device on that server while preserving diagnostic evidence. Different
+<code>USBServerHandle</code> instances have independent lifecycle state. Because
+<code>virtualbus</code> BusID allocation is process-global, same-process tests and users
+must use distinct BusIDs; this is not a cross-process coordination guarantee.</p>
 <h3 id="detached-ready-typed-devices">Detached-ready typed devices</h3>
 <p>A typed device created with <code>autoAttachLocalhost=false</code> is immediately
 usable in the <code>detached</code> state: its <code>Set*DeviceState</code> and
