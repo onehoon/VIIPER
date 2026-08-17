@@ -29,6 +29,7 @@ static void viiper_call_log(VIIPERLogCallback fn, VIIPERLogLevel level, const ch
 import "C"
 
 import (
+	"fmt"
 	"log/slog"
 	"runtime/cgo"
 	"slices"
@@ -134,28 +135,48 @@ func hasRequiredUSBServerPointers(config, outHandle unsafe.Pointer) bool {
 //
 //export CloseUSBServer
 func CloseUSBServer(handle C.USBServerHandle) bool {
+	opStart := time.Now()
 	hw, ok := lookupServerHandle(uintptr(handle))
 	if !ok {
+		logTeardownDiagnostic(invalidHandleLoggerFunc(), teardownDiagnostic{operation: "CloseUSBServer", phase: "preflight", result: "invalid"}, time.Since(opStart).Microseconds())
 		return false
 	}
+	busCountBefore := len(hw.s.ListBuses())
 	notifyLifecycleLockAttempt(hw, "close")
 	hw.lifecycleMu.Lock()
+	stateBefore := hw.state
 	if hw.closePhase == transportClosePending {
 		if hw.state != serverCloseFailed {
 			hw.lifecycleMu.Unlock()
+			logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "CloseUSBServer", phase: "transport-close", result: "invalid", serverStateBefore: stateBefore, serverStateAfter: stateBefore, remainingBusCount: len(hw.s.ListBuses())}, time.Since(opStart).Microseconds())
 			return false
 		}
 		hw.state = serverClosing
+		remainingBusCount := len(hw.s.ListBuses())
 		hw.lifecycleMu.Unlock()
-		return hw.finishTransportClose(uintptr(handle))
+		return hw.finishTransportClose(uintptr(handle), teardownDiagnostic{operation: "CloseUSBServer", phase: "transport-close", serverStateBefore: stateBefore, remainingBusCount: remainingBusCount}, opStart)
 	}
 	result := hw.beginLogicalCloseLocked()
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
 	if !result.ok {
+		d := result.diagnostic
+		d.operation = "CloseUSBServer"
+		d.serverStateBefore = stateBefore
+		if d.phase == "" {
+			d.phase = "preflight"
+		}
+		if d.result == "" || d.result == "invalid" {
+			d.result = "retryable-failure"
+		}
+		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return false
 	}
-	return hw.finishTransportClose(uintptr(handle))
+	d := result.diagnostic
+	d.operation = "CloseUSBServer"
+	d.serverStateBefore = stateBefore
+	d.deviceCountBefore = busCountBefore
+	return hw.finishTransportClose(uintptr(handle), d, opStart)
 }
 
 func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownResult {
@@ -168,7 +189,10 @@ func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownRes
 	}
 	if hw.hasUnknownAttachmentLocked() {
 		hw.state = serverCloseFailed
-		return transportTeardownResult{}
+		d := hw.unknownAttachmentDiagnosticLocked()
+		d.phase, d.result = "preflight", "unsafe-outcome-unknown"
+		d.serverStateAfter = hw.state
+		return transportTeardownResult{diagnostic: d}
 	}
 	hw.state = serverClosing
 	hw.logicalCloseInProgress = true
@@ -184,6 +208,7 @@ func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownRes
 			hw.state = serverCloseFailed
 			hw.logicalCloseInProgress = false
 			result.drains = allDrains
+			result.diagnostic.remainingBusCount = len(hw.s.ListBuses())
 			return result
 		}
 	}
@@ -192,27 +217,49 @@ func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownRes
 	return transportTeardownResult{ok: true, drains: allDrains}
 }
 
-func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr) bool {
+func (hw *usbServerHandleWrapper) unknownAttachmentDiagnosticLocked() teardownDiagnostic {
+	busIDs := slices.Clone(hw.s.ListBuses())
+	slices.Sort(busIDs)
+	d := teardownDiagnostic{serverStateBefore: hw.state, serverStateAfter: hw.state, result: "unsafe-outcome-unknown"}
+	for _, busID := range busIDs {
+		for _, h := range hw.deviceHandles[busID] {
+			dhw := hw.deviceHandleRecords[h]
+			if dhw == nil || dhw.attachment.state != attachmentOutcomeUnknown {
+				continue
+			}
+			d.unknownAttachmentCount++
+			if d.deviceID == "" {
+				d.busID, d.deviceID = busID, fmt.Sprintf("%d", dhw.exportMeta.DevID)
+				d.attachmentStateBefore = attachmentStateName(dhw.attachment.state)
+				d.attachmentStateAfter = d.attachmentStateBefore
+				d.attachmentBackend = dhw.attachment.attachment.Backend
+				d.importPort = dhw.attachment.attachment.Port
+			}
+		}
+	}
+	return d
+}
+
+func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr, d teardownDiagnostic, opStart time.Time) bool {
 	err := hw.ops.close(hw.s)
 	hw.lifecycleMu.Lock()
 	if err != nil {
 		hw.state = serverCloseFailed
-		logger, state, remainingBusCount := hw.logger, hw.state, len(hw.s.ListBuses())
+		d.phase, d.result = "transport-close", "retryable-failure"
+		d.serverStateAfter, d.remainingBusCount = hw.state, len(hw.s.ListBuses())
 		hw.lifecycleMu.Unlock()
-		// Logging happens after the lock is released, same as the classified Attach/Detach path:
-		// lifecycle state transition, consumer callback latency, and filesystem flush latency
-		// must never be serialized behind lifecycleMu.
-		logger.Error("failed to close USB server", "operation", "CloseUSBServer", "serverState", state.String(), "remainingBusCount", remainingBusCount, "error", err)
+		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return false
 	}
 	hw.state = serverClosed
 	hw.closePhase = closeComplete
 	serverHandleRecords.Delete(handle)
 	cgo.Handle(handle).Delete()
-	logger, state := hw.logger, hw.state
+	d.phase, d.result = "complete", "success"
+	d.serverStateAfter, d.remainingBusCount = hw.state, 0
 	hw.lifecycleMu.Unlock()
 
-	logger.Info("USB server closed", "operation", "CloseUSBServer", "serverState", state.String())
+	logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 	// Best-effort only, and only after the lock is released: the result is never surfaced and
 	// never changes CloseUSBServer's own result, which has already succeeded by this point. A
 	// stuck/slow filesystem must never make server close itself appear to hang or fail, and must

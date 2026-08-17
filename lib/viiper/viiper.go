@@ -97,8 +97,81 @@ const (
 )
 
 type transportTeardownResult struct {
-	ok     bool
-	drains []*usb.TransportDrain
+	ok         bool
+	drains     []*usb.TransportDrain
+	diagnostic teardownDiagnostic
+}
+
+type teardownDiagnostic struct {
+	operation              string
+	phase                  string
+	result                 string
+	busID                  uint32
+	deviceID               string
+	attachmentStateBefore  string
+	attachmentStateAfter   string
+	serverStateBefore      serverLifecycleState
+	serverStateAfter       serverLifecycleState
+	attachmentBackend      api.LocalhostAttachmentBackend
+	importPort             int32
+	detachBackendCalled    bool
+	deviceCountBefore      int
+	remainingBusCount      int
+	unknownAttachmentCount int
+	backendReportedError   bool
+	busPresentAfter        bool
+}
+
+func teardownResultLabel(result typedDeviceRemoveResult) string {
+	switch result {
+	case typedDeviceRemoveSuccess:
+		return "success"
+	case typedDeviceRemoveRetryableFailure:
+		return "retryable-failure"
+	case typedDeviceRemoveUnsafeOutcomeUnknown:
+		return "unsafe-outcome-unknown"
+	default:
+		return "invalid"
+	}
+}
+
+func teardownResultLogLevel(result string) slog.Level {
+	switch result {
+	case "success":
+		return slog.LevelInfo
+	case "retryable-failure":
+		return slog.LevelWarn
+	case "unsafe-outcome-unknown":
+		return slog.LevelError
+	default:
+		return slog.LevelDebug
+	}
+}
+
+func logTeardownDiagnostic(logger *slog.Logger, d teardownDiagnostic, totalUs int64) {
+	args := []any{"operation", d.operation, "layer", "canonical", "result", d.result, "phase", d.phase,
+		"serverStateBefore", d.serverStateBefore.String(), "serverStateAfter", d.serverStateAfter.String(),
+		"totalUs", totalUs, "remainingBusCount", d.remainingBusCount}
+	if d.busID != 0 {
+		args = append(args, "busID", d.busID)
+	}
+	if d.deviceID != "" {
+		args = append(args, "deviceID", d.deviceID)
+	}
+	if d.attachmentStateBefore != "" {
+		args = append(args, "attachmentStateBefore", d.attachmentStateBefore, "attachmentStateAfter", d.attachmentStateAfter)
+	}
+	args = append(args, "attachmentBackend", d.attachmentBackend, "importPort", d.importPort, "detachBackendCalled", d.detachBackendCalled)
+	if d.deviceCountBefore != 0 {
+		args = append(args, "deviceCountBefore", d.deviceCountBefore)
+	}
+	if d.unknownAttachmentCount != 0 {
+		args = append(args, "unknownAttachmentCount", d.unknownAttachmentCount)
+	}
+	if d.backendReportedError {
+		args = append(args, "backendReportedError", true, "busPresentAfter", d.busPresentAfter)
+	}
+	logger.Log(context.Background(), teardownResultLogLevel(d.result), d.operation+" teardown", args...)
 }
 
 type typedDeviceRemoveResult uint8
@@ -374,33 +447,65 @@ func removeTypedDevice(handle uintptr, valid func(any) bool) bool {
 }
 
 func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRemoveResult {
+	opStart := time.Now()
 	v, ok := deviceHandleRecords.Load(handle)
 	if !ok {
+		logTeardownDiagnostic(invalidHandleLoggerFunc(), teardownDiagnostic{operation: "typed-device-remove", phase: "preflight", result: "invalid"}, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveInvalid
 	}
 	dhw, ok := v.(*deviceHandleWrapper)
 	if !ok {
+		logTeardownDiagnostic(invalidHandleLoggerFunc(), teardownDiagnostic{operation: "typed-device-remove", phase: "preflight", result: "invalid"}, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveInvalid
 	}
 	hw := dhw.usbServer
 	notifyLifecycleLockAttempt(hw, "remove")
 	hw.lifecycleMu.Lock()
+	stateBefore := dhw.attachment.state
+	token := dhw.attachment.attachment
+	d := teardownDiagnostic{operation: "typed-device-remove", phase: "preflight", serverStateBefore: hw.state, serverStateAfter: hw.state,
+		busID: dhw.exportMeta.BusID, deviceID: fmt.Sprintf("%d", dhw.exportMeta.DevID), attachmentStateBefore: attachmentStateName(stateBefore), attachmentStateAfter: attachmentStateName(stateBefore),
+		attachmentBackend: token.Backend, importPort: token.Port, detachBackendCalled: stateBefore == attachmentAttached}
 	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
 		hw.lifecycleMu.Unlock()
+		d.result = "invalid"
+		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveInvalid
 	}
 	if dhw.attachment.state == attachmentOutcomeUnknown {
 		hw.lifecycleMu.Unlock()
+		d.result = "unsafe-outcome-unknown"
+		d.phase = "detach"
+		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveUnsafeOutcomeUnknown
 	}
 	if hw.state != serverActive {
 		hw.lifecycleMu.Unlock()
+		d.result = "invalid"
+		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveInvalid
 	}
 	result := hw.removeDeviceLockedWithDrain(dhw, deviceHandle(handle))
 	unsafeOutcome := dhw.attachment.state == attachmentOutcomeUnknown || hw.state == serverCloseFailed
+	d.attachmentStateAfter = attachmentStateName(dhw.attachment.state)
+	d.serverStateAfter = hw.state
+	d.result = "success"
+	d.phase = "complete"
+	if !result.ok {
+		if unsafeOutcome {
+			d.result = "unsafe-outcome-unknown"
+		} else {
+			d.result = "retryable-failure"
+		}
+		if dhw.attachment.state == attachmentOutcomeUnknown || dhw.attachment.state == attachmentAttached {
+			d.phase = "detach"
+		} else {
+			d.phase = "logical-remove"
+		}
+	}
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
+	logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 	if result.ok {
 		return typedDeviceRemoveSuccess
 	}
