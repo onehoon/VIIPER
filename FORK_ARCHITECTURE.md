@@ -165,6 +165,15 @@ logging remains a separate, off-by-default mechanism (`internal/log.RawLogger`).
 Rejected mutation warnings use the same boundary: de-duplication state is
 updated under `lifecycleMu`, but the warning is emitted only after unlock.
 
+Canonical tracked attachment and detachment backend diagnostics follow the
+same boundary. Records produced during the serialized native operation are
+captured while `lifecycleMu` is held and synchronously replayed only after the
+owning lock is released. `VIIPERLogCallback` therefore remains synchronous
+before the public lifecycle API returns, without weakening lifecycle
+serialization; the staging and replay are behavior-neutral. This statement
+does not extend to the legacy `clib`/TCP/server logging stack unless separately
+verified.
+
 ## Build and CI
 
 Build the canonical embedded library with:

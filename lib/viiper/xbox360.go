@@ -123,8 +123,10 @@ func createXbox360Device(serverHandle uintptr, outDeviceHandle *deviceHandle, bu
 		return false
 	}
 	shw.lifecycleMu.Lock()
-	h, ok, warning, rollback := shw.createDeviceLockedPublic(busID, d, autoAttachLocalhost)
+	h, ok, warning, rollback, backendLogs := shw.createDeviceLockedPublic(busID, d, autoAttachLocalhost)
+	shw.backendLogLogger = nil
 	shw.lifecycleMu.Unlock()
+	backendLogs.replay(shw.logger)
 	emitMutationRejectedWarning(warning)
 	emitRollbackDiagnostic(rollback)
 	if !ok {

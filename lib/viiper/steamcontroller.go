@@ -85,8 +85,10 @@ func createSteamControllerDevice(serverHandle uintptr, outDeviceHandle *deviceHa
 		return false
 	}
 	hw.lifecycleMu.Lock()
-	h, ok, warning, rollback := hw.createDeviceLockedPublic(busID, d, autoAttachLocalhost)
+	h, ok, warning, rollback, backendLogs := hw.createDeviceLockedPublic(busID, d, autoAttachLocalhost)
+	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
+	backendLogs.replay(hw.logger)
 	emitMutationRejectedWarning(warning)
 	emitRollbackDiagnostic(rollback)
 	if !ok {

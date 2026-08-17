@@ -78,6 +78,7 @@ type usbServerHandleWrapper struct {
 	onLifecycleLockAttempt func(operation string)
 	closePhase             canonicalClosePhase
 	logicalCloseInProgress bool
+	backendLogLogger       *slog.Logger
 }
 
 // notifyLifecycleLockAttempt is a nil-by-default, behavior-neutral seam used only by
@@ -101,6 +102,7 @@ type transportTeardownResult struct {
 	drains              []*usb.TransportDrain
 	diagnostic          teardownDiagnostic
 	detachBackendCalled bool
+	backendLogs         *deferredLogBatch
 }
 
 type teardownDiagnostic struct {
@@ -303,27 +305,30 @@ func withActiveDeviceHandle(raw uintptr, action func(*deviceHandleWrapper) bool)
 }
 
 func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool) {
-	h, ok, _, _ := hw.createDeviceLockedPublic(busID, dev, autoAttach)
+	h, ok, _, _, _ := hw.createDeviceLockedPublic(busID, dev, autoAttach)
+	hw.backendLogLogger = nil
 	return h, ok
 }
 
-func (hw *usbServerHandleWrapper) createDeviceLockedPublic(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool, mutationRejectedWarning, *rollbackDiagnostic) {
+func (hw *usbServerHandleWrapper) createDeviceLockedPublic(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool, mutationRejectedWarning, *rollbackDiagnostic, *deferredLogBatch) {
+	backendLogs := newDeferredLogBatch()
+	hw.backendLogLogger = backendLogs.logger
 	if hw.state != serverActive {
-		return 0, false, hw.takeMutationRejectedWarningLocked("typed-device-create"), nil
+		return 0, false, hw.takeMutationRejectedWarningLocked("typed-device-create"), nil, backendLogs
 	}
 	bus := hw.s.GetBus(busID)
 	if bus == nil {
-		return 0, false, mutationRejectedWarning{}, nil
+		return 0, false, mutationRejectedWarning{}, nil, backendLogs
 	}
 
 	devCtx, err := bus.Add(dev)
 	if err != nil {
-		return 0, false, mutationRejectedWarning{}, nil
+		return 0, false, mutationRejectedWarning{}, nil, backendLogs
 	}
 	exportMeta := device.GetDeviceMeta(devCtx)
 	if exportMeta == nil {
 		_, rollback := hw.rollbackCreatedDeviceLockedWithDiagnostic(busID, 0, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "device metadata was unavailable")
-		return 0, false, mutationRejectedWarning{}, rollback
+		return 0, false, mutationRejectedWarning{}, rollback, backendLogs
 	}
 	dhw := &deviceHandleWrapper{device: dev, exportMeta: exportMeta, usbServer: hw, attachment: deviceAttachmentRecord{state: attachmentDetached}}
 	h := hw.registerDeviceLocked(dhw)
@@ -331,16 +336,16 @@ func (hw *usbServerHandleWrapper) createDeviceLockedPublic(busID uint32, dev vii
 		if !hw.attachDeviceLocked(dhw) {
 			if dhw.attachment.state == attachmentOutcomeUnknown {
 				hw.state = serverCloseFailed
-				return h, false, mutationRejectedWarning{}, nil
+				return h, false, mutationRejectedWarning{}, nil, backendLogs
 			}
 			if ok, rollback := hw.rollbackCreatedDeviceLockedWithDiagnostic(exportMeta.BusID, exportMeta.DevID, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "auto-attach failure"); !ok {
-				return h, false, mutationRejectedWarning{}, rollback
+				return h, false, mutationRejectedWarning{}, rollback, backendLogs
 			}
 			hw.finalizeDeviceLocked(h)
-			return 0, false, mutationRejectedWarning{}, nil
+			return 0, false, mutationRejectedWarning{}, nil, backendLogs
 		}
 	}
-	return h, true, mutationRejectedWarning{}, nil
+	return h, true, mutationRejectedWarning{}, nil, backendLogs
 }
 
 func (hw *usbServerHandleWrapper) registerDeviceLocked(dhw *deviceHandleWrapper) deviceHandle {
@@ -382,7 +387,7 @@ func (hw *usbServerHandleWrapper) attachDeviceLockedResult(dhw *deviceHandleWrap
 		return deviceAttachUnsafeOutcomeUnknown
 	}
 	backendStart := time.Now()
-	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.logger)
+	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.backendLoggerLocked())
 	if timing != nil {
 		timing.backendUs = time.Since(backendStart).Microseconds()
 		timing.backendCalled = true
@@ -429,7 +434,7 @@ func (hw *usbServerHandleWrapper) detachDeviceLockedResult(dhw *deviceHandleWrap
 		return deviceDetachUnsafeOutcomeUnknown
 	}
 	backendStart := time.Now()
-	err := hw.ops.detachLocalhost(context.Background(), dhw.attachment.attachment, hw.logger)
+	err := hw.ops.detachLocalhost(context.Background(), dhw.attachment.attachment, hw.backendLoggerLocked())
 	if timing != nil {
 		timing.backendUs = time.Since(backendStart).Microseconds()
 		timing.backendCalled = true
@@ -444,6 +449,13 @@ func (hw *usbServerHandleWrapper) detachDeviceLockedResult(dhw *deviceHandleWrap
 		return deviceDetachUnsafeOutcomeUnknown
 	}
 	return deviceDetachRetryableFailure
+}
+
+func (hw *usbServerHandleWrapper) backendLoggerLocked() *slog.Logger {
+	if hw.backendLogLogger != nil {
+		return hw.backendLogLogger
+	}
+	return hw.logger
 }
 
 func (hw *usbServerHandleWrapper) removeDeviceLocked(dhw *deviceHandleWrapper, h deviceHandle) bool {
@@ -485,6 +497,8 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 	hw := dhw.usbServer
 	notifyLifecycleLockAttempt(hw, "remove")
 	hw.lifecycleMu.Lock()
+	backendLogs := newDeferredLogBatch()
+	hw.backendLogLogger = backendLogs.logger
 	stateBefore := dhw.attachment.state
 	token := dhw.attachment.attachment
 	d := teardownDiagnostic{operation: "typed-device-remove", phase: "preflight", serverStateBefore: hw.state, serverStateAfter: hw.state,
@@ -493,25 +507,32 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 	d.serverStatePresent = true
 	d.detachBackendCalledPresent = true
 	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
+		hw.backendLogLogger = nil
 		hw.lifecycleMu.Unlock()
+		backendLogs.replay(hw.logger)
 		d.result = "invalid"
 		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveInvalid
 	}
 	if dhw.attachment.state == attachmentOutcomeUnknown {
+		hw.backendLogLogger = nil
 		hw.lifecycleMu.Unlock()
+		backendLogs.replay(hw.logger)
 		d.result = "unsafe-outcome-unknown"
 		d.phase = "detach"
 		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveUnsafeOutcomeUnknown
 	}
 	if hw.state != serverActive {
+		hw.backendLogLogger = nil
 		hw.lifecycleMu.Unlock()
+		backendLogs.replay(hw.logger)
 		d.result = "invalid"
 		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 		return typedDeviceRemoveInvalid
 	}
 	result := hw.removeDeviceLockedWithDrain(dhw, deviceHandle(handle))
+	result.backendLogs = backendLogs
 	unsafeOutcome := dhw.attachment.state == attachmentOutcomeUnknown || hw.state == serverCloseFailed
 	d.attachmentStateAfter = attachmentStateName(dhw.attachment.state)
 	d.serverStateAfter = hw.state
@@ -530,9 +551,12 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 			d.phase = "logical-remove"
 		}
 	}
+	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
-	logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
+	operationTotalUs := time.Since(opStart).Microseconds()
+	backendLogs.replay(hw.logger)
+	logTeardownDiagnostic(hw.logger, d, operationTotalUs)
 	if result.ok {
 		return typedDeviceRemoveSuccess
 	}
@@ -630,6 +654,8 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	notifyLifecycleLockAttempt(hw, "attach")
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
+	backendLogs := newDeferredLogBatch()
+	hw.backendLogLogger = backendLogs.logger
 
 	var result deviceAttachResult
 	var timing operationTiming
@@ -657,9 +683,12 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	// (rather than reading dhw after unlock) so this function never depends on that remaining true.
 	busID, deviceID := dhw.exportMeta.BusID, dhw.exportMeta.DevID
 	logger := hw.logger
+	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
+	operationTotalUs := time.Since(opStart).Microseconds()
+	backendLogs.replay(logger)
 
-	logCanonicalAttachmentTiming(logger, "attach", attachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
+	logCanonicalAttachmentTiming(logger, "attach", attachResultTimingLabel(result), timing, operationTotalUs, lockWaitUs,
 		"busID", busID, "deviceID", deviceID, "listenPort", listenPort,
 		"attachmentStateBefore", attachmentStateName(stateBefore), "attachmentStateAfter", attachmentStateName(stateAfter),
 		"serverStateBefore", serverStateBefore.String(), "serverStateAfter", serverStateAfter.String(),
@@ -685,6 +714,8 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	notifyLifecycleLockAttempt(hw, "detach")
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
+	backendLogs := newDeferredLogBatch()
+	hw.backendLogLogger = backendLogs.logger
 
 	// Snapshot the attachment token that is authoritative going into this call, before any
 	// mutation: a successful detach clears dhw.attachment.attachment back to its zero value, and
@@ -713,9 +744,12 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	listenPort := hw.s.GetListenPort()
 	busID, deviceID := dhw.exportMeta.BusID, dhw.exportMeta.DevID
 	logger := hw.logger
+	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
+	operationTotalUs := time.Since(opStart).Microseconds()
+	backendLogs.replay(logger)
 
-	logCanonicalAttachmentTiming(logger, "detach", detachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
+	logCanonicalAttachmentTiming(logger, "detach", detachResultTimingLabel(result), timing, operationTotalUs, lockWaitUs,
 		"busID", busID, "deviceID", deviceID, "listenPort", listenPort,
 		"attachmentStateBefore", attachmentStateName(stateBefore), "attachmentStateAfter", attachmentStateName(stateAfter),
 		"serverStateBefore", serverStateBefore.String(), "serverStateAfter", serverStateAfter.String(),
