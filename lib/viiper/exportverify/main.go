@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	headerExportPattern = regexp.MustCompile(`(?m)^\s*extern\s+[^;\r\n]*\b([A-Za-z_]\w*)\s*\([^;\r\n]*\)\s*;`)
-	defExportPattern    = regexp.MustCompile(`(?m)^\s*([A-Za-z_]\w*)\s*$`)
-	dllExportPattern    = regexp.MustCompile(`^\s*\[\s*\d+\].*?\s([A-Za-z_]\w*)\s*$`)
+	headerExportPattern  = regexp.MustCompile(`(?m)^\s*extern\s+[^;\r\n]*\b([A-Za-z_]\w*)\s*\([^;\r\n]*\)\s*;`)
+	defExportPattern     = regexp.MustCompile(`(?m)^\s*([A-Za-z_]\w*)\s*$`)
+	dllExportPattern     = regexp.MustCompile(`^\s*\[\s*\d+\].*?\s([A-Za-z_]\w*)\s*$`)
+	llvmDLLExportPattern = regexp.MustCompile(`^\s*\d+\s+0x[0-9A-Fa-f]+\s+([A-Za-z_]\w*)\s*$`)
 )
 
 func canonicalExports(sourceDir string) ([]string, error) {
@@ -105,18 +106,31 @@ func exactDefExports(text string) map[string]struct{} {
 
 func exactDLLExports(text string) map[string]struct{} {
 	result := map[string]struct{}{}
-	inNameTable := false
+	inGNUNameTable := false
+	inLLVMNameTable := false
 	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
 		if strings.Contains(line, "Ordinal/Name Pointer") {
-			inNameTable = true
+			inGNUNameTable = true
 			continue
 		}
-		if inNameTable && strings.HasPrefix(strings.TrimSpace(line), "The ") {
+		if strings.HasPrefix(trimmed, "Ordinal") && strings.Contains(trimmed, "RVA") && strings.Contains(trimmed, "Name") {
+			inLLVMNameTable = true
+			continue
+		}
+		if (inGNUNameTable || inLLVMNameTable) && strings.HasPrefix(trimmed, "The ") {
 			break
 		}
-		if inNameTable {
+		if inGNUNameTable {
 			if match := dllExportPattern.FindStringSubmatch(line); match != nil {
 				result[match[1]] = struct{}{}
+			}
+		}
+		if inLLVMNameTable {
+			if match := llvmDLLExportPattern.FindStringSubmatch(line); match != nil {
+				result[match[1]] = struct{}{}
+			} else if trimmed != "" {
+				inLLVMNameTable = false
 			}
 		}
 	}

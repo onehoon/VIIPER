@@ -65,6 +65,38 @@ func TestDLLNonExportTextDoesNotSatisfyProjection(t *testing.T) {
 	}
 }
 
+func TestLLVMObjdumpExportTable(t *testing.T) {
+	fixture := `The Export Tables (interpreted .edata section contents)
+ Export Table:
+  DLL name: libVIIPER.dll
+  Ordinal base: 1
+  Ordinal      RVA  Name
+        1 0x00100000 AttachUSBDevice
+        2 0x00100010 AttachUSBDeviceEx
+       29 0x001001d0 RemoveSteamControllerDevice
+       30 0x001001e0 RemoveSteamControllerDeviceEx
+ The Import Tables (interpreted .idata section contents)`
+	exports := exactDLLExports(fixture)
+	for _, name := range []string{"AttachUSBDevice", "AttachUSBDeviceEx", "RemoveSteamControllerDevice", "RemoveSteamControllerDeviceEx"} {
+		if _, ok := exports[name]; !ok {
+			t.Fatalf("LLVM fixture did not extract %s: %v", name, exports)
+		}
+	}
+	if missing := missingExports(exports, []string{"RemoveSteamControllerDevice"}); len(missing) != 0 {
+		t.Fatal(missing)
+	}
+}
+
+func TestDLLMalformedOrPrefixOnlyFailsClosed(t *testing.T) {
+	if exports := exactDLLExports("not an export table\nRemoveSteamControllerDevice\n"); len(exports) != 0 {
+		t.Fatalf("malformed dump produced exports: %v", exports)
+	}
+	prefixOnly := exactDLLExports("Export Table:\nOrdinal      RVA  Name\n 1 0x00100000 RemoveSteamControllerDeviceEx\n")
+	if missing := missingExports(prefixOnly, []string{"RemoveSteamControllerDevice"}); len(missing) != 1 {
+		t.Fatalf("prefix-only LLVM export was accepted: %v", missing)
+	}
+}
+
 func TestCanonicalExportsFailOnMalformedSource(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "bad.go"), "package p\nfunc (")
