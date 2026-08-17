@@ -8,6 +8,13 @@ typedef uintptr_t USBServerHandle;
 
 typedef uintptr_t Xbox360DeviceHandle;
 
+typedef enum {
+    VIIPER_XBOX360_REMOVE_SUCCESS = 0,
+    VIIPER_XBOX360_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_XBOX360_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_XBOX360_REMOVE_INVALID = 3
+} Xbox360DeviceRemoveResult;
+
 #define XBOX360_BUTTON_DPAD_UP     0x0001u
 #define XBOX360_BUTTON_DPAD_DOWN   0x0002u
 #define XBOX360_BUTTON_DPAD_LEFT   0x0004u
@@ -48,6 +55,7 @@ static void viiper_call_rumble(Xbox360RumbleCallback fn, Xbox360DeviceHandle han
 import "C"
 import (
 	"encoding/json"
+	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/xbox360"
@@ -137,11 +145,27 @@ func SetXbox360DeviceState(handle C.Xbox360DeviceHandle, state C.Xbox360DeviceSt
 //
 //export RemoveXbox360Device
 func RemoveXbox360Device(handle C.Xbox360DeviceHandle) bool {
-	return removeXbox360Device(uintptr(handle))
+	return removeXbox360DeviceResult(uintptr(handle)) == typedDeviceRemoveSuccess
 }
 
 func removeXbox360Device(handle uintptr) bool {
-	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*xbox360.Xbox360); return ok })
+	return removeXbox360DeviceResult(handle) == typedDeviceRemoveSuccess
+}
+
+func xbox360DeviceRemoveResultSize() uintptr {
+	return unsafe.Sizeof(C.Xbox360DeviceRemoveResult(0))
+}
+
+// RemoveXbox360DeviceEx returns the classified Xbox360 logical-device removal result.
+// The legacy RemoveXbox360Device bool export remains available for compatibility.
+//
+//export RemoveXbox360DeviceEx
+func RemoveXbox360DeviceEx(handle C.Xbox360DeviceHandle) C.Xbox360DeviceRemoveResult {
+	return C.Xbox360DeviceRemoveResult(removeXbox360DeviceResult(uintptr(handle)))
+}
+
+func removeXbox360DeviceResult(handle uintptr) typedDeviceRemoveResult {
+	return removeTypedDeviceResult(handle, func(device any) bool { _, ok := device.(*xbox360.Xbox360); return ok })
 }
 
 // SetXbox360RumbleCallback sets a callback to be invoked when the host sends rumble/motor commands to the device.
