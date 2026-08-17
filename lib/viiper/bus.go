@@ -127,15 +127,16 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 	if !hw.logicalCloseInProgress {
 		hw.clearBusCallbacksLocked(busID)
 	}
-	if failed, ok, backendCalled := hw.detachBusDevicesLocked(busID); !ok {
+	if failed, ok, _, failureDiagnostic := hw.detachBusDevicesLocked(busID); !ok {
 		if failed != nil {
-			d.deviceID = fmt.Sprintf("%d", failed.exportMeta.DevID)
-			d.attachmentStateBefore = attachmentStateName(failed.attachment.state)
-			d.attachmentStateAfter = d.attachmentStateBefore
-			d.attachmentBackend = failed.attachment.attachment.Backend
-			d.importPort = failed.attachment.attachment.Port
+			d.deviceID = failureDiagnostic.deviceID
+			d.attachmentStateBefore = failureDiagnostic.attachmentStateBefore
+			d.attachmentStateAfter = failureDiagnostic.attachmentStateAfter
+			d.attachmentBackend = failureDiagnostic.attachmentBackend
+			d.importPort = failureDiagnostic.importPort
+			d.detachBackendCalled = failureDiagnostic.detachBackendCalled
+			d.detachBackendCalledPresent = failureDiagnostic.detachBackendCalledPresent
 		}
-		d.detachBackendCalled, d.detachBackendCalledPresent = backendCalled, true
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
 			d.result = "unsafe-outcome-unknown"

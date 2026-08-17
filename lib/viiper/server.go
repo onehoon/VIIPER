@@ -147,8 +147,9 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	busCountBefore := len(hw.s.ListBuses())
 	if hw.closePhase == transportClosePending {
 		if hw.state != serverCloseFailed {
+			remainingBusCount := len(hw.s.ListBuses())
 			hw.lifecycleMu.Unlock()
-			logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "CloseUSBServer", phase: "transport-close", result: "invalid", serverStateBefore: stateBefore, serverStateAfter: stateBefore, remainingBusCount: len(hw.s.ListBuses())}, time.Since(opStart).Microseconds())
+			logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "CloseUSBServer", phase: "transport-close", result: "invalid", serverStateBefore: stateBefore, serverStateAfter: stateBefore, serverStatePresent: true, busCountBefore: busCountBefore, busCountPresent: true, remainingBusCount: remainingBusCount}, time.Since(opStart).Microseconds())
 			return false
 		}
 		hw.state = serverClosing

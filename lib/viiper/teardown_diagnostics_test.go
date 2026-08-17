@@ -111,11 +111,22 @@ func TestTypedRemoveDiagnosticsClassifyEveryTeardownPhase(t *testing.T) {
 func TestTypedRemoveDiagnosticsWrongFamilyDoesNotClaimDetachBackend(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10005)
 	h := addTestMouse(t, hw, 10005)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5050}, nil
+	}
+	detachCalls := 0
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+		detachCalls++
+		return nil
+	}
+	if attachUSBDeviceResult(uintptr(h)) != deviceAttachSuccess {
+		t.Fatal("attach setup failed")
+	}
 	if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return false }); got != typedDeviceRemoveInvalid {
 		t.Fatalf("result=%d", got)
 	}
 	attrs := teardownAttrs(t, hlog, "typed-device-remove")
-	if fmt.Sprint(attrs["result"]) != "invalid" || fmt.Sprint(attrs["detachBackendCalled"]) != "false" || attrs["serverStateBefore"] != "active" {
+	if fmt.Sprint(attrs["result"]) != "invalid" || fmt.Sprint(attrs["attachmentStateBefore"]) != "attached" || fmt.Sprint(attrs["detachBackendCalled"]) != "false" || attrs["serverStateBefore"] != "active" || detachCalls != 0 {
 		t.Fatalf("attrs=%v", attrs)
 	}
 }

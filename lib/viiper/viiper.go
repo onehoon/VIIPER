@@ -483,7 +483,7 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 	token := dhw.attachment.attachment
 	d := teardownDiagnostic{operation: "typed-device-remove", phase: "preflight", serverStateBefore: hw.state, serverStateAfter: hw.state,
 		busID: dhw.exportMeta.BusID, deviceID: fmt.Sprintf("%d", dhw.exportMeta.DevID), attachmentStateBefore: attachmentStateName(stateBefore), attachmentStateAfter: attachmentStateName(stateBefore),
-		attachmentBackend: token.Backend, importPort: token.Port, detachBackendCalled: stateBefore == attachmentAttached}
+		attachmentBackend: token.Backend, importPort: token.Port}
 	d.serverStatePresent = true
 	d.detachBackendCalledPresent = true
 	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
@@ -784,19 +784,27 @@ func (hw *usbServerHandleWrapper) preflightBusDevicesLocked(busID uint32) (*devi
 	return nil, true
 }
 
-func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) (*deviceHandleWrapper, bool, bool) {
+func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) (*deviceHandleWrapper, bool, bool, teardownDiagnostic) {
 	if dhw, ok := hw.preflightBusDevicesLocked(busID); !ok {
-		return dhw, false, false
+		return dhw, false, false, teardownDiagnostic{}
 	}
 	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
 		if dhw := hw.deviceHandleRecords[h]; dhw != nil {
+			stateBefore := dhw.attachment.state
+			token := dhw.attachment.attachment
 			var timing operationTiming
 			if hw.detachDeviceLockedResult(dhw, &timing) != deviceDetachSuccess {
-				return dhw, false, timing.backendCalled
+				return dhw, false, timing.backendCalled, teardownDiagnostic{
+					deviceID:              fmt.Sprintf("%d", dhw.exportMeta.DevID),
+					attachmentStateBefore: attachmentStateName(stateBefore),
+					attachmentStateAfter:  attachmentStateName(dhw.attachment.state),
+					attachmentBackend:     token.Backend, importPort: token.Port,
+					detachBackendCalled: timing.backendCalled, detachBackendCalledPresent: true,
+				}
 			}
 		}
 	}
-	return nil, true, false
+	return nil, true, false, teardownDiagnostic{}
 }
 
 func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, rollback func(viiperusb.Device) error, dev viiperusb.Device, reason string) bool {
