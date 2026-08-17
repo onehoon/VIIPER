@@ -125,9 +125,14 @@ func TestClassifiedRemovalParityUnsafeAndLegacyFailureProjection(t *testing.T) {
 			}
 
 			knownHW, _ := newLifecycleTestServer(t, busID+100)
+			knownDetachCalls := 0
 			knownHW.ops.attachLocalhostTracked = hw.ops.attachLocalhostTracked
 			knownHW.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
-				return errors.New("known detach failure")
+				knownDetachCalls++
+				if knownDetachCalls == 1 {
+					return errors.New("known detach failure")
+				}
+				return nil
 			}
 			knownDevice, err := family.newDevice()
 			if err != nil {
@@ -136,7 +141,32 @@ func TestClassifiedRemovalParityUnsafeAndLegacyFailureProjection(t *testing.T) {
 			knownHW.lifecycleMu.Lock()
 			knownHandle, ok := knownHW.createDeviceLocked(busID+100, knownDevice, true)
 			knownHW.lifecycleMu.Unlock()
-			if !ok || family.legacy(uintptr(knownHandle)) || !lookupIdentityExists(uintptr(knownHandle)) || knownHW.state != serverActive {
+			if !ok {
+				t.Fatal("known-failure device creation failed")
+			}
+			if got := family.remove(uintptr(knownHandle)); got != typedDeviceRemoveRetryableFailure {
+				t.Fatalf("classified result=%d, want retryable failure", got)
+			}
+			if !lookupIdentityExists(uintptr(knownHandle)) || knownHW.state != serverActive {
+				t.Fatal("classified retryable failure did not retain active authoritative handle")
+			}
+			if got := family.remove(uintptr(knownHandle)); got != typedDeviceRemoveSuccess || knownDetachCalls != 2 {
+				t.Fatalf("explicit retry result=%d detach calls=%d, want success/2", got, knownDetachCalls)
+			}
+
+			legacyHW, _ := newLifecycleTestServer(t, busID+200)
+			legacyHW.ops.attachLocalhostTracked = hw.ops.attachLocalhostTracked
+			legacyHW.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+				return errors.New("known detach failure")
+			}
+			legacyDevice, err := family.newDevice()
+			if err != nil {
+				t.Fatal(err)
+			}
+			legacyHW.lifecycleMu.Lock()
+			legacyHandle, ok := legacyHW.createDeviceLocked(busID+200, legacyDevice, true)
+			legacyHW.lifecycleMu.Unlock()
+			if !ok || family.legacy(uintptr(legacyHandle)) || !lookupIdentityExists(uintptr(legacyHandle)) || legacyHW.state != serverActive {
 				t.Fatal("legacy bool did not project known retryable failure safely")
 			}
 		})
