@@ -1381,6 +1381,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#remaining-typed-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining typed families
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2146,6 +2157,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#remaining-typed-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remaining typed families
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2542,31 +2564,31 @@ legacy error-only attachment with typed ownership records.</p>
 <td>DualShock 4</td>
 <td><code>CreateDS4Device</code></td>
 <td><code>SetDS4DeviceState</code>, <code>SetDS4OutputCallback</code></td>
-<td><code>RemoveDS4Device</code></td>
+<td><code>RemoveDS4Device</code>, <code>RemoveDS4DeviceEx</code></td>
 </tr>
 <tr>
 <td>DualSense</td>
 <td><code>CreateDualSenseDevice</code>, <code>CreateDualSenseEdgeDevice</code></td>
 <td><code>SetDualSenseDeviceState</code>, <code>SetDualSenseOutputCallback</code></td>
-<td><code>RemoveDualSenseDevice</code></td>
+<td><code>RemoveDualSenseDevice</code>, <code>RemoveDualSenseDeviceEx</code></td>
 </tr>
 <tr>
 <td>Keyboard</td>
 <td><code>CreateKeyboardDevice</code></td>
 <td><code>SetKeyboardDeviceState</code>, <code>SetKeyboardLEDCallback</code></td>
-<td><code>RemoveKeyboardDevice</code></td>
+<td><code>RemoveKeyboardDevice</code>, <code>RemoveKeyboardDeviceEx</code></td>
 </tr>
 <tr>
 <td>Mouse</td>
 <td><code>CreateMouseDevice</code></td>
 <td><code>SetMouseDeviceState</code></td>
-<td><code>RemoveMouseDevice</code></td>
+<td><code>RemoveMouseDevice</code>, <code>RemoveMouseDeviceEx</code></td>
 </tr>
 <tr>
 <td>Nintendo Switch 2 Pro</td>
 <td><code>CreateNS2ProDevice</code></td>
 <td><code>SetNS2ProDeviceState</code>, <code>SetNS2ProOutputCallback</code></td>
-<td><code>RemoveNS2ProDevice</code></td>
+<td><code>RemoveNS2ProDevice</code>, <code>RemoveNS2ProDeviceEx</code></td>
 </tr>
 <tr>
 <td>Steam Deck</td>
@@ -2694,6 +2716,57 @@ need the shared classified ownership lifecycle should use:</p>
 <p>The values have the same meanings as the other classified removal APIs. The
 legacy bool export returns <code>true</code> only for
 <code>VIIPER_XBOX360_REMOVE_SUCCESS</code> and <code>false</code> for every other result.</p>
+<h4 id="remaining-typed-families">Remaining typed families</h4>
+<p>The remaining canonical typed families expose the same four-result lifecycle
+under their own family-specific enum and constant prefix. Their legacy bool
+exports remain available and return <code>true</code> only for the corresponding
+<code>*_SUCCESS</code> result.</p>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Result enum</th>
+<th>Constants</th>
+<th>Classified export</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DualSense / Edge</td>
+<td><code>DSDeviceRemoveResult</code></td>
+<td><code>VIIPER_DS_REMOVE_*</code></td>
+<td><code>RemoveDualSenseDeviceEx</code></td>
+</tr>
+<tr>
+<td>DualShock 4</td>
+<td><code>DS4DeviceRemoveResult</code></td>
+<td><code>VIIPER_DS4_REMOVE_*</code></td>
+<td><code>RemoveDS4DeviceEx</code></td>
+</tr>
+<tr>
+<td>Nintendo Switch 2 Pro</td>
+<td><code>NS2ProDeviceRemoveResult</code></td>
+<td><code>VIIPER_NS2PRO_REMOVE_*</code></td>
+<td><code>RemoveNS2ProDeviceEx</code></td>
+</tr>
+<tr>
+<td>Keyboard</td>
+<td><code>KeyboardDeviceRemoveResult</code></td>
+<td><code>VIIPER_KEYBOARD_REMOVE_*</code></td>
+<td><code>RemoveKeyboardDeviceEx</code></td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td><code>MouseDeviceRemoveResult</code></td>
+<td><code>VIIPER_MOUSE_REMOVE_*</code></td>
+<td><code>RemoveMouseDeviceEx</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each enum uses <code>SUCCESS = 0</code>, <code>RETRYABLE_FAILURE = 1</code>,
+<code>UNSAFE_OUTCOME_UNKNOWN = 2</code>, and <code>INVALID = 3</code>. DualSense Edge handles are
+accepted by <code>RemoveDualSenseDeviceEx</code> because they use the same typed family
+and removal operation as ordinary DualSense handles.</p>
 <h2 id="callback-and-teardown-contract">Callback and teardown contract</h2>
 <p>Callbacks are captured under the device callback lock and invoked after that
 lock is released. A callback may therefore re-enter a safe canonical API
