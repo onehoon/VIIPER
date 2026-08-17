@@ -300,7 +300,7 @@ The canonical wrappers currently include:
 | Device | Create | State/callback | Remove |
 | --- | --- | --- | --- |
 | Steam Controller | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice`, `RemoveSteamControllerDeviceEx` |
-| Xbox 360 | `CreateXbox360Device` | `SetXbox360DeviceState`, `SetXbox360RumbleCallback` | `RemoveXbox360Device` |
+| Xbox 360 | `CreateXbox360Device` | `SetXbox360DeviceState`, `SetXbox360RumbleCallback` | `RemoveXbox360Device`, `RemoveXbox360DeviceEx` |
 | DualShock 4 | `CreateDS4Device` | `SetDS4DeviceState`, `SetDS4OutputCallback` | `RemoveDS4Device` |
 | DualSense | `CreateDualSenseDevice`, `CreateDualSenseEdgeDevice` | `SetDualSenseDeviceState`, `SetDualSenseOutputCallback` | `RemoveDualSenseDevice` |
 | Keyboard | `CreateKeyboardDevice` | `SetKeyboardDeviceState`, `SetKeyboardLEDCallback` | `RemoveKeyboardDevice` |
@@ -368,9 +368,9 @@ mismatch and will corrupt or misread trailing state fields.
 
 ### Classified typed-device removal
 
-Each typed device family has its own classified removal enum and `*Ex`
-export. The legacy bool export for a given device remains the compatibility
-API and returns `true` only for that family's `_SUCCESS` value.
+Typed families that expose classified removal have their own removal enum and
+`*Ex` export. The legacy bool export for a given device remains the
+compatibility API and returns `true` only for that family's `_SUCCESS` value.
 
 The result is returned by the same removal operation; do not pair removal
 with a process-global or thread-local last-status query.
@@ -430,6 +430,26 @@ enum, and do not mix the two families' constants.
 
 The legacy bool export returns `true` only for
 `VIIPER_STEAMDECK_REMOVE_SUCCESS` and `false` for every other result.
+
+#### Xbox 360
+
+`RemoveXbox360Device` remains the compatibility bool API. Consumers that
+need the shared classified ownership lifecycle should use:
+
+```c
+typedef enum {
+    VIIPER_XBOX360_REMOVE_SUCCESS = 0,
+    VIIPER_XBOX360_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_XBOX360_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_XBOX360_REMOVE_INVALID = 3
+} Xbox360DeviceRemoveResult;
+
+Xbox360DeviceRemoveResult RemoveXbox360DeviceEx(uintptr_t deviceHandle);
+```
+
+The values have the same meanings as the other classified removal APIs. The
+legacy bool export returns `true` only for
+`VIIPER_XBOX360_REMOVE_SUCCESS` and `false` for every other result.
 
 ## Callback and teardown contract
 
