@@ -83,8 +83,20 @@ func CreateXbox360Device(
 	if outDeviceHandle == nil {
 		return false
 	}
+	var handle deviceHandle
+	if !createXbox360Device(uintptr(serverHandle), &handle, busID, autoAttachLocalhost, idVendor, idProduct, xinputSubType) {
+		return false
+	}
+	*outDeviceHandle = C.Xbox360DeviceHandle(handle)
+	return true
+}
 
-	shw, ok := lookupServerHandle(uintptr(serverHandle))
+func createXbox360Device(serverHandle uintptr, outDeviceHandle *deviceHandle, busID uint32, autoAttachLocalhost bool, idVendor, idProduct uint16, xinputSubType uint8) bool {
+	if outDeviceHandle == nil {
+		return false
+	}
+
+	shw, ok := lookupServerHandle(serverHandle)
 	if !ok {
 		return false
 	}
@@ -116,7 +128,7 @@ func CreateXbox360Device(
 	if !ok {
 		return false
 	}
-	*outDeviceHandle = C.Xbox360DeviceHandle(h)
+	*outDeviceHandle = h
 	return true
 }
 
@@ -126,16 +138,20 @@ func CreateXbox360Device(
 //
 //export SetXbox360DeviceState
 func SetXbox360DeviceState(handle C.Xbox360DeviceHandle, state C.Xbox360DeviceState) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	deviceState := xbox360.InputState{Buttons: uint32(state.Buttons), LT: uint8(state.LT), RT: uint8(state.RT), LX: int16(state.LX), LY: int16(state.LY), RX: int16(state.RX), RY: int16(state.RY)}
+	for i, v := range state.Reserved {
+		deviceState.Reserved[i] = byte(v)
+	}
+	return setXbox360DeviceState(uintptr(handle), deviceState)
+}
+
+func setXbox360DeviceState(handle uintptr, state xbox360.InputState) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		xbox360device, ok := dhw.device.(*xbox360.Xbox360)
 		if !ok {
 			return false
 		}
-		deviceState := xbox360.InputState{Buttons: uint32(state.Buttons), LT: uint8(state.LT), RT: uint8(state.RT), LX: int16(state.LX), LY: int16(state.LY), RX: int16(state.RX), RY: int16(state.RY)}
-		for i, v := range state.Reserved {
-			deviceState.Reserved[i] = byte(v)
-		}
-		xbox360device.UpdateInputState(deviceState)
+		xbox360device.UpdateInputState(state)
 		return true
 	})
 }
@@ -183,17 +199,26 @@ func removeXbox360DeviceResult(handle uintptr) typedDeviceRemoveResult {
 //
 //export SetXbox360RumbleCallback
 func SetXbox360RumbleCallback(handle C.Xbox360DeviceHandle, cb C.Xbox360RumbleCallback) bool {
-	return withActiveDeviceHandle(uintptr(handle), func(dhw *deviceHandleWrapper) bool {
+	if cb == nil {
+		return setXbox360RumbleCallback(uintptr(handle), nil)
+	}
+	return setXbox360RumbleCallback(uintptr(handle), func(rumble xbox360.XRumbleState) {
+		C.viiper_call_rumble(cb, handle, C.uint8_t(rumble.LeftMotor), C.uint8_t(rumble.RightMotor))
+	})
+}
+
+func setXbox360RumbleCallback(handle uintptr, callback func(xbox360.XRumbleState)) bool {
+	return withActiveDeviceHandle(handle, func(dhw *deviceHandleWrapper) bool {
 		xbox360device, ok := dhw.device.(*xbox360.Xbox360)
 		if !ok {
 			return false
 		}
-		if cb == nil {
+		if callback == nil {
 			xbox360device.SetRumbleCallback(nil)
 			return true
 		}
 		xbox360device.SetRumbleCallback(func(rumble xbox360.XRumbleState) {
-			C.viiper_call_rumble(cb, handle, C.uint8_t(rumble.LeftMotor), C.uint8_t(rumble.RightMotor))
+			callback(rumble)
 		})
 		return true
 	})

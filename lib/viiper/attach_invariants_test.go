@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"log/slog"
+	"runtime/cgo"
 	"sync"
 	"testing"
 
-	"github.com/Alia5/VIIPER/device/steamdeck"
 	"github.com/Alia5/VIIPER/device/xbox360"
 	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/usbip"
@@ -29,26 +29,41 @@ func TestConcurrentXbox360AttachUsesOneBackendInitiator(t *testing.T) {
 		}
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 301}, nil
 	}
-	pad, err := xbox360.New(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hw.lifecycleMu.Lock()
-	h, ok := hw.createDeviceLocked(9600, pad, false)
-	hw.lifecycleMu.Unlock()
+	var h deviceHandle
+	ok := createXbox360Device(serverHandleForTest(t, hw), &h, 9600, false, 0, 0, 0)
 	if !ok {
 		t.Fatal("Xbox360 creation failed")
 	}
 
 	results := make(chan deviceAttachResult, 2)
+	secondContending := make(chan struct{})
+	secondNotContending := make(chan struct{})
+	var lockAttempts int
+	var lockAttemptsMu sync.Mutex
+	hw.onAttachLockAttempt = func() {
+		lockAttemptsMu.Lock()
+		lockAttempts++
+		attempt := lockAttempts
+		lockAttemptsMu.Unlock()
+		if attempt == 2 {
+			if hw.lifecycleMu.TryLock() {
+				hw.lifecycleMu.Unlock()
+				close(secondNotContending)
+				return
+			}
+			close(secondContending)
+		}
+	}
 	go func() { results <- attachUSBDeviceResult(uintptr(h)) }()
 	<-entered
-	secondStarted := make(chan struct{})
 	go func() {
-		close(secondStarted)
 		results <- attachUSBDeviceResult(uintptr(h))
 	}()
-	<-secondStarted
+	select {
+	case <-secondContending:
+	case <-secondNotContending:
+		t.Fatal("second AttachEx did not contend with the first lifecycle lock")
+	}
 	close(release)
 	if got := <-results; got != deviceAttachSuccess {
 		t.Fatalf("first concurrent attach result = %d, want success", got)
@@ -71,6 +86,17 @@ func TestConcurrentXbox360AttachUsesOneBackendInitiator(t *testing.T) {
 	}
 }
 
+func serverHandleForTest(t *testing.T, hw *usbServerHandleWrapper) uintptr {
+	t.Helper()
+	h := cgo.NewHandle(hw)
+	serverHandleRecords.Store(uintptr(h), hw)
+	t.Cleanup(func() {
+		serverHandleRecords.Delete(uintptr(h))
+		h.Delete()
+	})
+	return uintptr(h)
+}
+
 func TestXbox360AutoAttachCompletesBeforeCreateReturns(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9601)
 	attachCalls := 0
@@ -78,13 +104,8 @@ func TestXbox360AutoAttachCompletesBeforeCreateReturns(t *testing.T) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 302}, nil
 	}
-	pad, err := xbox360.New(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hw.lifecycleMu.Lock()
-	h, ok := hw.createDeviceLocked(9601, pad, true)
-	hw.lifecycleMu.Unlock()
+	var h deviceHandle
+	ok := createXbox360Device(serverHandleForTest(t, hw), &h, 9601, true, 0, 0, 0)
 	if !ok {
 		t.Fatal("Xbox360 creation failed")
 	}
@@ -112,13 +133,8 @@ func TestDetachedReadyTypedConsumerContracts(t *testing.T) {
 			detachCalls++
 			return nil
 		}
-		pad, err := xbox360.New(nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		hw.lifecycleMu.Lock()
-		h, ok := hw.createDeviceLocked(9602, pad, false)
-		hw.lifecycleMu.Unlock()
+		var h deviceHandle
+		ok := createXbox360Device(serverHandleForTest(t, hw), &h, 9602, false, 0, 0, 0)
 		if !ok || attachCalls != 0 {
 			t.Fatalf("create ok=%t attach calls=%d, want true/0", ok, attachCalls)
 		}
@@ -129,8 +145,9 @@ func TestDetachedReadyTypedConsumerContracts(t *testing.T) {
 		if !getUSBDeviceIdentity(uintptr(h), &busID, &deviceID) {
 			t.Fatal("detached-safe Xbox360 operation failed")
 		}
-		pad.UpdateInputState(xbox360.InputState{})
-		pad.SetRumbleCallback(nil)
+		if !setXbox360DeviceState(uintptr(h), xbox360.InputState{}) || !setXbox360RumbleCallback(uintptr(h), nil) {
+			t.Fatal("detached-safe Xbox360 wrapper operation failed")
+		}
 		if attachCalls != 0 {
 			t.Fatalf("detached-safe operations invoked attach %d times", attachCalls)
 		}
@@ -162,13 +179,8 @@ func TestDetachedReadyTypedConsumerContracts(t *testing.T) {
 			detachCalls++
 			return nil
 		}
-		deck, err := steamdeck.New(nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		hw.lifecycleMu.Lock()
-		h, ok := hw.createDeviceLocked(9603, deck, false)
-		hw.lifecycleMu.Unlock()
+		var h deviceHandle
+		ok := createSteamDeckDevice(serverHandleForTest(t, hw), &h, 9603, false, 0, 0)
 		if !ok || attachCalls != 0 {
 			t.Fatalf("create ok=%t attach calls=%d, want true/0", ok, attachCalls)
 		}

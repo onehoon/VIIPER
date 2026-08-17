@@ -75,6 +75,7 @@ type usbServerHandleWrapper struct {
 	logger                 *slog.Logger
 	rejectionWarnings      map[string]bool
 	onCallbackCleared      func(*deviceHandleWrapper)
+	onAttachLockAttempt    func()
 	closePhase             canonicalClosePhase
 	logicalCloseInProgress bool
 }
@@ -485,6 +486,9 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	}
 	hw := dhw.usbServer
 	lockWaitStart := time.Now()
+	if hw.onAttachLockAttempt != nil {
+		hw.onAttachLockAttempt()
+	}
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
 
