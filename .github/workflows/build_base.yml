@@ -172,6 +172,11 @@ jobs:
               run: |
                   ./scripts/tests/test-libviiper-manifest.ps1
 
+            - name: Test version resource script
+              shell: pwsh
+              run: |
+                  ./scripts/tests/test-inject-version.ps1
+
     libviiper-linux:
         name: Build libVIIPER (linux/amd64)
         runs-on: ubuntu-latest
