@@ -8,6 +8,13 @@ typedef uintptr_t USBServerHandle;
 
 typedef uintptr_t MouseDeviceHandle;
 
+typedef enum {
+    VIIPER_MOUSE_REMOVE_SUCCESS = 0,
+    VIIPER_MOUSE_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_MOUSE_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_MOUSE_REMOVE_INVALID = 3
+} MouseDeviceRemoveResult;
+
 #define MOUSE_BTN_LEFT    0x01u
 #define MOUSE_BTN_RIGHT   0x02u
 #define MOUSE_BTN_MIDDLE  0x04u
@@ -25,6 +32,8 @@ typedef struct {
 */
 import "C"
 import (
+	"unsafe"
+
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/mouse"
 )
@@ -103,9 +112,24 @@ func SetMouseDeviceState(handle C.MouseDeviceHandle, state C.MouseDeviceState) b
 //
 //export RemoveMouseDevice
 func RemoveMouseDevice(handle C.MouseDeviceHandle) bool {
-	return removeMouseDevice(uintptr(handle))
+	return removeMouseDeviceResult(uintptr(handle)) == typedDeviceRemoveSuccess
 }
 
 func removeMouseDevice(handle uintptr) bool {
-	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*mouse.Mouse); return ok })
+	return removeMouseDeviceResult(handle) == typedDeviceRemoveSuccess
+}
+
+// RemoveMouseDeviceEx returns the classified mouse removal result.
+//
+//export RemoveMouseDeviceEx
+func RemoveMouseDeviceEx(handle C.MouseDeviceHandle) C.MouseDeviceRemoveResult {
+	return C.MouseDeviceRemoveResult(removeMouseDeviceResult(uintptr(handle)))
+}
+
+func removeMouseDeviceResult(handle uintptr) typedDeviceRemoveResult {
+	return removeTypedDeviceResult(handle, func(device any) bool { _, ok := device.(*mouse.Mouse); return ok })
+}
+
+func mouseDeviceRemoveResultABI() (uintptr, [4]int) {
+	return unsafe.Sizeof(C.MouseDeviceRemoveResult(0)), [4]int{int(C.VIIPER_MOUSE_REMOVE_SUCCESS), int(C.VIIPER_MOUSE_REMOVE_RETRYABLE_FAILURE), int(C.VIIPER_MOUSE_REMOVE_UNSAFE_OUTCOME_UNKNOWN), int(C.VIIPER_MOUSE_REMOVE_INVALID)}
 }

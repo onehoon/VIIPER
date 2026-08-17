@@ -304,11 +304,11 @@ The canonical wrappers currently include:
 | --- | --- | --- | --- |
 | Steam Controller | `CreateSteamControllerDevice` | `SetSteamControllerDeviceState`, `SetSteamControllerOutputCallback` | `RemoveSteamControllerDevice`, `RemoveSteamControllerDeviceEx` |
 | Xbox 360 | `CreateXbox360Device` | `SetXbox360DeviceState`, `SetXbox360RumbleCallback` | `RemoveXbox360Device`, `RemoveXbox360DeviceEx` |
-| DualShock 4 | `CreateDS4Device` | `SetDS4DeviceState`, `SetDS4OutputCallback` | `RemoveDS4Device` |
-| DualSense | `CreateDualSenseDevice`, `CreateDualSenseEdgeDevice` | `SetDualSenseDeviceState`, `SetDualSenseOutputCallback` | `RemoveDualSenseDevice` |
-| Keyboard | `CreateKeyboardDevice` | `SetKeyboardDeviceState`, `SetKeyboardLEDCallback` | `RemoveKeyboardDevice` |
-| Mouse | `CreateMouseDevice` | `SetMouseDeviceState` | `RemoveMouseDevice` |
-| Nintendo Switch 2 Pro | `CreateNS2ProDevice` | `SetNS2ProDeviceState`, `SetNS2ProOutputCallback` | `RemoveNS2ProDevice` |
+| DualShock 4 | `CreateDS4Device` | `SetDS4DeviceState`, `SetDS4OutputCallback` | `RemoveDS4Device`, `RemoveDS4DeviceEx` |
+| DualSense | `CreateDualSenseDevice`, `CreateDualSenseEdgeDevice` | `SetDualSenseDeviceState`, `SetDualSenseOutputCallback` | `RemoveDualSenseDevice`, `RemoveDualSenseDeviceEx` |
+| Keyboard | `CreateKeyboardDevice` | `SetKeyboardDeviceState`, `SetKeyboardLEDCallback` | `RemoveKeyboardDevice`, `RemoveKeyboardDeviceEx` |
+| Mouse | `CreateMouseDevice` | `SetMouseDeviceState` | `RemoveMouseDevice`, `RemoveMouseDeviceEx` |
+| Nintendo Switch 2 Pro | `CreateNS2ProDevice` | `SetNS2ProDeviceState`, `SetNS2ProOutputCallback` | `RemoveNS2ProDevice`, `RemoveNS2ProDeviceEx` |
 | Steam Deck | `CreateSteamDeckDevice` | `SetSteamDeckDeviceState`, `SetSteamDeckOutputCallback` | `RemoveSteamDeckDevice`, `RemoveSteamDeckDeviceEx` |
 
 `lib/viiper` exposes the Steam Deck (`28DE:1205` by default) through a typed
@@ -453,6 +453,26 @@ Xbox360DeviceRemoveResult RemoveXbox360DeviceEx(uintptr_t deviceHandle);
 The values have the same meanings as the other classified removal APIs. The
 legacy bool export returns `true` only for
 `VIIPER_XBOX360_REMOVE_SUCCESS` and `false` for every other result.
+
+#### Remaining typed families
+
+The remaining canonical typed families expose the same four-result lifecycle
+under their own family-specific enum and constant prefix. Their legacy bool
+exports remain available and return `true` only for the corresponding
+`*_SUCCESS` result.
+
+| Family | Result enum | Constants | Classified export |
+| --- | --- | --- | --- |
+| DualSense / Edge | `DSDeviceRemoveResult` | `VIIPER_DS_REMOVE_*` | `RemoveDualSenseDeviceEx` |
+| DualShock 4 | `DS4DeviceRemoveResult` | `VIIPER_DS4_REMOVE_*` | `RemoveDS4DeviceEx` |
+| Nintendo Switch 2 Pro | `NS2ProDeviceRemoveResult` | `VIIPER_NS2PRO_REMOVE_*` | `RemoveNS2ProDeviceEx` |
+| Keyboard | `KeyboardDeviceRemoveResult` | `VIIPER_KEYBOARD_REMOVE_*` | `RemoveKeyboardDeviceEx` |
+| Mouse | `MouseDeviceRemoveResult` | `VIIPER_MOUSE_REMOVE_*` | `RemoveMouseDeviceEx` |
+
+Each enum uses `SUCCESS = 0`, `RETRYABLE_FAILURE = 1`,
+`UNSAFE_OUTCOME_UNKNOWN = 2`, and `INVALID = 3`. DualSense Edge handles are
+accepted by `RemoveDualSenseDeviceEx` because they use the same typed family
+and removal operation as ordinary DualSense handles.
 
 ## Callback and teardown contract
 

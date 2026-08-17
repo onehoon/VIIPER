@@ -8,6 +8,13 @@ typedef uintptr_t USBServerHandle;
 
 typedef uintptr_t NS2ProDeviceHandle;
 
+typedef enum {
+    VIIPER_NS2PRO_REMOVE_SUCCESS = 0,
+    VIIPER_NS2PRO_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_NS2PRO_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_NS2PRO_REMOVE_INVALID = 3
+} NS2ProDeviceRemoveResult;
+
 #define NS2PRO_BUTTON_B            0x00000001u
 #define NS2PRO_BUTTON_A            0x00000002u
 #define NS2PRO_BUTTON_Y            0x00000004u
@@ -80,6 +87,7 @@ static void viiper_call_ns2pro_output(NS2ProOutputCallback fn, NS2ProDeviceHandl
 import "C"
 import (
 	"encoding/json"
+	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/ns2pro"
@@ -198,9 +206,24 @@ func SetNS2ProOutputCallback(handle C.NS2ProDeviceHandle, cb C.NS2ProOutputCallb
 //
 //export RemoveNS2ProDevice
 func RemoveNS2ProDevice(handle C.NS2ProDeviceHandle) bool {
-	return removeNS2ProDevice(uintptr(handle))
+	return removeNS2ProDeviceResult(uintptr(handle)) == typedDeviceRemoveSuccess
 }
 
 func removeNS2ProDevice(handle uintptr) bool {
-	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*ns2pro.NS2Pro); return ok })
+	return removeNS2ProDeviceResult(handle) == typedDeviceRemoveSuccess
+}
+
+// RemoveNS2ProDeviceEx returns the classified Nintendo Switch 2 Pro removal result.
+//
+//export RemoveNS2ProDeviceEx
+func RemoveNS2ProDeviceEx(handle C.NS2ProDeviceHandle) C.NS2ProDeviceRemoveResult {
+	return C.NS2ProDeviceRemoveResult(removeNS2ProDeviceResult(uintptr(handle)))
+}
+
+func removeNS2ProDeviceResult(handle uintptr) typedDeviceRemoveResult {
+	return removeTypedDeviceResult(handle, func(device any) bool { _, ok := device.(*ns2pro.NS2Pro); return ok })
+}
+
+func ns2ProDeviceRemoveResultABI() (uintptr, [4]int) {
+	return unsafe.Sizeof(C.NS2ProDeviceRemoveResult(0)), [4]int{int(C.VIIPER_NS2PRO_REMOVE_SUCCESS), int(C.VIIPER_NS2PRO_REMOVE_RETRYABLE_FAILURE), int(C.VIIPER_NS2PRO_REMOVE_UNSAFE_OUTCOME_UNKNOWN), int(C.VIIPER_NS2PRO_REMOVE_INVALID)}
 }

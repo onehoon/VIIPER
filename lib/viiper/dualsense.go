@@ -8,6 +8,13 @@ typedef uintptr_t USBServerHandle;
 
 typedef uintptr_t DSDeviceHandle;
 
+typedef enum {
+    VIIPER_DS_REMOVE_SUCCESS = 0,
+    VIIPER_DS_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_DS_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_DS_REMOVE_INVALID = 3
+} DSDeviceRemoveResult;
+
 #define DS_BUTTON_SQUARE    0x00000010u
 #define DS_BUTTON_CROSS     0x00000020u
 #define DS_BUTTON_CIRCLE    0x00000040u
@@ -101,6 +108,7 @@ static void viiper_call_ds_output(DSOutputCallback fn, DSDeviceHandle handle, ui
 import "C"
 import (
 	"encoding/json"
+	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/dualsense"
@@ -253,9 +261,24 @@ func SetDualSenseOutputCallback(handle C.DSDeviceHandle, cb C.DSOutputCallback) 
 //
 //export RemoveDualSenseDevice
 func RemoveDualSenseDevice(handle C.DSDeviceHandle) bool {
-	return removeDualSenseDevice(uintptr(handle))
+	return removeDualSenseDeviceResult(uintptr(handle)) == typedDeviceRemoveSuccess
 }
 
 func removeDualSenseDevice(handle uintptr) bool {
-	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*dualsense.DualSense); return ok })
+	return removeDualSenseDeviceResult(handle) == typedDeviceRemoveSuccess
+}
+
+// RemoveDualSenseDeviceEx returns the classified DualSense/DualSense Edge removal result.
+//
+//export RemoveDualSenseDeviceEx
+func RemoveDualSenseDeviceEx(handle C.DSDeviceHandle) C.DSDeviceRemoveResult {
+	return C.DSDeviceRemoveResult(removeDualSenseDeviceResult(uintptr(handle)))
+}
+
+func removeDualSenseDeviceResult(handle uintptr) typedDeviceRemoveResult {
+	return removeTypedDeviceResult(handle, func(device any) bool { _, ok := device.(*dualsense.DualSense); return ok })
+}
+
+func dualSenseDeviceRemoveResultABI() (uintptr, [4]int) {
+	return unsafe.Sizeof(C.DSDeviceRemoveResult(0)), [4]int{int(C.VIIPER_DS_REMOVE_SUCCESS), int(C.VIIPER_DS_REMOVE_RETRYABLE_FAILURE), int(C.VIIPER_DS_REMOVE_UNSAFE_OUTCOME_UNKNOWN), int(C.VIIPER_DS_REMOVE_INVALID)}
 }
