@@ -2353,7 +2353,10 @@ retry an unknown attachment outcome, or continue normal mutation.</p>
 usable in the <code>detached</code> state: its <code>Set*DeviceState</code> and
 <code>Set*OutputCallback</code>/<code>Set*RumbleCallback</code> exports accept mutation before the
 device has ever been attached. <code>AttachUSBDevice</code> is the only operation that
-performs a Windows localhost attachment; creation itself never does.</p>
+performs a Windows localhost attachment; creation itself neither performs nor
+schedules a delayed or background localhost attachment. A later attachment
+must be explicitly requested through <code>AttachUSBDevice</code> or
+<code>AttachUSBDeviceEx</code>.</p>
 <p>An explicit <code>DetachUSBDevice</code> ends only that attachment, not the logical
 device's lifetime. State and callback mutation remain valid on the same
 typed handle while detached, and the same handle may be explicitly
