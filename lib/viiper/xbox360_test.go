@@ -176,3 +176,51 @@ func TestXbox360LegacyRemoveProjectsClassifiedSuccess(t *testing.T) {
 		t.Fatal("legacy bool removal accepted stale handle")
 	}
 }
+
+func TestXbox360LegacyRemoveProjectsFailureResults(t *testing.T) {
+	t.Run("retryable failure", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9405)
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 95}, nil
+		}
+		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+			return errors.New("known detach failure")
+		}
+		pad, err := xbox360.New(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9405, pad, true)
+		hw.lifecycleMu.Unlock()
+		if !ok || removeXbox360Device(uintptr(h)) {
+			t.Fatal("legacy bool removal did not return false for retryable failure")
+		}
+		if !lookupIdentityExists(uintptr(h)) || hw.state != serverActive {
+			t.Fatal("retryable failure did not retain the authoritative active handle")
+		}
+	})
+
+	t.Run("unsafe outcome unknown", func(t *testing.T) {
+		hw, _ := newLifecycleTestServer(t, 9406)
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 96}, nil
+		}
+		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+			return api.ErrDetachmentOutcomeUnknown
+		}
+		pad, err := xbox360.New(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hw.lifecycleMu.Lock()
+		h, ok := hw.createDeviceLocked(9406, pad, true)
+		hw.lifecycleMu.Unlock()
+		if !ok || removeXbox360Device(uintptr(h)) {
+			t.Fatal("legacy bool removal did not return false for unsafe outcome")
+		}
+		if !lookupIdentityExists(uintptr(h)) || hw.state != serverCloseFailed {
+			t.Fatal("unsafe outcome evidence was not retained fail-closed")
+		}
+	})
+}
