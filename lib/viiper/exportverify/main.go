@@ -8,8 +8,15 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+)
+
+var (
+	headerExportPattern = regexp.MustCompile(`(?m)^\s*extern\s+[^;\r\n]*\b([A-Za-z_]\w*)\s*\([^;\r\n]*\)\s*;`)
+	defExportPattern    = regexp.MustCompile(`(?m)^\s*([A-Za-z_]\w*)\s*$`)
+	dllExportPattern    = regexp.MustCompile(`^\s*\[\s*\d+\].*?\s([A-Za-z_]\w*)\s*$`)
 )
 
 func canonicalExports(sourceDir string) ([]string, error) {
@@ -17,7 +24,7 @@ func canonicalExports(sourceDir string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read source directory %q: %w", sourceDir, err)
 	}
-	set := map[string]bool{}
+	set := map[string]struct{}{}
 	fset := token.NewFileSet()
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".go" || strings.HasSuffix(entry.Name(), "_test.go") {
@@ -44,7 +51,13 @@ func canonicalExports(sourceDir string) ([]string, error) {
 				}
 			}
 			if export != "" {
-				set[export] = true
+				if export != fn.Name.Name {
+					return nil, fmt.Errorf("export directive %q does not match function %q in %s", export, fn.Name.Name, path)
+				}
+				if _, exists := set[export]; exists {
+					return nil, fmt.Errorf("duplicate canonical export %q in %s", export, path)
+				}
+				set[export] = struct{}{}
 			}
 		}
 	}
@@ -56,19 +69,68 @@ func canonicalExports(sourceDir string) ([]string, error) {
 	return result, nil
 }
 
-func artifactContains(path string, exports []string) ([]string, error) {
+func readArtifact(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read artifact %q: %w", path, err)
+		return "", fmt.Errorf("read artifact %q: %w", path, err)
 	}
-	text := string(data)
+	return string(data), nil
+}
+
+func exactHeaderExports(text string) map[string]struct{} {
+	result := map[string]struct{}{}
+	for _, match := range headerExportPattern.FindAllStringSubmatch(text, -1) {
+		result[match[1]] = struct{}{}
+	}
+	return result
+}
+
+func exactDefExports(text string) map[string]struct{} {
+	result := map[string]struct{}{}
+	inExports := false
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.EqualFold(trimmed, "EXPORTS") {
+			inExports = true
+			continue
+		}
+		if inExports && !strings.HasPrefix(trimmed, ";") {
+			if match := defExportPattern.FindStringSubmatch(line); match != nil {
+				result[match[1]] = struct{}{}
+			}
+		}
+	}
+	return result
+}
+
+func exactDLLExports(text string) map[string]struct{} {
+	result := map[string]struct{}{}
+	inNameTable := false
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, "Ordinal/Name Pointer") {
+			inNameTable = true
+			continue
+		}
+		if inNameTable && strings.HasPrefix(strings.TrimSpace(line), "The ") {
+			break
+		}
+		if inNameTable {
+			if match := dllExportPattern.FindStringSubmatch(line); match != nil {
+				result[match[1]] = struct{}{}
+			}
+		}
+	}
+	return result
+}
+
+func missingExports(available map[string]struct{}, exports []string) []string {
 	missing := make([]string, 0)
 	for _, name := range exports {
-		if !strings.Contains(text, name) {
+		if _, ok := available[name]; !ok {
 			missing = append(missing, name)
 		}
 	}
-	return missing, nil
+	return missing
 }
 
 func verifyProjection(sourceDir, header, def, dllOutput string) error {
@@ -76,25 +138,28 @@ func verifyProjection(sourceDir, header, def, dllOutput string) error {
 	if err != nil {
 		return err
 	}
-	artifacts := []string{header}
-	if def != "" {
-		artifacts = append(artifacts, def)
+	headerText, err := readArtifact(header)
+	if err != nil {
+		return err
 	}
-	for _, artifact := range artifacts {
-		missing, err := artifactContains(artifact, exports)
+	if missing := missingExports(exactHeaderExports(headerText), exports); len(missing) > 0 {
+		return fmt.Errorf("artifact %q is missing canonical exports: %s", header, strings.Join(missing, ", "))
+	}
+	if def != "" {
+		defText, err := readArtifact(def)
 		if err != nil {
 			return err
 		}
-		if len(missing) > 0 {
-			return fmt.Errorf("artifact %q is missing canonical exports: %s", artifact, strings.Join(missing, ", "))
+		if missing := missingExports(exactDefExports(defText), exports); len(missing) > 0 {
+			return fmt.Errorf("artifact %q is missing canonical exports: %s", def, strings.Join(missing, ", "))
 		}
 	}
 	if dllOutput != "" {
-		missing, err := artifactContains(dllOutput, exports)
+		dllText, err := readArtifact(dllOutput)
 		if err != nil {
 			return err
 		}
-		if len(missing) > 0 {
+		if missing := missingExports(exactDLLExports(dllText), exports); len(missing) > 0 {
 			return fmt.Errorf("DLL export table %q is missing canonical exports: %s", dllOutput, strings.Join(missing, ", "))
 		}
 	}

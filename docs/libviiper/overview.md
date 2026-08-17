@@ -62,10 +62,16 @@ Full working examples are in [`examples/libVIIPER/`](https://github.com/Alia5/VI
     if (!NewUSBServer(&conf, &serverHandle, logCallback)) return 1;
 
     uint32_t busID = 0;
-    if (!CreateUSBBus(serverHandle, &busID)) { CloseUSBServer(serverHandle); return 1; }
+    if (!CreateUSBBus(serverHandle, &busID)) {
+        if (!CloseUSBServer(serverHandle)) return 1; // preserve failure evidence
+        return 1;
+    }
 
     Xbox360DeviceHandle deviceHandle = 0;
-    if (!CreateXbox360Device(serverHandle, &deviceHandle, busID, /*autoAttach=*/true, 0, 0, 0)) { CloseUSBServer(serverHandle); return 1; }
+    if (!CreateXbox360Device(serverHandle, &deviceHandle, busID, /*autoAttach=*/true, 0, 0, 0)) {
+        if (!CloseUSBServer(serverHandle)) return 1; // preserve failure evidence
+        return 1;
+    }
 
     SetXbox360RumbleCallback(deviceHandle, rumbleCallback);
 
@@ -89,9 +95,15 @@ Full working examples are in [`examples/libVIIPER/`](https://github.com/Alia5/VI
     if (!LibVIIPER.NewUSBServer(ref conf, out nuint serverHandle, logCb)) return;
 
     uint busID = 0;
-    if (!LibVIIPER.CreateUSBBus(serverHandle, ref busID)) { LibVIIPER.CloseUSBServer(serverHandle); return; }
+    if (!LibVIIPER.CreateUSBBus(serverHandle, ref busID)) {
+        if (!LibVIIPER.CloseUSBServer(serverHandle)) return; // preserve failure evidence
+        return;
+    }
 
-    if (!LibVIIPER.CreateXbox360Device(serverHandle, out nuint deviceHandle, busID, autoAttachLocalhost: true, 0, 0, 0)) { LibVIIPER.CloseUSBServer(serverHandle); return; }
+    if (!LibVIIPER.CreateXbox360Device(serverHandle, out nuint deviceHandle, busID, autoAttachLocalhost: true, 0, 0, 0)) {
+        if (!LibVIIPER.CloseUSBServer(serverHandle)) return; // preserve failure evidence
+        return;
+    }
 
     Xbox360RumbleCallbackDelegate rumbleCb = RumbleCallback;
     LibVIIPER.SetXbox360RumbleCallback(deviceHandle, rumbleCb);
