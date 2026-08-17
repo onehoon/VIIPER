@@ -27,8 +27,10 @@ libVIIPER is a shared library (`libVIIPER.dll` on Windows, `libVIIPER.so` on Lin
 
 ## API Overview
 
-The libVIIPER C API is declared in `libVIIPER.h`.  
-All functions return `bool` (`true` on success, `false` on failure).  
+The libVIIPER C API is declared in the generated `libVIIPER.h`. Boolean
+compatibility APIs coexist with classified `*Ex` APIs that return
+operation-specific result enums. Exact return semantics belong in the
+[fork-specific API guide](fork-api.md).
 Handles (`USBServerHandle`, `Xbox360DeviceHandle`, …) are opaque `uintptr_t` values.
 
 For the fork-specific typed API, ownership, attachment, failure-state, and
@@ -39,7 +41,7 @@ platform rules, see the [Fork-specific API guide](fork-api.md).
 | Function                               | Description                               |
 | -------------------------------------- | ----------------------------------------- |
 | `NewUSBServer(config, &handle, logCb)` | Start a USB server in a background thread |
-| `CloseUSBServer(handle)`               | Stop the server and free all resources    |
+| `CloseUSBServer(handle)`               | Close the server; check the result. A successful close finalizes it; a failed close may retain authoritative resources and leave it `close-failed`. Retry semantics are defined in [fork-api.md](fork-api.md). |
 
 ### Bus management
 
@@ -57,13 +59,13 @@ Full working examples are in [`examples/libVIIPER/`](https://github.com/Alia5/VI
     ```c
     USBServerConfig conf = { .addr = "localhost:3245" };
     USBServerHandle serverHandle = 0;
-    NewUSBServer(&conf, &serverHandle, logCallback);
+    if (!NewUSBServer(&conf, &serverHandle, logCallback)) return 1;
 
     uint32_t busID = 0;
-    CreateUSBBus(serverHandle, &busID);
+    if (!CreateUSBBus(serverHandle, &busID)) { CloseUSBServer(serverHandle); return 1; }
 
     Xbox360DeviceHandle deviceHandle = 0;
-    CreateXbox360Device(serverHandle, &deviceHandle, busID, /*autoAttach=*/true, 0, 0, 0);
+    if (!CreateXbox360Device(serverHandle, &deviceHandle, busID, /*autoAttach=*/true, 0, 0, 0)) { CloseUSBServer(serverHandle); return 1; }
 
     SetXbox360RumbleCallback(deviceHandle, rumbleCallback);
 
@@ -77,19 +79,19 @@ Full working examples are in [`examples/libVIIPER/`](https://github.com/Alia5/VI
         _sleep(16);
     }
 
-    CloseUSBServer(serverHandle);
+    if (!CloseUSBServer(serverHandle)) return 1;
     ```
 
 === "C#"
 
     ```csharp
     USBServerConfig conf = new() { addr = "localhost:3245" };
-    LibVIIPER.NewUSBServer(ref conf, out nuint serverHandle, logCb);
+    if (!LibVIIPER.NewUSBServer(ref conf, out nuint serverHandle, logCb)) return;
 
     uint busID = 0;
-    LibVIIPER.CreateUSBBus(serverHandle, ref busID);
+    if (!LibVIIPER.CreateUSBBus(serverHandle, ref busID)) { LibVIIPER.CloseUSBServer(serverHandle); return; }
 
-    LibVIIPER.CreateXbox360Device(serverHandle, out nuint deviceHandle, busID, autoAttachLocalhost: true, 0, 0, 0);
+    if (!LibVIIPER.CreateXbox360Device(serverHandle, out nuint deviceHandle, busID, autoAttachLocalhost: true, 0, 0, 0)) { LibVIIPER.CloseUSBServer(serverHandle); return; }
 
     Xbox360RumbleCallbackDelegate rumbleCb = RumbleCallback;
     LibVIIPER.SetXbox360RumbleCallback(deviceHandle, rumbleCb);
@@ -104,7 +106,7 @@ Full working examples are in [`examples/libVIIPER/`](https://github.com/Alia5/VI
         Thread.Sleep(16);
     }
 
-    LibVIIPER.CloseUSBServer(serverHandle);
+    if (!LibVIIPER.CloseUSBServer(serverHandle)) return;
     ```
 
     See [`examples/libVIIPER/C#/`](https://github.com/Alia5/VIIPER/tree/main/examples/libVIIPER/C%23) for the full project including P/Invoke declarations.
@@ -117,11 +119,15 @@ Full working examples are in [`examples/libVIIPER/`](https://github.com/Alia5/VI
 - [Switch 2 Pro Controller](../devices/ns2pro.md)
 - [Keyboard](../devices/keyboard.md)
 - [Mouse](../devices/mouse.md)
+- Fork-specific typed Steam Controller and Steam Deck APIs are also exposed;
+  see [fork-api.md](fork-api.md) for their contract.
 
 ### Logging
 
-Pass a `VIIPERLogCallback` to `NewUSBServer` to receive log messages from the library.  
-Pass `NULL` to discard all log output.
+Pass an optional `VIIPERLogCallback` to `NewUSBServer` to observe synchronous
+log messages. `NULL` disables that callback observer only; on Windows the
+library-owned `libVIIPER.log` sink remains independently active when available.
+Logging failures do not affect lifecycle results.
 
 ```c
 typedef enum {

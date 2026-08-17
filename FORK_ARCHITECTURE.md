@@ -184,6 +184,10 @@ just build-libVIIPER Release
 
 Canonical changes require focused tests, lifecycle race coverage, vet, the
 Windows shared-library build, generated-header validation, and export checks.
+Canonical builds also verify that every `//export` declaration in non-test
+`lib/viiper` source is projected into the generated header and, on Windows,
+the DEF and DLL artifacts; this structural check is one-way and does not
+replace the semantic ABI assertions below.
 
 ### Canonical Windows dependency artifact
 
