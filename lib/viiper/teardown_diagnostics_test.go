@@ -320,7 +320,7 @@ func TestRemoveUSBBusDiagnosticsIdentifyUnknownDetachTransition(t *testing.T) {
 	if fmt.Sprint(attrs["detachBackendCalled"]) != "true" || detachCalls != 1 {
 		t.Fatalf("attrs=%v detachCalls=%d", attrs, detachCalls)
 	}
-	if hw.s.GetBus(10043) == nil || hw.deviceHandleRecords[deviceHandle(h)] == nil {
+	if hw.s.GetBus(10043) == nil || hw.deviceHandleRecords[h] == nil {
 		t.Fatal("bus or device ownership was lost")
 	}
 }
