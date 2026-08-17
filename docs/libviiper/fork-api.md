@@ -114,7 +114,10 @@ A typed device created with `autoAttachLocalhost=false` is immediately
 usable in the `detached` state: its `Set*DeviceState` and
 `Set*OutputCallback`/`Set*RumbleCallback` exports accept mutation before the
 device has ever been attached. `AttachUSBDevice` is the only operation that
-performs a Windows localhost attachment; creation itself never does.
+performs a Windows localhost attachment; creation itself neither performs nor
+schedules a delayed or background localhost attachment. A later attachment
+must be explicitly requested through `AttachUSBDevice` or
+`AttachUSBDeviceEx`.
 
 An explicit `DetachUSBDevice` ends only that attachment, not the logical
 device's lifetime. State and callback mutation remain valid on the same

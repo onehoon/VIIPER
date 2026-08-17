@@ -120,6 +120,16 @@ func TestCanonicalAttachTimingIsBehaviorNeutral(t *testing.T) {
 	if fmt.Sprint(attrs["busID"]) != "9500" {
 		t.Fatalf("busID = %v (%T), want 9500", attrs["busID"], attrs["busID"])
 	}
+	for key, want := range map[string]any{
+		"deviceID": 1, "listenPort": hw.s.GetListenPort(),
+		"attachmentStateBefore": "detached", "attachmentStateAfter": "attached",
+		"serverStateBefore": "active", "serverStateAfter": "active",
+		"attachmentBackend": api.LocalhostAttachmentBackendCommand, "importPort": uint16(200),
+	} {
+		if fmt.Sprint(attrs[key]) != fmt.Sprint(want) {
+			t.Fatalf("%s = %v, want %v", key, attrs[key], want)
+		}
+	}
 
 	// Idempotent already-attached: no second backend call, but still exactly one more timing
 	// summary, with backendCalled=false since attachDeviceLockedResult never reaches the backend
@@ -137,6 +147,9 @@ func TestCanonicalAttachTimingIsBehaviorNeutral(t *testing.T) {
 	attrs = recordAttrs(records[1])
 	if attrs["backendCalled"] != false {
 		t.Fatalf("idempotent backendCalled = %v, want false (backend must not be fabricated)", attrs["backendCalled"])
+	}
+	if attrs["attachmentStateBefore"] != "attached" || attrs["attachmentStateAfter"] != "attached" || fmt.Sprint(attrs["importPort"]) != "200" {
+		t.Fatalf("idempotent attachment identity/state = %+v", attrs)
 	}
 }
 
@@ -164,6 +177,9 @@ func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 	if first["result"] != "unsafe-outcome-unknown" || first["backendCalled"] != true {
 		t.Fatalf("first timing attrs = %+v", first)
 	}
+	if first["attachmentStateBefore"] != "detached" || first["attachmentStateAfter"] != "outcome-unknown" || first["serverStateBefore"] != "active" || first["serverStateAfter"] != "close-failed" || fmt.Sprint(first["importPort"]) != "0" {
+		t.Fatalf("first unknown state/token attrs = %+v", first)
+	}
 
 	// Second call must classify the same way, must not touch the backend again, and its timing
 	// summary must report backendCalled=false -- proving the resolver's fast-path (not the
@@ -181,6 +197,33 @@ func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 	second := recordAttrs(records[1])
 	if second["result"] != "unsafe-outcome-unknown" || second["backendCalled"] != false {
 		t.Fatalf("second timing attrs = %+v", second)
+	}
+	if second["attachmentStateBefore"] != "outcome-unknown" || second["attachmentStateAfter"] != "outcome-unknown" || second["serverStateBefore"] != "close-failed" || second["serverStateAfter"] != "close-failed" {
+		t.Fatalf("second unknown state attrs = %+v", second)
+	}
+}
+
+func TestCanonicalAttachTimingKnownFailureRetainsDetachedState(t *testing.T) {
+	hw, handler := newTimingTestServer(t, 9504)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{}, errors.New("known attach failure")
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9504, mustNewTestMouse(t), false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("create failed")
+	}
+	if got := attachUSBDeviceResult(uintptr(h)); got != deviceAttachRetryableFailure {
+		t.Fatalf("result = %d, want retryable failure", got)
+	}
+	records := handler.timingRecords()
+	if len(records) != 1 {
+		t.Fatalf("timing records = %d, want 1", len(records))
+	}
+	attrs := recordAttrs(records[0])
+	if attrs["attachmentStateBefore"] != "detached" || attrs["attachmentStateAfter"] != "detached" || attrs["serverStateBefore"] != "active" || attrs["serverStateAfter"] != "active" || fmt.Sprint(attrs["importPort"]) != "0" {
+		t.Fatalf("known failure state/token attrs = %+v", attrs)
 	}
 }
 
@@ -221,6 +264,9 @@ func TestCanonicalDetachTimingPreservesTokenAndClassification(t *testing.T) {
 	if attrs["operation"] != "detach" || attrs["layer"] != "canonical" || attrs["result"] != "retryable-failure" {
 		t.Fatalf("unexpected timing attrs: %+v", attrs)
 	}
+	if attrs["attachmentStateBefore"] != "attached" || attrs["attachmentStateAfter"] != "attached" || fmt.Sprint(attrs["busID"]) != "9502" {
+		t.Fatalf("detach identity/state = %+v", attrs)
+	}
 	if fmt.Sprint(attrs["attachmentBackend"]) != fmt.Sprint(api.LocalhostAttachmentBackendCommand) || fmt.Sprint(attrs["importPort"]) != "201" {
 		t.Fatalf("timing attrs missing/incorrect detach identity: %+v", attrs)
 	}
@@ -244,6 +290,9 @@ func TestCanonicalDetachTimingPreservesTokenAndClassification(t *testing.T) {
 	successAttrs := recordAttrs(records[1])
 	if successAttrs["result"] != "success" {
 		t.Fatalf("unexpected success timing attrs: %+v", successAttrs)
+	}
+	if successAttrs["attachmentStateBefore"] != "attached" || successAttrs["attachmentStateAfter"] != "detached" || fmt.Sprint(successAttrs["deviceID"]) != "1" {
+		t.Fatalf("successful detach identity/state = %+v", successAttrs)
 	}
 	if fmt.Sprint(successAttrs["attachmentBackend"]) != fmt.Sprint(api.LocalhostAttachmentBackendCommand) || fmt.Sprint(successAttrs["importPort"]) != "201" {
 		t.Fatalf("successful detach timing lost the real token (post-mutation zero value logged instead): %+v", successAttrs)

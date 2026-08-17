@@ -75,6 +75,7 @@ type usbServerHandleWrapper struct {
 	logger                 *slog.Logger
 	rejectionWarnings      map[string]bool
 	onCallbackCleared      func(*deviceHandleWrapper)
+	onAttachLockAttempt    func()
 	closePhase             canonicalClosePhase
 	logicalCloseInProgress bool
 }
@@ -455,6 +456,19 @@ func logCanonicalAttachmentTiming(logger *slog.Logger, operation, result string,
 	logger.Info("attachment-timing", args...)
 }
 
+func attachmentStateName(state deviceAttachmentState) string {
+	switch state {
+	case attachmentDetached:
+		return "detached"
+	case attachmentAttached:
+		return "attached"
+	case attachmentOutcomeUnknown:
+		return "outcome-unknown"
+	default:
+		return "invalid"
+	}
+}
+
 // attachUSBDeviceResult resolves and locks the handle exactly like withActiveDeviceHandle, but
 // returns the classified attachDeviceLockedResult instead of a bare bool so a rejected/invalid
 // handle (deviceAttachInvalid) can never be confused with a zero-value success.
@@ -472,11 +486,16 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	}
 	hw := dhw.usbServer
 	lockWaitStart := time.Now()
+	if hw.onAttachLockAttempt != nil {
+		hw.onAttachLockAttempt()
+	}
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
 
 	var result deviceAttachResult
 	var timing operationTiming
+	stateBefore := dhw.attachment.state
+	serverStateBefore := hw.state
 	switch {
 	case hw.deviceHandleRecords[deviceHandle(handle)] != dhw:
 		result = deviceAttachInvalid
@@ -491,6 +510,11 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	default:
 		result = hw.attachDeviceLockedResult(dhw, &timing)
 	}
+	stateAfter := dhw.attachment.state
+	serverStateAfter := hw.state
+	attachmentBackend := dhw.attachment.attachment.Backend
+	importPort := dhw.attachment.attachment.Port
+	listenPort := hw.s.GetListenPort()
 	// exportMeta is set once at creation and never mutated, but snapshot it into locals anyway
 	// (rather than reading dhw after unlock) so this function never depends on that remaining true.
 	busID, deviceID := dhw.exportMeta.BusID, dhw.exportMeta.DevID
@@ -498,7 +522,10 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	hw.lifecycleMu.Unlock()
 
 	logCanonicalAttachmentTiming(logger, "attach", attachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
-		"busID", busID, "deviceID", deviceID)
+		"busID", busID, "deviceID", deviceID, "listenPort", listenPort,
+		"attachmentStateBefore", attachmentStateName(stateBefore), "attachmentStateAfter", attachmentStateName(stateAfter),
+		"serverStateBefore", serverStateBefore.String(), "serverStateAfter", serverStateAfter.String(),
+		"attachmentBackend", attachmentBackend, "importPort", importPort)
 	return result
 }
 
@@ -528,6 +555,8 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 
 	var result deviceDetachResult
 	var timing operationTiming
+	stateBefore := dhw.attachment.state
+	serverStateBefore := hw.state
 	switch {
 	case hw.deviceHandleRecords[deviceHandle(handle)] != dhw:
 		result = deviceDetachInvalid
@@ -541,10 +570,17 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	default:
 		result = hw.detachDeviceLockedResult(dhw, &timing)
 	}
+	stateAfter := dhw.attachment.state
+	serverStateAfter := hw.state
+	listenPort := hw.s.GetListenPort()
+	busID, deviceID := dhw.exportMeta.BusID, dhw.exportMeta.DevID
 	logger := hw.logger
 	hw.lifecycleMu.Unlock()
 
 	logCanonicalAttachmentTiming(logger, "detach", detachResultTimingLabel(result), timing, time.Since(opStart).Microseconds(), lockWaitUs,
+		"busID", busID, "deviceID", deviceID, "listenPort", listenPort,
+		"attachmentStateBefore", attachmentStateName(stateBefore), "attachmentStateAfter", attachmentStateName(stateAfter),
+		"serverStateBefore", serverStateBefore.String(), "serverStateAfter", serverStateAfter.String(),
 		"attachmentBackend", trackedBackend, "importPort", trackedPort)
 	return result
 }
