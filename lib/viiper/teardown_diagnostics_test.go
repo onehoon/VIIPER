@@ -111,9 +111,13 @@ func TestTypedRemoveDiagnosticsClassifyEveryTeardownPhase(t *testing.T) {
 func TestTypedRemoveDiagnosticsWrongFamilyDoesNotClaimDetachBackend(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10005)
 	h := addTestMouse(t, hw, 10005)
-	if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return false }); got != typedDeviceRemoveInvalid { t.Fatalf("result=%d", got) }
+	if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return false }); got != typedDeviceRemoveInvalid {
+		t.Fatalf("result=%d", got)
+	}
 	attrs := teardownAttrs(t, hlog, "typed-device-remove")
-	if fmt.Sprint(attrs["result"]) != "invalid" || fmt.Sprint(attrs["detachBackendCalled"]) != "false" || attrs["serverStateBefore"] != "active" { t.Fatalf("attrs=%v", attrs) }
+	if fmt.Sprint(attrs["result"]) != "invalid" || fmt.Sprint(attrs["detachBackendCalled"]) != "false" || attrs["serverStateBefore"] != "active" {
+		t.Fatalf("attrs=%v", attrs)
+	}
 }
 
 func newTeardownTestServer(t *testing.T, busID uint32) (*usbServerHandleWrapper, *teardownRecordingHandler) {
