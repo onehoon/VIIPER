@@ -8,6 +8,13 @@ typedef uintptr_t USBServerHandle;
 
 typedef uintptr_t DS4DeviceHandle;
 
+typedef enum {
+    VIIPER_DS4_REMOVE_SUCCESS = 0,
+    VIIPER_DS4_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_DS4_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_DS4_REMOVE_INVALID = 3
+} DS4DeviceRemoveResult;
+
 #define DS4_BUTTON_SQUARE    0x0010u
 #define DS4_BUTTON_CROSS     0x0020u
 #define DS4_BUTTON_CIRCLE    0x0040u
@@ -74,6 +81,7 @@ static void viiper_call_ds4_output(DS4OutputCallback fn, DS4DeviceHandle handle,
 import "C"
 import (
 	"encoding/json"
+	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/dualshock4"
@@ -215,9 +223,24 @@ func SetDS4OutputCallback(handle C.DS4DeviceHandle, cb C.DS4OutputCallback) bool
 //
 //export RemoveDS4Device
 func RemoveDS4Device(handle C.DS4DeviceHandle) bool {
-	return removeDS4Device(uintptr(handle))
+	return removeDS4DeviceResult(uintptr(handle)) == typedDeviceRemoveSuccess
 }
 
 func removeDS4Device(handle uintptr) bool {
-	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*dualshock4.DualShock4); return ok })
+	return removeDS4DeviceResult(handle) == typedDeviceRemoveSuccess
+}
+
+// RemoveDS4DeviceEx returns the classified DualShock 4 removal result.
+//
+//export RemoveDS4DeviceEx
+func RemoveDS4DeviceEx(handle C.DS4DeviceHandle) C.DS4DeviceRemoveResult {
+	return C.DS4DeviceRemoveResult(removeDS4DeviceResult(uintptr(handle)))
+}
+
+func removeDS4DeviceResult(handle uintptr) typedDeviceRemoveResult {
+	return removeTypedDeviceResult(handle, func(device any) bool { _, ok := device.(*dualshock4.DualShock4); return ok })
+}
+
+func ds4DeviceRemoveResultABI() (uintptr, [4]int) {
+	return unsafe.Sizeof(C.DS4DeviceRemoveResult(0)), [4]int{int(C.VIIPER_DS4_REMOVE_SUCCESS), int(C.VIIPER_DS4_REMOVE_RETRYABLE_FAILURE), int(C.VIIPER_DS4_REMOVE_UNSAFE_OUTCOME_UNKNOWN), int(C.VIIPER_DS4_REMOVE_INVALID)}
 }

@@ -8,6 +8,13 @@ typedef uintptr_t USBServerHandle;
 
 typedef uintptr_t KeyboardDeviceHandle;
 
+typedef enum {
+    VIIPER_KEYBOARD_REMOVE_SUCCESS = 0,
+    VIIPER_KEYBOARD_REMOVE_RETRYABLE_FAILURE = 1,
+    VIIPER_KEYBOARD_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2,
+    VIIPER_KEYBOARD_REMOVE_INVALID = 3
+} KeyboardDeviceRemoveResult;
+
 #define KB_MOD_LEFT_CTRL   0x01u
 #define KB_MOD_LEFT_SHIFT  0x02u
 #define KB_MOD_LEFT_ALT    0x04u
@@ -136,6 +143,8 @@ static void viiper_call_kb_led(KeyboardLEDCallback fn, KeyboardDeviceHandle hand
 */
 import "C"
 import (
+	"unsafe"
+
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/keyboard"
 )
@@ -252,9 +261,24 @@ func SetKeyboardLEDCallback(handle C.KeyboardDeviceHandle, cb C.KeyboardLEDCallb
 //
 //export RemoveKeyboardDevice
 func RemoveKeyboardDevice(handle C.KeyboardDeviceHandle) bool {
-	return removeKeyboardDevice(uintptr(handle))
+	return removeKeyboardDeviceResult(uintptr(handle)) == typedDeviceRemoveSuccess
 }
 
 func removeKeyboardDevice(handle uintptr) bool {
-	return removeTypedDevice(handle, func(device any) bool { _, ok := device.(*keyboard.Keyboard); return ok })
+	return removeKeyboardDeviceResult(handle) == typedDeviceRemoveSuccess
+}
+
+// RemoveKeyboardDeviceEx returns the classified keyboard removal result.
+//
+//export RemoveKeyboardDeviceEx
+func RemoveKeyboardDeviceEx(handle C.KeyboardDeviceHandle) C.KeyboardDeviceRemoveResult {
+	return C.KeyboardDeviceRemoveResult(removeKeyboardDeviceResult(uintptr(handle)))
+}
+
+func removeKeyboardDeviceResult(handle uintptr) typedDeviceRemoveResult {
+	return removeTypedDeviceResult(handle, func(device any) bool { _, ok := device.(*keyboard.Keyboard); return ok })
+}
+
+func keyboardDeviceRemoveResultABI() (uintptr, [4]int) {
+	return unsafe.Sizeof(C.KeyboardDeviceRemoveResult(0)), [4]int{int(C.VIIPER_KEYBOARD_REMOVE_SUCCESS), int(C.VIIPER_KEYBOARD_REMOVE_RETRYABLE_FAILURE), int(C.VIIPER_KEYBOARD_REMOVE_UNSAFE_OUTCOME_UNKNOWN), int(C.VIIPER_KEYBOARD_REMOVE_INVALID)}
 }

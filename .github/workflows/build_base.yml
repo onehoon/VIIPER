@@ -310,6 +310,41 @@ jobs:
                   grep -Eq 'VIIPER_XBOX360_REMOVE_INVALID = 3' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern Xbox360DeviceRemoveResult RemoveXbox360DeviceEx\(Xbox360DeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
                   grep -q 'RemoveXbox360DeviceEx' dist/libVIIPER/libVIIPER.def
+                  grep -Eq 'DSDeviceRemoveResult' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS_REMOVE_SUCCESS = 0' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS_REMOVE_RETRYABLE_FAILURE = 1' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS_REMOVE_INVALID = 3' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern DSDeviceRemoveResult RemoveDualSenseDeviceEx\(DSDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'DS4DeviceRemoveResult' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS4_REMOVE_SUCCESS = 0' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS4_REMOVE_RETRYABLE_FAILURE = 1' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS4_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_DS4_REMOVE_INVALID = 3' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern DS4DeviceRemoveResult RemoveDS4DeviceEx\(DS4DeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'NS2ProDeviceRemoveResult' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_NS2PRO_REMOVE_SUCCESS = 0' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_NS2PRO_REMOVE_RETRYABLE_FAILURE = 1' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_NS2PRO_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_NS2PRO_REMOVE_INVALID = 3' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern NS2ProDeviceRemoveResult RemoveNS2ProDeviceEx\(NS2ProDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'KeyboardDeviceRemoveResult' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_KEYBOARD_REMOVE_SUCCESS = 0' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_KEYBOARD_REMOVE_RETRYABLE_FAILURE = 1' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_KEYBOARD_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_KEYBOARD_REMOVE_INVALID = 3' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern KeyboardDeviceRemoveResult RemoveKeyboardDeviceEx\(KeyboardDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'MouseDeviceRemoveResult' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_MOUSE_REMOVE_SUCCESS = 0' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_MOUSE_REMOVE_RETRYABLE_FAILURE = 1' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_MOUSE_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_MOUSE_REMOVE_INVALID = 3' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern MouseDeviceRemoveResult RemoveMouseDeviceEx\(MouseDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -q 'RemoveDualSenseDeviceEx' dist/libVIIPER/libVIIPER.def
+                  grep -q 'RemoveDS4DeviceEx' dist/libVIIPER/libVIIPER.def
+                  grep -q 'RemoveNS2ProDeviceEx' dist/libVIIPER/libVIIPER.def
+                  grep -q 'RemoveKeyboardDeviceEx' dist/libVIIPER/libVIIPER.def
+                  grep -q 'RemoveMouseDeviceEx' dist/libVIIPER/libVIIPER.def
                   export_tool="$(command -v llvm-objdump || command -v objdump)"
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'GetUSBDeviceIdentity'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -qE '\bAttachUSBDevice$'
@@ -327,6 +362,11 @@ jobs:
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamDeckDeviceEx'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamDeckOutputCallback'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveXbox360DeviceEx'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveDualSenseDeviceEx'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveDS4DeviceEx'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveNS2ProDeviceEx'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveKeyboardDeviceEx'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveMouseDeviceEx'
 
             - name: Verify canonical generated header has no trailing whitespace
               shell: bash
