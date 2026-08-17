@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"reflect"
 	"runtime/cgo"
+	"sync"
 	"testing"
 
 	"github.com/Alia5/VIIPER/internal/server/api"
@@ -67,6 +68,23 @@ func installBlockingAttach(t *testing.T, hw *usbServerHandleWrapper, result atta
 	return started, release, &count
 }
 
+func requireContendedLifecycleAttempt(t *testing.T, hw *usbServerHandleWrapper, operation string) <-chan struct{} {
+	t.Helper()
+	contended := make(chan struct{})
+	var once sync.Once
+	hw.onLifecycleLockAttempt = func(attemptedOperation string) {
+		if attemptedOperation != operation {
+			return
+		}
+		if hw.lifecycleMu.TryLock() {
+			hw.lifecycleMu.Unlock()
+			return
+		}
+		once.Do(func() { close(contended) })
+	}
+	return contended
+}
+
 func TestTypedAttachAndRemoveSerializeAcrossDeckAndXbox(t *testing.T) {
 	for i, family := range deckAndXboxLifecycleFamilies {
 		t.Run(family.name, func(t *testing.T) {
@@ -89,7 +107,9 @@ func TestTypedAttachAndRemoveSerializeAcrossDeckAndXbox(t *testing.T) {
 			removeResult := make(chan typedDeviceRemoveResult, 1)
 			go func() { attachResult <- attachUSBDeviceResult(uintptr(h)) }()
 			<-started
+			removeContended := requireContendedLifecycleAttempt(t, hw, "remove")
 			go func() { removeResult <- family.remove(uintptr(h)) }()
+			<-removeContended
 			close(release)
 			if got := <-attachResult; got != deviceAttachSuccess {
 				t.Fatalf("attach=%d", got)
@@ -135,7 +155,9 @@ func TestQueuedRemoveAfterAttachFailureAndUnknown(t *testing.T) {
 					rr := make(chan typedDeviceRemoveResult, 1)
 					go func() { ar <- attachUSBDeviceResult(uintptr(h)) }()
 					<-started
+					removeContended := requireContendedLifecycleAttempt(t, hw, "remove")
 					go func() { rr <- family.remove(uintptr(h)) }()
+					<-removeContended
 					close(release)
 					if got := <-ar; got != tc.wantAttach {
 						t.Fatalf("attach=%d want=%d", got, tc.wantAttach)
@@ -191,7 +213,9 @@ func TestQueuedRemoveAfterExplicitDetachDoesNotDoubleDetach(t *testing.T) {
 			rr := make(chan typedDeviceRemoveResult, 1)
 			go func() { dr <- detachUSBDeviceResult(uintptr(h)) }()
 			<-started
+			removeContended := requireContendedLifecycleAttempt(t, hw, "remove")
 			go func() { rr <- family.remove(uintptr(h)) }()
+			<-removeContended
 			close(release)
 			if <-dr != deviceDetachSuccess || <-rr != typedDeviceRemoveSuccess {
 				t.Fatal("detach/remove failed")
@@ -228,7 +252,9 @@ func TestUnknownDetachAndQueuedRemoveStayFailClosed(t *testing.T) {
 			rr := make(chan typedDeviceRemoveResult, 1)
 			go func() { dr <- detachUSBDeviceResult(uintptr(h)) }()
 			<-started
+			removeContended := requireContendedLifecycleAttempt(t, hw, "remove")
 			go func() { rr <- family.remove(uintptr(h)) }()
+			<-removeContended
 			close(release)
 			if <-dr != deviceDetachUnsafeOutcomeUnknown || <-rr != typedDeviceRemoveUnsafeOutcomeUnknown {
 				t.Fatal("unknown detach classification changed")
@@ -259,7 +285,9 @@ func TestPublicCloseSerializesWithExplicitAttach(t *testing.T) {
 	cr := make(chan bool, 1)
 	go func() { ar <- attachUSBDeviceResult(uintptr(h)) }()
 	<-started
+	closeContended := requireContendedLifecycleAttempt(t, hw, "close")
 	go func() { cr <- closeUSBServerForTest(serverHandle) }()
+	<-closeContended
 	close(release)
 	if <-ar != deviceAttachSuccess || !<-cr {
 		t.Fatal("public attach/close failed")
@@ -291,8 +319,9 @@ func TestPublicCloseTransportPhaseSerializesAndRetries(t *testing.T) {
 	go func() { first <- closeUSBServerForTest(uintptr(h)) }()
 	<-started
 	go func() { second <- closeUSBServerForTest(uintptr(h)) }()
+	secondOK := <-second
 	close(release)
-	firstOK, secondOK := <-first, <-second
+	firstOK := <-first
 	if !firstOK || secondOK || closeCalls != 1 {
 		t.Fatalf("first/second close or duplicate transport close: first=%t second=%t calls=%d", firstOK, secondOK, closeCalls)
 	}

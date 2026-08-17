@@ -75,9 +75,17 @@ type usbServerHandleWrapper struct {
 	logger                 *slog.Logger
 	rejectionWarnings      map[string]bool
 	onCallbackCleared      func(*deviceHandleWrapper)
-	onAttachLockAttempt    func()
+	onLifecycleLockAttempt func(operation string)
 	closePhase             canonicalClosePhase
 	logicalCloseInProgress bool
+}
+
+// notifyLifecycleLockAttempt is a nil-by-default, behavior-neutral seam used only by
+// deterministic lifecycle tests. It runs immediately before the owning server lock is acquired.
+func notifyLifecycleLockAttempt(hw *usbServerHandleWrapper, operation string) {
+	if hw.onLifecycleLockAttempt != nil {
+		hw.onLifecycleLockAttempt(operation)
+	}
 }
 
 type canonicalClosePhase uint8
@@ -375,6 +383,7 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 		return typedDeviceRemoveInvalid
 	}
 	hw := dhw.usbServer
+	notifyLifecycleLockAttempt(hw, "remove")
 	hw.lifecycleMu.Lock()
 	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
 		hw.lifecycleMu.Unlock()
@@ -486,9 +495,7 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	}
 	hw := dhw.usbServer
 	lockWaitStart := time.Now()
-	if hw.onAttachLockAttempt != nil {
-		hw.onAttachLockAttempt()
-	}
+	notifyLifecycleLockAttempt(hw, "attach")
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
 
@@ -544,6 +551,7 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	}
 	hw := dhw.usbServer
 	lockWaitStart := time.Now()
+	notifyLifecycleLockAttempt(hw, "detach")
 	hw.lifecycleMu.Lock()
 	lockWaitUs := time.Since(lockWaitStart).Microseconds()
 

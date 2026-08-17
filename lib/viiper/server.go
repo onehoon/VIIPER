@@ -138,6 +138,7 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	if !ok {
 		return false
 	}
+	notifyLifecycleLockAttempt(hw, "close")
 	hw.lifecycleMu.Lock()
 	if hw.closePhase == transportClosePending {
 		if hw.state != serverCloseFailed {
