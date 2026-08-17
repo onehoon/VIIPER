@@ -25,9 +25,6 @@ type teardownRecordingHandler struct {
 
 func (h *teardownRecordingHandler) Enabled(context.Context, slog.Level) bool { return true }
 func (h *teardownRecordingHandler) Handle(_ context.Context, r slog.Record) error {
-	if !strings.HasSuffix(r.Message, "teardown") {
-		return nil
-	}
 	free := h.hw.lifecycleMu.TryLock()
 	if free {
 		h.hw.lifecycleMu.Unlock()
@@ -109,6 +106,14 @@ func TestTypedRemoveDiagnosticsClassifyEveryTeardownPhase(t *testing.T) {
 			hlog.mu.Unlock()
 		})
 	}
+}
+
+func TestTypedRemoveDiagnosticsWrongFamilyDoesNotClaimDetachBackend(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10005)
+	h := addTestMouse(t, hw, 10005)
+	if got := removeTypedDeviceResult(uintptr(h), func(any) bool { return false }); got != typedDeviceRemoveInvalid { t.Fatalf("result=%d", got) }
+	attrs := teardownAttrs(t, hlog, "typed-device-remove")
+	if fmt.Sprint(attrs["result"]) != "invalid" || fmt.Sprint(attrs["detachBackendCalled"]) != "false" || attrs["serverStateBefore"] != "active" { t.Fatalf("attrs=%v", attrs) }
 }
 
 func newTeardownTestServer(t *testing.T, busID uint32) (*usbServerHandleWrapper, *teardownRecordingHandler) {
@@ -202,4 +207,150 @@ func TestCloseDiagnosticsUnknownRepresentativeAndTransportRetry(t *testing.T) {
 			t.Fatal("close log emitted while lifecycleMu held")
 		}
 	}
+}
+
+func TestRemoveUSBBusDiagnosticsIdentifyActualFailingDevice(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10040)
+	serverHandle := diagnosticServerHandle(t, hw)
+	attachCalls := 0
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		attachCalls++
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(5100 + attachCalls)}, nil
+	}
+	detachCalls := 0
+	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
+		detachCalls++
+		if detachCalls == 2 {
+			return errors.New("device B detach failed")
+		}
+		return nil
+	}
+	a, b := addTestMouse(t, hw, 10040), addTestMouse(t, hw, 10040)
+	if attachUSBDeviceResult(uintptr(a)) != deviceAttachSuccess || attachUSBDeviceResult(uintptr(b)) != deviceAttachSuccess {
+		t.Fatal("attach setup failed")
+	}
+	if callRemoveUSBBusForTest(serverHandle, 10040) {
+		t.Fatal("bus removal unexpectedly succeeded")
+	}
+	attrs := teardownAttrs(t, hlog, "RemoveUSBBus")
+	for key, want := range map[string]string{"result": "retryable-failure", "phase": "detach", "deviceID": "2", "importPort": "5102"} {
+		if fmt.Sprint(attrs[key]) != want {
+			t.Fatalf("%s=%v want=%s", key, attrs[key], want)
+		}
+	}
+}
+
+func TestRemoveUSBBusDiagnosticsIdentifyUnknownPreflightDevice(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10041)
+	serverHandle := diagnosticServerHandle(t, hw)
+	attachCalls := 0
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		attachCalls++
+		if attachCalls == 2 {
+			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
+		}
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5201}, nil
+	}
+	a, b := addTestMouse(t, hw, 10041), addTestMouse(t, hw, 10041)
+	if attachUSBDeviceResult(uintptr(a)) != deviceAttachSuccess {
+		t.Fatal("attach setup failed")
+	}
+	hw.lifecycleMu.Lock()
+	hw.deviceHandleRecords[b].attachment.state = attachmentOutcomeUnknown
+	hw.lifecycleMu.Unlock()
+	if callRemoveUSBBusForTest(serverHandle, 10041) {
+		t.Fatal("unknown bus removal unexpectedly succeeded")
+	}
+	attrs := teardownAttrs(t, hlog, "RemoveUSBBus")
+	if fmt.Sprint(attrs["result"]) != "unsafe-outcome-unknown" || fmt.Sprint(attrs["phase"]) != "preflight" || fmt.Sprint(attrs["deviceID"]) != "2" {
+		t.Fatalf("attrs=%v", attrs)
+	}
+}
+
+func TestRemoveUSBBusDiagnosticsPreserveBusPresenceReconciliation(t *testing.T) {
+	for _, gone := range []bool{false, true} {
+		t.Run(fmt.Sprintf("gone-%t", gone), func(t *testing.T) {
+			hw, hlog := newTeardownTestServer(t, 10042)
+			serverHandle := diagnosticServerHandle(t, hw)
+			hw.ops.removeBus = func(s *usb.Server, busID uint32) error {
+				if gone {
+					_ = s.RemoveBus(busID)
+				}
+				return errors.New("bus backend failed")
+			}
+			if got := callRemoveUSBBusForTest(serverHandle, 10042); got != gone {
+				t.Fatalf("remove result=%t want=%t", got, gone)
+			}
+			attrs := teardownAttrs(t, hlog, "RemoveUSBBus")
+			if gone {
+				if fmt.Sprint(attrs["result"]) != "success" || fmt.Sprint(attrs["busPresentAfter"]) != "false" {
+					t.Fatalf("reconciled attrs=%v", attrs)
+				}
+			} else if fmt.Sprint(attrs["result"]) != "retryable-failure" || fmt.Sprint(attrs["busPresentAfter"]) != "true" {
+				t.Fatalf("present attrs=%v", attrs)
+			}
+		})
+	}
+}
+
+func TestCloseDiagnosticsSuccessRetryAndDeterministicUnknownRepresentative(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		hw, hlog := newTeardownTestServer(t, 10043)
+		h := diagnosticServerHandle(t, hw)
+		if !callCloseUSBServerForTest(h) {
+			t.Fatal("close failed")
+		}
+		attrs := teardownAttrs(t, hlog, "CloseUSBServer")
+		if fmt.Sprint(attrs["result"]) != "success" || fmt.Sprint(attrs["phase"]) != "complete" || fmt.Sprint(attrs["busCountBefore"]) != "1" || fmt.Sprint(attrs["remainingBusCount"]) != "0" {
+			t.Fatalf("attrs=%v", attrs)
+		}
+	})
+	t.Run("transport-retry", func(t *testing.T) {
+		hw, hlog := newTeardownTestServer(t, 10044)
+		h := diagnosticServerHandle(t, hw)
+		calls := 0
+		hw.ops.close = func(*usb.Server) error {
+			calls++
+			if calls == 1 {
+				return errors.New("transport close failed")
+			}
+			return nil
+		}
+		if callCloseUSBServerForTest(h) {
+			t.Fatal("first close unexpectedly succeeded")
+		}
+		first := teardownAttrs(t, hlog, "CloseUSBServer")
+		if fmt.Sprint(first["result"]) != "retryable-failure" || fmt.Sprint(first["phase"]) != "transport-close" || first["error"] != "transport close failed" {
+			t.Fatalf("first attrs=%v", first)
+		}
+		if !callCloseUSBServerForTest(h) {
+			t.Fatal("retry close failed")
+		}
+		second := teardownAttrs(t, hlog, "CloseUSBServer")
+		if fmt.Sprint(second["result"]) != "success" || fmt.Sprint(second["phase"]) != "complete" || fmt.Sprint(second["serverStateBefore"]) != "close-failed" {
+			t.Fatalf("second attrs=%v", second)
+		}
+	})
+	t.Run("unknown-representative", func(t *testing.T) {
+		hw, hlog := newTeardownTestServer(t, 10050)
+		addTestBus(t, hw, 10040)
+		h := diagnosticServerHandle(t, hw)
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
+		}
+		addTestMouse(t, hw, 10050)
+		addTestMouse(t, hw, 10040)
+		hw.lifecycleMu.Lock()
+		for _, id := range []uint32{10050, 10040} {
+			hw.deviceHandleRecords[hw.deviceHandles[id][0]].attachment.state = attachmentOutcomeUnknown
+		}
+		hw.lifecycleMu.Unlock()
+		if callCloseUSBServerForTest(h) {
+			t.Fatal("unknown close unexpectedly succeeded")
+		}
+		attrs := teardownAttrs(t, hlog, "CloseUSBServer")
+		if fmt.Sprint(attrs["busID"]) != "10040" || fmt.Sprint(attrs["unknownAttachmentCount"]) != "2" {
+			t.Fatalf("representative attrs=%v", attrs)
+		}
+	})
 }

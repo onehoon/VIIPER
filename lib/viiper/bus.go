@@ -75,7 +75,6 @@ func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
 	hw.lifecycleMu.Lock()
 	stateBefore := hw.state
 	if hw.state != serverActive {
-		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		stateAfter := hw.state
 		hw.lifecycleMu.Unlock()
 		logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: stateBefore, serverStateAfter: stateAfter}, time.Since(opStart).Microseconds())
@@ -101,7 +100,7 @@ func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 }
 
 func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transportTeardownResult {
-	d := teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: hw.state, serverStateAfter: hw.state, remainingBusCount: len(hw.s.ListBuses())}
+	d := teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: hw.state, serverStateAfter: hw.state, remainingBusCount: len(hw.s.ListBuses()), serverStatePresent: true}
 	if hw.state != serverActive && hw.state != serverClosing {
 		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		return transportTeardownResult{diagnostic: d}
@@ -109,19 +108,15 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 	if hw.s.GetBus(busID) == nil {
 		return transportTeardownResult{diagnostic: d}
 	}
-	d.result = "success"
 	d.deviceCountBefore = len(hw.deviceHandles[busID])
-	for _, h := range hw.deviceHandles[busID] {
-		if dhw := hw.deviceHandleRecords[h]; dhw != nil && dhw.attachment.state != attachmentDetached {
-			d.deviceID = fmt.Sprintf("%d", dhw.exportMeta.DevID)
-			d.attachmentStateBefore = attachmentStateName(dhw.attachment.state)
+	if failed, ok := hw.preflightBusDevicesLocked(busID); !ok {
+		if failed != nil {
+			d.deviceID = fmt.Sprintf("%d", failed.exportMeta.DevID)
+			d.attachmentStateBefore = attachmentStateName(failed.attachment.state)
 			d.attachmentStateAfter = d.attachmentStateBefore
-			d.attachmentBackend = dhw.attachment.attachment.Backend
-			d.importPort = dhw.attachment.attachment.Port
-			break
+			d.attachmentBackend = failed.attachment.attachment.Backend
+			d.importPort = failed.attachment.attachment.Port
 		}
-	}
-	if !hw.preflightBusDevicesLocked(busID) {
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
 			d.result = "unsafe-outcome-unknown"
@@ -132,7 +127,15 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 	if !hw.logicalCloseInProgress {
 		hw.clearBusCallbacksLocked(busID)
 	}
-	if !hw.detachBusDevicesLocked(busID) {
+	if failed, ok, backendCalled := hw.detachBusDevicesLocked(busID); !ok {
+		if failed != nil {
+			d.deviceID = fmt.Sprintf("%d", failed.exportMeta.DevID)
+			d.attachmentStateBefore = attachmentStateName(failed.attachment.state)
+			d.attachmentStateAfter = d.attachmentStateBefore
+			d.attachmentBackend = failed.attachment.attachment.Backend
+			d.importPort = failed.attachment.attachment.Port
+		}
+		d.detachBackendCalled, d.detachBackendCalledPresent = backendCalled, true
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
 			d.result = "unsafe-outcome-unknown"
@@ -154,16 +157,18 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 	}
 	if err := hw.ops.removeBus(hw.s, busID); err != nil {
 		d.backendReportedError = true
+		d.error = err.Error()
 		if hw.s.GetBus(busID) == nil {
 			hw.finalizeBusLocked(busID)
 			for _, dev := range devices {
 				hw.s.ForgetDeviceTransport(dev)
 			}
 			d.phase, d.result, d.busPresentAfter = "complete", "success", false
+			d.busPresentAfter = false
 			d.remainingBusCount = len(hw.s.ListBuses())
 			return transportTeardownResult{ok: true, drains: drains, diagnostic: d}
 		}
-		d.phase, d.result = "bus-remove", "retryable-failure"
+		d.phase, d.result, d.busPresentAfter = "bus-remove", "retryable-failure", true
 		d.serverStateAfter = hw.state
 		return transportTeardownResult{drains: drains, diagnostic: d}
 	}

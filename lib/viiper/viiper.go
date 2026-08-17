@@ -97,29 +97,35 @@ const (
 )
 
 type transportTeardownResult struct {
-	ok         bool
-	drains     []*usb.TransportDrain
-	diagnostic teardownDiagnostic
+	ok                  bool
+	drains              []*usb.TransportDrain
+	diagnostic          teardownDiagnostic
+	detachBackendCalled bool
 }
 
 type teardownDiagnostic struct {
-	operation              string
-	phase                  string
-	result                 string
-	busID                  uint32
-	deviceID               string
-	attachmentStateBefore  string
-	attachmentStateAfter   string
-	serverStateBefore      serverLifecycleState
-	serverStateAfter       serverLifecycleState
-	attachmentBackend      api.LocalhostAttachmentBackend
-	importPort             int32
-	detachBackendCalled    bool
-	deviceCountBefore      int
-	remainingBusCount      int
-	unknownAttachmentCount int
-	backendReportedError   bool
-	busPresentAfter        bool
+	operation                  string
+	phase                      string
+	result                     string
+	busID                      uint32
+	deviceID                   string
+	attachmentStateBefore      string
+	attachmentStateAfter       string
+	serverStateBefore          serverLifecycleState
+	serverStateAfter           serverLifecycleState
+	serverStatePresent         bool
+	busCountBefore             int
+	busCountPresent            bool
+	attachmentBackend          api.LocalhostAttachmentBackend
+	importPort                 int32
+	detachBackendCalled        bool
+	detachBackendCalledPresent bool
+	deviceCountBefore          int
+	remainingBusCount          int
+	unknownAttachmentCount     int
+	backendReportedError       bool
+	busPresentAfter            bool
+	error                      string
 }
 
 func teardownResultLabel(result typedDeviceRemoveResult) string {
@@ -149,9 +155,14 @@ func teardownResultLogLevel(result string) slog.Level {
 }
 
 func logTeardownDiagnostic(logger *slog.Logger, d teardownDiagnostic, totalUs int64) {
-	args := []any{"operation", d.operation, "layer", "canonical", "result", d.result, "phase", d.phase,
-		"serverStateBefore", d.serverStateBefore.String(), "serverStateAfter", d.serverStateAfter.String(),
-		"totalUs", totalUs, "remainingBusCount", d.remainingBusCount}
+	args := []any{"operation", d.operation, "layer", "canonical", "result", d.result, "phase", d.phase, "totalUs", totalUs}
+	if d.serverStatePresent {
+		args = append(args, "serverStateBefore", d.serverStateBefore.String(), "serverStateAfter", d.serverStateAfter.String())
+	}
+	if d.busCountPresent {
+		args = append(args, "busCountBefore", d.busCountBefore)
+	}
+	args = append(args, "remainingBusCount", d.remainingBusCount)
 	if d.busID != 0 {
 		args = append(args, "busID", d.busID)
 	}
@@ -161,7 +172,10 @@ func logTeardownDiagnostic(logger *slog.Logger, d teardownDiagnostic, totalUs in
 	if d.attachmentStateBefore != "" {
 		args = append(args, "attachmentStateBefore", d.attachmentStateBefore, "attachmentStateAfter", d.attachmentStateAfter)
 	}
-	args = append(args, "attachmentBackend", d.attachmentBackend, "importPort", d.importPort, "detachBackendCalled", d.detachBackendCalled)
+	args = append(args, "attachmentBackend", d.attachmentBackend, "importPort", d.importPort)
+	if d.detachBackendCalledPresent {
+		args = append(args, "detachBackendCalled", d.detachBackendCalled)
+	}
 	if d.deviceCountBefore != 0 {
 		args = append(args, "deviceCountBefore", d.deviceCountBefore)
 	}
@@ -170,6 +184,9 @@ func logTeardownDiagnostic(logger *slog.Logger, d teardownDiagnostic, totalUs in
 	}
 	if d.backendReportedError {
 		args = append(args, "backendReportedError", true, "busPresentAfter", d.busPresentAfter)
+	}
+	if d.error != "" {
+		args = append(args, "error", d.error)
 	}
 	logger.Log(context.Background(), teardownResultLogLevel(d.result), d.operation+" teardown", args...)
 }
@@ -430,16 +447,17 @@ func (hw *usbServerHandleWrapper) removeDeviceLocked(dhw *deviceHandleWrapper, h
 
 func (hw *usbServerHandleWrapper) removeDeviceLockedWithDrain(dhw *deviceHandleWrapper, h deviceHandle) transportTeardownResult {
 	hw.clearDeviceCallbackLocked(dhw)
-	if !hw.detachDeviceLocked(dhw) {
-		return transportTeardownResult{}
+	var timing operationTiming
+	if hw.detachDeviceLockedResult(dhw, &timing) != deviceDetachSuccess {
+		return transportTeardownResult{detachBackendCalled: timing.backendCalled}
 	}
 	drain := hw.s.BeginDeviceDrain(dhw.device.(viiperusb.Device))
 	if err := hw.ops.removeDevice(hw.s, dhw.exportMeta.BusID, fmt.Sprintf("%d", dhw.exportMeta.DevID)); err != nil {
-		return transportTeardownResult{drains: []*usb.TransportDrain{drain}}
+		return transportTeardownResult{drains: []*usb.TransportDrain{drain}, detachBackendCalled: timing.backendCalled}
 	}
 	hw.finalizeDeviceLocked(h)
 	hw.s.ForgetDeviceTransport(dhw.device.(viiperusb.Device))
-	return transportTeardownResult{ok: true, drains: []*usb.TransportDrain{drain}}
+	return transportTeardownResult{ok: true, drains: []*usb.TransportDrain{drain}, detachBackendCalled: timing.backendCalled}
 }
 
 func removeTypedDevice(handle uintptr, valid func(any) bool) bool {
@@ -466,6 +484,8 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 	d := teardownDiagnostic{operation: "typed-device-remove", phase: "preflight", serverStateBefore: hw.state, serverStateAfter: hw.state,
 		busID: dhw.exportMeta.BusID, deviceID: fmt.Sprintf("%d", dhw.exportMeta.DevID), attachmentStateBefore: attachmentStateName(stateBefore), attachmentStateAfter: attachmentStateName(stateBefore),
 		attachmentBackend: token.Backend, importPort: token.Port, detachBackendCalled: stateBefore == attachmentAttached}
+	d.serverStatePresent = true
+	d.detachBackendCalledPresent = true
 	if hw.deviceHandleRecords[deviceHandle(handle)] != dhw || !valid(dhw.device) {
 		hw.lifecycleMu.Unlock()
 		d.result = "invalid"
@@ -489,6 +509,7 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 	unsafeOutcome := dhw.attachment.state == attachmentOutcomeUnknown || hw.state == serverCloseFailed
 	d.attachmentStateAfter = attachmentStateName(dhw.attachment.state)
 	d.serverStateAfter = hw.state
+	d.detachBackendCalled = result.detachBackendCalled
 	d.result = "success"
 	d.phase = "complete"
 	if !result.ok {
@@ -753,26 +774,29 @@ func (hw *usbServerHandleWrapper) hasUnknownAttachmentLocked() bool {
 	return false
 }
 
-func (hw *usbServerHandleWrapper) preflightBusDevicesLocked(busID uint32) bool {
+func (hw *usbServerHandleWrapper) preflightBusDevicesLocked(busID uint32) (*deviceHandleWrapper, bool) {
 	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
 		dhw := hw.deviceHandleRecords[h]
 		if dhw == nil || dhw.attachment.state == attachmentOutcomeUnknown {
-			return false
+			return dhw, false
 		}
 	}
-	return true
+	return nil, true
 }
 
-func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) bool {
-	if !hw.preflightBusDevicesLocked(busID) {
-		return false
+func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) (*deviceHandleWrapper, bool, bool) {
+	if dhw, ok := hw.preflightBusDevicesLocked(busID); !ok {
+		return dhw, false, false
 	}
 	for _, h := range slices.Clone(hw.deviceHandles[busID]) {
-		if dhw := hw.deviceHandleRecords[h]; dhw != nil && !hw.detachDeviceLocked(dhw) {
-			return false
+		if dhw := hw.deviceHandleRecords[h]; dhw != nil {
+			var timing operationTiming
+			if hw.detachDeviceLockedResult(dhw, &timing) != deviceDetachSuccess {
+				return dhw, false, timing.backendCalled
+			}
 		}
 	}
-	return true
+	return nil, true, false
 }
 
 func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, rollback func(viiperusb.Device) error, dev viiperusb.Device, reason string) bool {
