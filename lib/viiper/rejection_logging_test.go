@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/Alia5/VIIPER/internal/server/api"
+	viiperusb "github.com/Alia5/VIIPER/usb"
 	"github.com/Alia5/VIIPER/usbip"
+	"github.com/Alia5/VIIPER/virtualbus"
 )
 
 func callCreateUSBBusForTest(handle uintptr, busID uint32) bool {
@@ -53,6 +56,49 @@ func TestRejectedTypedMutationLoggingIsLockSafeAndDeduplicated(t *testing.T) {
 		t.Fatal("rejected mutation unexpectedly succeeded on repeat")
 	}
 	assertRejectionLogsAreLockSafe(t, hlog, 1)
+}
+
+func TestRejectedTypedCreateLoggingIsLockSafeAndDeduplicated(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10064)
+	serverHandle := diagnosticServerHandle(t, hw)
+	hw.lifecycleMu.Lock()
+	hw.state = serverCloseFailed
+	hw.lifecycleMu.Unlock()
+
+	var first, second deviceHandle
+	if createXbox360Device(serverHandle, &first, 10064, false, 0, 0, 0) || createXbox360Device(serverHandle, &second, 10064, false, 0, 0, 0) {
+		t.Fatal("rejected typed creation unexpectedly succeeded")
+	}
+	assertRejectionLogsAreLockSafe(t, hlog, 1)
+}
+
+func TestRollbackFailureLoggingIsLockSafe(t *testing.T) {
+	hw, hlog := newTeardownTestServer(t, 10065)
+	serverHandle := diagnosticServerHandle(t, hw)
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		return api.LocalhostAttachment{}, errors.New("injected attach failure")
+	}
+	hw.ops.rollbackDevice = func(*virtualbus.VirtualBus, viiperusb.Device) error {
+		return errors.New("injected rollback failure")
+	}
+	var handle deviceHandle
+	if createXbox360Device(serverHandle, &handle, 10065, true, 0, 0, 0) {
+		t.Fatal("creation unexpectedly succeeded")
+	}
+	hlog.mu.Lock()
+	defer hlog.mu.Unlock()
+	found := false
+	for i, record := range hlog.records {
+		if strings.Contains(record.Message, "failed to roll back logical device") {
+			found = true
+			if !hlog.lockFree[i] {
+				t.Fatal("rollback error log emitted while lifecycleMu held")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("missing rollback error log")
+	}
 }
 
 func TestRejectedCreateUSBBusLoggingIsLockSafe(t *testing.T) {

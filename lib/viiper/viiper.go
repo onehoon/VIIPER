@@ -298,28 +298,32 @@ func withActiveDeviceHandle(raw uintptr, action func(*deviceHandleWrapper) bool)
 		emitMutationRejectedWarning(warning)
 		return false
 	}
-	ok = action(dhw)
-	hw.lifecycleMu.Unlock()
-	return ok
+	defer hw.lifecycleMu.Unlock()
+	return action(dhw)
 }
 
 func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool) {
+	h, ok, _, _ := hw.createDeviceLockedPublic(busID, dev, autoAttach)
+	return h, ok
+}
+
+func (hw *usbServerHandleWrapper) createDeviceLockedPublic(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool, mutationRejectedWarning, *rollbackDiagnostic) {
 	if hw.state != serverActive {
-		return 0, false
+		return 0, false, hw.takeMutationRejectedWarningLocked("typed-device-create"), nil
 	}
 	bus := hw.s.GetBus(busID)
 	if bus == nil {
-		return 0, false
+		return 0, false, mutationRejectedWarning{}, nil
 	}
 
 	devCtx, err := bus.Add(dev)
 	if err != nil {
-		return 0, false
+		return 0, false, mutationRejectedWarning{}, nil
 	}
 	exportMeta := device.GetDeviceMeta(devCtx)
 	if exportMeta == nil {
-		hw.rollbackCreatedDeviceLocked(busID, 0, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "device metadata was unavailable")
-		return 0, false
+		_, rollback := hw.rollbackCreatedDeviceLockedWithDiagnostic(busID, 0, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "device metadata was unavailable")
+		return 0, false, mutationRejectedWarning{}, rollback
 	}
 	dhw := &deviceHandleWrapper{device: dev, exportMeta: exportMeta, usbServer: hw, attachment: deviceAttachmentRecord{state: attachmentDetached}}
 	h := hw.registerDeviceLocked(dhw)
@@ -327,16 +331,16 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 		if !hw.attachDeviceLocked(dhw) {
 			if dhw.attachment.state == attachmentOutcomeUnknown {
 				hw.state = serverCloseFailed
-				return h, false
+				return h, false, mutationRejectedWarning{}, nil
 			}
-			if !hw.rollbackCreatedDeviceLocked(exportMeta.BusID, exportMeta.DevID, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "auto-attach failure") {
-				return h, false
+			if ok, rollback := hw.rollbackCreatedDeviceLockedWithDiagnostic(exportMeta.BusID, exportMeta.DevID, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "auto-attach failure"); !ok {
+				return h, false, mutationRejectedWarning{}, rollback
 			}
 			hw.finalizeDeviceLocked(h)
-			return 0, false
+			return 0, false, mutationRejectedWarning{}, nil
 		}
 	}
-	return h, true
+	return h, true, mutationRejectedWarning{}, nil
 }
 
 func (hw *usbServerHandleWrapper) registerDeviceLocked(dhw *deviceHandleWrapper) deviceHandle {
@@ -807,13 +811,31 @@ func (hw *usbServerHandleWrapper) detachBusDevicesLocked(busID uint32) (*deviceH
 	return nil, true, false, teardownDiagnostic{}
 }
 
+type rollbackDiagnostic struct {
+	logger   *slog.Logger
+	busID    uint32
+	deviceID uint32
+	reason   string
+	err      string
+}
+
 func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLocked(busID, deviceID uint32, rollback func(viiperusb.Device) error, dev viiperusb.Device, reason string) bool {
+	ok, _ := hw.rollbackCreatedDeviceLockedWithDiagnostic(busID, deviceID, rollback, dev, reason)
+	return ok
+}
+
+func (hw *usbServerHandleWrapper) rollbackCreatedDeviceLockedWithDiagnostic(busID, deviceID uint32, rollback func(viiperusb.Device) error, dev viiperusb.Device, reason string) (bool, *rollbackDiagnostic) {
 	if err := rollback(dev); err == nil {
-		return true
+		return true, nil
 	} else {
 		hw.state = serverCloseFailed
-		hw.logger.Error("failed to roll back logical device", "operation", "typed-device-create", "serverState", hw.state.String(), "busID", busID, "deviceID", deviceID, "reason", reason, "error", err)
-		return false
+		return false, &rollbackDiagnostic{logger: hw.logger, busID: busID, deviceID: deviceID, reason: reason, err: err.Error()}
+	}
+}
+
+func emitRollbackDiagnostic(d *rollbackDiagnostic) {
+	if d != nil {
+		d.logger.Error("failed to roll back logical device", "operation", "typed-device-create", "serverState", serverCloseFailed.String(), "busID", d.busID, "deviceID", d.deviceID, "reason", d.reason, "error", d.err)
 	}
 }
 

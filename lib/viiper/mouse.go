@@ -76,8 +76,10 @@ func CreateMouseDevice(
 		return false
 	}
 	shw.lifecycleMu.Lock()
-	defer shw.lifecycleMu.Unlock()
-	h, ok := shw.createDeviceLocked(busID, d, autoAttachLocalhost)
+	h, ok, warning, rollback := shw.createDeviceLockedPublic(busID, d, autoAttachLocalhost)
+	shw.lifecycleMu.Unlock()
+	emitMutationRejectedWarning(warning)
+	emitRollbackDiagnostic(rollback)
 	if !ok {
 		return false
 	}
