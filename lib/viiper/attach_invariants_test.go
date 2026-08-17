@@ -203,6 +203,9 @@ func TestDetachedReadyTypedConsumerContracts(t *testing.T) {
 		if got := detachUSBDeviceResult(uintptr(h)); got != deviceDetachSuccess || detachCalls != 1 {
 			t.Fatalf("detach result=%d calls=%d, want success/1", got, detachCalls)
 		}
+		if got := detachUSBDeviceResult(uintptr(h)); got != deviceDetachSuccess || detachCalls != 1 {
+			t.Fatalf("idempotent detach result=%d calls=%d, want success/1", got, detachCalls)
+		}
 		if got := attachUSBDeviceResult(uintptr(h)); got != deviceAttachSuccess || attachCalls != 2 {
 			t.Fatalf("reattach result=%d calls=%d, want success/2", got, attachCalls)
 		}
