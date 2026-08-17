@@ -77,7 +77,7 @@ func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
 	if hw.state != serverActive {
 		stateAfter := hw.state
 		hw.lifecycleMu.Unlock()
-		logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: stateBefore, serverStateAfter: stateAfter}, time.Since(opStart).Microseconds())
+		logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: stateBefore, serverStateAfter: stateAfter, serverStatePresent: true}, time.Since(opStart).Microseconds())
 		return false
 	}
 	result := hw.removeBusLockedWithDrains(busID)
