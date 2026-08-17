@@ -164,6 +164,9 @@ jobs:
             - name: Run Steam Deck C callback bridge tests
               run: go test -tags viiper_testbridge ./lib/viiper
 
+            - name: Test canonical tooling
+              run: go test ./lib/viiper/postbuild ./lib/viiper/exportverify
+
             - name: Vet canonical packages
               run: go vet ./device/steamcontroller ./device/steamdeck ./lib/viiper ./internal/server/usb ./virtualbus
 
@@ -201,6 +204,9 @@ jobs:
             - name: Build
               run: |
                   just build-libVIIPER Release
+
+            - name: Verify canonical export projection
+              run: go run ./lib/viiper/exportverify -header dist/libVIIPER/libVIIPER.h
 
             - name: Package
               run: cd dist/libVIIPER && zip libVIIPER-linux-amd64.zip libVIIPER.so libVIIPER.h licenses.txt
@@ -367,6 +373,17 @@ jobs:
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveNS2ProDeviceEx'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveKeyboardDeviceEx'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveMouseDeviceEx'
+
+            - name: Verify canonical export projection
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  export_tool="$(command -v llvm-objdump || command -v objdump)"
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll > dist/libVIIPER/dll-exports.txt
+                  go run ./lib/viiper/exportverify \
+                    -header dist/libVIIPER/libVIIPER.h \
+                    -def dist/libVIIPER/libVIIPER.def \
+                    -dll-output dist/libVIIPER/dll-exports.txt
 
             - name: Verify canonical generated header has no trailing whitespace
               shell: bash
