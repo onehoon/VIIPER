@@ -298,6 +298,13 @@ jobs:
                   grep -Eq 'extern GoUint8 SetSteamDeckDeviceState\(SteamDeckDeviceHandle handle, SteamDeckDeviceState state\);' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern GoUint8 RemoveSteamDeckDevice\(SteamDeckDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
                   grep -Eq 'extern SteamDeckDeviceRemoveResult RemoveSteamDeckDeviceEx\(SteamDeckDeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -q 'Xbox360DeviceRemoveResult' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_XBOX360_REMOVE_SUCCESS = 0' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_XBOX360_REMOVE_RETRYABLE_FAILURE = 1' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_XBOX360_REMOVE_UNSAFE_OUTCOME_UNKNOWN = 2' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'VIIPER_XBOX360_REMOVE_INVALID = 3' dist/libVIIPER/libVIIPER.h
+                  grep -Eq 'extern Xbox360DeviceRemoveResult RemoveXbox360DeviceEx\(Xbox360DeviceHandle handle\);' dist/libVIIPER/libVIIPER.h
+                  grep -q 'RemoveXbox360DeviceEx' dist/libVIIPER/libVIIPER.def
                   export_tool="$(command -v llvm-objdump || command -v objdump)"
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'GetUSBDeviceIdentity'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -qE '\bAttachUSBDevice$'
@@ -314,6 +321,7 @@ jobs:
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamDeckDevice'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveSteamDeckDeviceEx'
                   "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'SetSteamDeckOutputCallback'
+                  "$export_tool" -p dist/libVIIPER/libVIIPER.dll | grep -q 'RemoveXbox360DeviceEx'
 
             - name: Verify canonical generated header has no trailing whitespace
               shell: bash

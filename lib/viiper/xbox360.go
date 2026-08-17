@@ -156,6 +156,15 @@ func xbox360DeviceRemoveResultSize() uintptr {
 	return unsafe.Sizeof(C.Xbox360DeviceRemoveResult(0))
 }
 
+func xbox360DeviceRemoveResultValues() [4]int {
+	return [4]int{
+		int(C.VIIPER_XBOX360_REMOVE_SUCCESS),
+		int(C.VIIPER_XBOX360_REMOVE_RETRYABLE_FAILURE),
+		int(C.VIIPER_XBOX360_REMOVE_UNSAFE_OUTCOME_UNKNOWN),
+		int(C.VIIPER_XBOX360_REMOVE_INVALID),
+	}
+}
+
 // RemoveXbox360DeviceEx returns the classified Xbox360 logical-device removal result.
 // The legacy RemoveXbox360Device bool export remains available for compatibility.
 //

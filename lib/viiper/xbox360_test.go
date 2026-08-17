@@ -9,6 +9,7 @@ import (
 	"github.com/Alia5/VIIPER/device/mouse"
 	"github.com/Alia5/VIIPER/device/xbox360"
 	"github.com/Alia5/VIIPER/internal/server/api"
+	serverusb "github.com/Alia5/VIIPER/internal/server/usb"
 	"github.com/Alia5/VIIPER/usbip"
 )
 
@@ -16,9 +17,8 @@ func TestXbox360ClassifiedRemovalABI(t *testing.T) {
 	if got := xbox360DeviceRemoveResultSize(); got != 4 {
 		t.Fatalf("Xbox360DeviceRemoveResult C ABI size = %d, want 4", got)
 	}
-	if typedDeviceRemoveSuccess != 0 || typedDeviceRemoveRetryableFailure != 1 ||
-		typedDeviceRemoveUnsafeOutcomeUnknown != 2 || typedDeviceRemoveInvalid != 3 {
-		t.Fatal("shared removal result values changed")
+	if got, want := xbox360DeviceRemoveResultValues(), [4]int{0, 1, 2, 3}; got != want {
+		t.Fatalf("Xbox360 C enum values = %v, want %v", got, want)
 	}
 }
 
@@ -64,7 +64,8 @@ func TestXbox360ClassifiedRemovalTypeGuardAndSuccess(t *testing.T) {
 
 func TestXbox360ClassifiedRemovalKnownFailureIsRetryable(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9401)
-	detachCalls := 0
+	detachCalls, callbackClears := 0, 0
+	hw.onCallbackCleared = func(*deviceHandleWrapper) { callbackClears++ }
 	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 91}, nil
 	}
@@ -88,14 +89,42 @@ func TestXbox360ClassifiedRemovalKnownFailureIsRetryable(t *testing.T) {
 	if got := removeXbox360DeviceResult(uintptr(h)); got != typedDeviceRemoveRetryableFailure {
 		t.Fatalf("first result = %d, want retryable failure", got)
 	}
-	if !lookupIdentityExists(uintptr(h)) || hw.state != serverActive {
-		t.Fatal("known failure did not retain an active authoritative handle")
+	if !lookupIdentityExists(uintptr(h)) || hw.state != serverActive || callbackClears != 1 {
+		t.Fatalf("known failure handle=%t state=%s callback clears=%d, want true/active/1", lookupIdentityExists(uintptr(h)), hw.state, callbackClears)
 	}
 	if got := removeXbox360DeviceResult(uintptr(h)); got != typedDeviceRemoveSuccess {
 		t.Fatalf("retry result = %d, want success", got)
 	}
 	if detachCalls != 2 {
 		t.Fatalf("detach calls = %d, want 2", detachCalls)
+	}
+}
+
+func TestXbox360ClassifiedRemovalLogicalFailureIsRetryable(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 9404)
+	removeCalls := 0
+	hw.ops.removeDevice = func(*serverusb.Server, uint32, string) error {
+		removeCalls++
+		if removeCalls == 1 {
+			return errors.New("known logical remove failure")
+		}
+		return nil
+	}
+	pad, err := xbox360.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw.lifecycleMu.Lock()
+	h, ok := hw.createDeviceLocked(9404, pad, false)
+	hw.lifecycleMu.Unlock()
+	if !ok {
+		t.Fatal("Xbox360 creation failed")
+	}
+	if got := removeXbox360DeviceResult(uintptr(h)); got != typedDeviceRemoveRetryableFailure || !lookupIdentityExists(uintptr(h)) {
+		t.Fatalf("first result=%d handle=%t, want retryable/true", got, lookupIdentityExists(uintptr(h)))
+	}
+	if got := removeXbox360DeviceResult(uintptr(h)); got != typedDeviceRemoveSuccess || removeCalls != 2 {
+		t.Fatalf("retry result=%d remove calls=%d, want success/2", got, removeCalls)
 	}
 }
 
