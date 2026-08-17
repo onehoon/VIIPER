@@ -2421,6 +2421,12 @@ immediately; a later failure does not restore or revisit it.</p>
 <li>an unknown attach/detach outcome blocks destructive cleanup and automatic
   retry.</li>
 </ul>
+<p>Canonical teardown diagnostics cover typed removal, <code>RemoveUSBBus</code>, and
+<code>CloseUSBServer</code>. They record the logical identity and tracked attachment
+evidence where relevant, the teardown phase and classified result, and the
+before/after lifecycle state. These records are diagnostic evidence only, are
+not a public ABI contract, and are emitted after the owning lifecycle lock is
+released.</p>
 <h2 id="attachment-api">Attachment API</h2>
 <p>The tracked attachment functions operate on a typed device handle:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kt">bool</span><span class="w"> </span><span class="nf">AttachUSBDevice</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
