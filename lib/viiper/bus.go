@@ -79,22 +79,29 @@ func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
 		return false
 	}
 	hw.lifecycleMu.Lock()
+	backendLogs := newDeferredLogBatch()
+	hw.backendLogLogger = backendLogs.logger
 	stateBefore := hw.state
 	if hw.state != serverActive {
 		stateAfter := hw.state
+		hw.backendLogLogger = nil
 		hw.lifecycleMu.Unlock()
 		logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: stateBefore, serverStateAfter: stateAfter, serverStatePresent: true}, time.Since(opStart).Microseconds())
 		return false
 	}
 	result := hw.removeBusLockedWithDrains(busID)
+	result.backendLogs = backendLogs
+	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
+	operationTotalUs := time.Since(opStart).Microseconds()
+	backendLogs.replay(hw.logger)
 	d := result.diagnostic
 	d.operation = "RemoveUSBBus"
 	if d.serverStateBefore == 0 && stateBefore != serverActive {
 		d.serverStateBefore = stateBefore
 	}
-	logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
+	logTeardownDiagnostic(hw.logger, d, operationTotalUs)
 	return result.ok
 }
 

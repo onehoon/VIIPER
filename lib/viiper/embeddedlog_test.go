@@ -432,7 +432,7 @@ func TestCloseUSBServerFinalLogAndFlushRunAfterLockRelease(t *testing.T) {
 	serverHandle := cgo.NewHandle(hw)
 	serverHandleRecords.Store(uintptr(serverHandle), hw)
 
-	if !hw.finishTransportClose(uintptr(serverHandle), teardownDiagnostic{operation: "CloseUSBServer"}, time.Now()) {
+	if !hw.finishTransportClose(uintptr(serverHandle), teardownDiagnostic{operation: "CloseUSBServer"}, time.Now(), nil) {
 		t.Fatal("finishTransportClose failed")
 	}
 

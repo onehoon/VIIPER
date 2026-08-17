@@ -581,6 +581,13 @@ the embedding application to persist it.
   through this path. Per-input/per-frame state updates and report/publisher
   loops do not log through this mechanism; raw packet logging is a separate,
   off-by-default facility.
+- Canonical tracked attachment/detachment backend records are captured during
+  the serialized native operation and synchronously replayed after the owning
+  `lifecycleMu` is released. The callback remains synchronous and completes
+  before the public lifecycle API returns; this only changes the lock
+  relationship of logging and does not weaken lifecycle serialization. This
+  guarantee is specific to the canonical path and is not a claim about the
+  legacy `clib`/TCP/server logging stack.
 
 ## Minimal C usage
 

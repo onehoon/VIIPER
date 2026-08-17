@@ -143,21 +143,27 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	}
 	notifyLifecycleLockAttempt(hw, "close")
 	hw.lifecycleMu.Lock()
+	backendLogs := newDeferredLogBatch()
+	hw.backendLogLogger = backendLogs.logger
 	stateBefore := hw.state
 	busCountBefore := len(hw.s.ListBuses())
 	if hw.closePhase == transportClosePending {
 		if hw.state != serverCloseFailed {
 			remainingBusCount := len(hw.s.ListBuses())
+			hw.backendLogLogger = nil
 			hw.lifecycleMu.Unlock()
 			logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "CloseUSBServer", phase: "transport-close", result: "invalid", serverStateBefore: stateBefore, serverStateAfter: stateBefore, serverStatePresent: true, busCountBefore: busCountBefore, busCountPresent: true, remainingBusCount: remainingBusCount}, time.Since(opStart).Microseconds())
 			return false
 		}
 		hw.state = serverClosing
 		remainingBusCount := len(hw.s.ListBuses())
+		hw.backendLogLogger = nil
 		hw.lifecycleMu.Unlock()
-		return hw.finishTransportClose(uintptr(handle), teardownDiagnostic{operation: "CloseUSBServer", phase: "transport-close", serverStateBefore: stateBefore, serverStatePresent: true, busCountBefore: busCountBefore, busCountPresent: true, remainingBusCount: remainingBusCount}, opStart)
+		return hw.finishTransportClose(uintptr(handle), teardownDiagnostic{operation: "CloseUSBServer", phase: "transport-close", serverStateBefore: stateBefore, serverStatePresent: true, busCountBefore: busCountBefore, busCountPresent: true, remainingBusCount: remainingBusCount}, opStart, backendLogs)
 	}
 	result := hw.beginLogicalCloseLocked()
+	result.backendLogs = backendLogs
+	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
 	if !result.ok {
@@ -171,7 +177,9 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 		if d.result == "" || d.result == "invalid" {
 			d.result = "retryable-failure"
 		}
-		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
+		operationTotalUs := time.Since(opStart).Microseconds()
+		backendLogs.replay(hw.logger)
+		logTeardownDiagnostic(hw.logger, d, operationTotalUs)
 		return false
 	}
 	d := result.diagnostic
@@ -179,7 +187,7 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	d.serverStateBefore = stateBefore
 	d.serverStatePresent = true
 	d.busCountBefore, d.busCountPresent = busCountBefore, true
-	return hw.finishTransportClose(uintptr(handle), d, opStart)
+	return hw.finishTransportClose(uintptr(handle), d, opStart, backendLogs)
 }
 
 func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownResult {
@@ -241,7 +249,10 @@ func (hw *usbServerHandleWrapper) unknownAttachmentDiagnosticLocked() teardownDi
 	return d
 }
 
-func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr, d teardownDiagnostic, opStart time.Time) bool {
+func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr, d teardownDiagnostic, opStart time.Time, backendLogs *deferredLogBatch) bool {
+	if backendLogs == nil {
+		backendLogs = newDeferredLogBatch()
+	}
 	err := hw.ops.close(hw.s)
 	hw.lifecycleMu.Lock()
 	if err != nil {
@@ -250,7 +261,9 @@ func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr, d teardow
 		d.error = err.Error()
 		d.serverStateAfter, d.remainingBusCount = hw.state, len(hw.s.ListBuses())
 		hw.lifecycleMu.Unlock()
-		logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
+		operationTotalUs := time.Since(opStart).Microseconds()
+		backendLogs.replay(hw.logger)
+		logTeardownDiagnostic(hw.logger, d, operationTotalUs)
 		return false
 	}
 	hw.state = serverClosed
@@ -260,8 +273,10 @@ func (hw *usbServerHandleWrapper) finishTransportClose(handle uintptr, d teardow
 	d.phase, d.result = "complete", "success"
 	d.serverStateAfter, d.remainingBusCount = hw.state, 0
 	hw.lifecycleMu.Unlock()
+	operationTotalUs := time.Since(opStart).Microseconds()
+	backendLogs.replay(hw.logger)
 
-	logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
+	logTeardownDiagnostic(hw.logger, d, operationTotalUs)
 	// Best-effort only, and only after the lock is released: the result is never surfaced and
 	// never changes CloseUSBServer's own result, which has already succeeded by this point. A
 	// stuck/slow filesystem must never make server close itself appear to hang or fail, and must
