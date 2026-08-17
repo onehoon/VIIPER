@@ -2427,6 +2427,8 @@ evidence where relevant, the teardown phase and classified result, and the
 before/after lifecycle state. These records are diagnostic evidence only, are
 not a public ABI contract, and are emitted after the owning lifecycle lock is
 released.</p>
+<p>Rejected mutation warnings are also emitted after the owning lifecycle lock is
+released; only their bounded de-duplication bookkeeping occurs under the lock.</p>
 <h2 id="attachment-api">Attachment API</h2>
 <p>The tracked attachment functions operate on a typed device handle:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kt">bool</span><span class="w"> </span><span class="nf">AttachUSBDevice</span><span class="p">(</span><span class="kt">uintptr_t</span><span class="w"> </span><span class="n">deviceHandle</span><span class="p">);</span>
@@ -2933,8 +2935,8 @@ automation pipeline:</p>
 <a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>  -&gt; notify-addon-dependency.yml validates success/main/push and the exact
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>     40-character head_sha, then sends repository_dispatch
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>     (viiper-canonical-ready) with that commit
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>  -&gt; SteamInputAddonforClaw&#39;s viiper-dependency-update.yml independently
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>     re-verifies the exact commit&#39;s canonical artifact, manifest, and hashes
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>  -&gt; SteamInputAddonforClaw's viiper-dependency-update.yml independently
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>     re-verifies the exact commit's canonical artifact, manifest, and hashes
 <a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>  -&gt; mechanical Draft dependency PR
 <a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>  -&gt; human ABI/runtime review
 <a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>  -&gt; manual merge only
