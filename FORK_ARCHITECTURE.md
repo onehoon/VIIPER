@@ -162,6 +162,9 @@ they remain behavior-neutral. Per-input/per-frame
 paths (state setters, input reports, publisher loops) do not log; raw packet
 logging remains a separate, off-by-default mechanism (`internal/log.RawLogger`).
 
+Rejected mutation warnings use the same boundary: de-duplication state is
+updated under `lifecycleMu`, but the warning is emitted only after unlock.
+
 ## Build and CI
 
 Build the canonical embedded library with:

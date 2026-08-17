@@ -292,17 +292,19 @@ func withActiveDeviceHandle(raw uintptr, action func(*deviceHandleWrapper) bool)
 
 	hw := dhw.usbServer
 	hw.lifecycleMu.Lock()
-	defer hw.lifecycleMu.Unlock()
 	if hw.state != serverActive || hw.deviceHandleRecords[deviceHandle(raw)] != dhw {
-		hw.warnMutationRejectedLocked("typed-device-mutation")
+		warning := hw.takeMutationRejectedWarningLocked("typed-device-mutation")
+		hw.lifecycleMu.Unlock()
+		emitMutationRejectedWarning(warning)
 		return false
 	}
-	return action(dhw)
+	ok = action(dhw)
+	hw.lifecycleMu.Unlock()
+	return ok
 }
 
 func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool) {
 	if hw.state != serverActive {
-		hw.warnMutationRejectedLocked("typed-device-create")
 		return 0, false
 	}
 	bus := hw.s.GetBus(busID)
@@ -638,7 +640,6 @@ func attachUSBDeviceResult(handle uintptr) deviceAttachResult {
 	case dhw.attachment.state == attachmentOutcomeUnknown:
 		result = deviceAttachUnsafeOutcomeUnknown
 	case hw.state != serverActive:
-		hw.warnMutationRejectedLocked("typed-device-mutation")
 		result = deviceAttachInvalid
 	default:
 		result = hw.attachDeviceLockedResult(dhw, &timing)
@@ -699,7 +700,6 @@ func detachUSBDeviceResult(handle uintptr) deviceDetachResult {
 	case dhw.attachment.state == attachmentOutcomeUnknown:
 		result = deviceDetachUnsafeOutcomeUnknown
 	case hw.state != serverActive:
-		hw.warnMutationRejectedLocked("typed-device-mutation")
 		result = deviceDetachInvalid
 	default:
 		result = hw.detachDeviceLockedResult(dhw, &timing)
@@ -832,13 +832,27 @@ func (s serverLifecycleState) String() string {
 	}
 }
 
-func (hw *usbServerHandleWrapper) warnMutationRejectedLocked(operation string) {
+type mutationRejectedWarning struct {
+	logger    *slog.Logger
+	operation string
+	state     string
+	emit      bool
+}
+
+func (hw *usbServerHandleWrapper) takeMutationRejectedWarningLocked(operation string) mutationRejectedWarning {
 	key := operation + ":" + hw.state.String()
 	if hw.rejectionWarnings[key] {
-		return
+		return mutationRejectedWarning{}
 	}
 	hw.rejectionWarnings[key] = true
-	hw.logger.Warn("server mutation rejected", "operation", operation, "serverState", hw.state.String())
+	return mutationRejectedWarning{logger: hw.logger, operation: operation, state: hw.state.String(), emit: true}
+}
+
+func emitMutationRejectedWarning(warning mutationRejectedWarning) {
+	if !warning.emit {
+		return
+	}
+	warning.logger.Warn("server mutation rejected", "operation", warning.operation, "serverState", warning.state)
 }
 
 func (hw *usbServerHandleWrapper) finalizeDeviceLocked(h deviceHandle) {

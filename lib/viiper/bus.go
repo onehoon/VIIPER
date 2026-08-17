@@ -28,13 +28,19 @@ func CreateUSBBus(handle C.USBServerHandle, busID *uint32) bool {
 		return false
 	}
 	hw.lifecycleMu.Lock()
-	defer hw.lifecycleMu.Unlock()
-	return hw.createBusLocked(busID)
+	if hw.state != serverActive {
+		warning := hw.takeMutationRejectedWarningLocked("CreateUSBBus")
+		hw.lifecycleMu.Unlock()
+		emitMutationRejectedWarning(warning)
+		return false
+	}
+	ok = hw.createBusLocked(busID)
+	hw.lifecycleMu.Unlock()
+	return ok
 }
 
 func (hw *usbServerHandleWrapper) createBusLocked(busID *uint32) bool {
 	if hw.state != serverActive {
-		hw.warnMutationRejectedLocked("CreateUSBBus")
 		return false
 	}
 	if busID == nil {
@@ -102,7 +108,6 @@ func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transportTeardownResult {
 	d := teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: hw.state, serverStateAfter: hw.state, remainingBusCount: len(hw.s.ListBuses()), serverStatePresent: true}
 	if hw.state != serverActive && hw.state != serverClosing {
-		hw.warnMutationRejectedLocked("RemoveUSBBus")
 		return transportTeardownResult{diagnostic: d}
 	}
 	if hw.s.GetBus(busID) == nil {
