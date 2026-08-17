@@ -152,10 +152,11 @@ neither the embedding process's global default logger nor any other
 `USBServerHandle` in the same process is ever affected by one server's
 construction.
 
-Routine lifecycle, attach/detach, classified-failure, and PR #26 attachment-
-timing diagnostics are low-volume and always active. Canonical attachment
-timing records include the logical/export identity, tracked attachment token
-identity, and before/after attachment and server lifecycle state. They are
+Routine lifecycle, attach/detach, classified-failure, and teardown diagnostics
+are low-volume and always active. Canonical teardown records cover typed
+removal, bus removal, and server close with the logical identity, tracked
+attachment evidence where relevant, teardown phase, classified result, and
+before/after lifecycle state. Canonical attachment and teardown records are
 snapshotted under the lifecycle lock and emitted after that lock is released;
 they remain behavior-neutral. Per-input/per-frame
 paths (state setters, input reports, publisher loops) do not log; raw packet

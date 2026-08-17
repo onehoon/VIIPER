@@ -8,7 +8,9 @@ typedef uintptr_t USBServerHandle;
 */
 import "C"
 import (
+	"fmt"
 	"slices"
+	"time"
 
 	"github.com/Alia5/VIIPER/internal/server/usb"
 	viiperusb "github.com/Alia5/VIIPER/usb"
@@ -64,19 +66,29 @@ func (hw *usbServerHandleWrapper) createBusLocked(busID *uint32) bool {
 //
 //export RemoveUSBBus
 func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
+	opStart := time.Now()
 	hw, ok := lookupServerHandle(uintptr(handle))
 	if !ok {
+		logTeardownDiagnostic(invalidHandleLoggerFunc(), teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid"}, time.Since(opStart).Microseconds())
 		return false
 	}
 	hw.lifecycleMu.Lock()
+	stateBefore := hw.state
 	if hw.state != serverActive {
-		hw.warnMutationRejectedLocked("RemoveUSBBus")
+		stateAfter := hw.state
 		hw.lifecycleMu.Unlock()
+		logTeardownDiagnostic(hw.logger, teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: stateBefore, serverStateAfter: stateAfter, serverStatePresent: true}, time.Since(opStart).Microseconds())
 		return false
 	}
 	result := hw.removeBusLockedWithDrains(busID)
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
+	d := result.diagnostic
+	d.operation = "RemoveUSBBus"
+	if d.serverStateBefore == 0 && stateBefore != serverActive {
+		d.serverStateBefore = stateBefore
+	}
+	logTeardownDiagnostic(hw.logger, d, time.Since(opStart).Microseconds())
 	return result.ok
 }
 
@@ -88,27 +100,52 @@ func (hw *usbServerHandleWrapper) removeBusLocked(busID uint32) bool {
 }
 
 func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transportTeardownResult {
+	d := teardownDiagnostic{operation: "RemoveUSBBus", phase: "preflight", result: "invalid", busID: busID, serverStateBefore: hw.state, serverStateAfter: hw.state, remainingBusCount: len(hw.s.ListBuses()), serverStatePresent: true}
 	if hw.state != serverActive && hw.state != serverClosing {
 		hw.warnMutationRejectedLocked("RemoveUSBBus")
-		return transportTeardownResult{}
+		return transportTeardownResult{diagnostic: d}
 	}
 	if hw.s.GetBus(busID) == nil {
-		return transportTeardownResult{}
+		return transportTeardownResult{diagnostic: d}
 	}
-	if !hw.preflightBusDevicesLocked(busID) {
+	d.deviceCountBefore = len(hw.deviceHandles[busID])
+	if failed, ok := hw.preflightBusDevicesLocked(busID); !ok {
+		if failed != nil {
+			d.deviceID = fmt.Sprintf("%d", failed.exportMeta.DevID)
+			d.attachmentStateBefore = attachmentStateName(failed.attachment.state)
+			d.attachmentStateAfter = d.attachmentStateBefore
+			d.attachmentBackend = failed.attachment.attachment.Backend
+			d.importPort = failed.attachment.attachment.Port
+		}
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
+			d.result = "unsafe-outcome-unknown"
 		}
-		return transportTeardownResult{}
+		d.serverStateAfter = hw.state
+		return transportTeardownResult{diagnostic: d}
 	}
 	if !hw.logicalCloseInProgress {
 		hw.clearBusCallbacksLocked(busID)
 	}
-	if !hw.detachBusDevicesLocked(busID) {
+	if failed, ok, _, failureDiagnostic := hw.detachBusDevicesLocked(busID); !ok {
+		if failed != nil {
+			d.deviceID = failureDiagnostic.deviceID
+			d.attachmentStateBefore = failureDiagnostic.attachmentStateBefore
+			d.attachmentStateAfter = failureDiagnostic.attachmentStateAfter
+			d.attachmentBackend = failureDiagnostic.attachmentBackend
+			d.importPort = failureDiagnostic.importPort
+			d.detachBackendCalled = failureDiagnostic.detachBackendCalled
+			d.detachBackendCalledPresent = failureDiagnostic.detachBackendCalledPresent
+		}
 		if hw.hasUnknownAttachmentLocked() {
 			hw.state = serverCloseFailed
+			d.result = "unsafe-outcome-unknown"
+		} else {
+			d.result = "retryable-failure"
 		}
-		return transportTeardownResult{}
+		d.phase = "detach"
+		d.serverStateAfter = hw.state
+		return transportTeardownResult{diagnostic: d}
 	}
 	var drains []*usb.TransportDrain
 	var devices []viiperusb.Device
@@ -120,19 +157,28 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 		}
 	}
 	if err := hw.ops.removeBus(hw.s, busID); err != nil {
+		d.backendReportedError = true
+		d.error = err.Error()
 		if hw.s.GetBus(busID) == nil {
 			hw.finalizeBusLocked(busID)
 			for _, dev := range devices {
 				hw.s.ForgetDeviceTransport(dev)
 			}
-			return transportTeardownResult{ok: true, drains: drains}
+			d.phase, d.result, d.busPresentAfter = "complete", "success", false
+			d.busPresentAfter = false
+			d.remainingBusCount = len(hw.s.ListBuses())
+			return transportTeardownResult{ok: true, drains: drains, diagnostic: d}
 		}
-		return transportTeardownResult{drains: drains}
+		d.phase, d.result, d.busPresentAfter = "bus-remove", "retryable-failure", true
+		d.serverStateAfter = hw.state
+		return transportTeardownResult{drains: drains, diagnostic: d}
 	}
 	hw.finalizeBusLocked(busID)
 	for _, dev := range devices {
 		hw.s.ForgetDeviceTransport(dev)
 	}
 
-	return transportTeardownResult{ok: true, drains: drains}
+	d.phase, d.result = "complete", "success"
+	d.remainingBusCount = len(hw.s.ListBuses())
+	return transportTeardownResult{ok: true, drains: drains, diagnostic: d}
 }

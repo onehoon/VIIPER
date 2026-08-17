@@ -167,6 +167,13 @@ If transport or logical teardown fails:
 - an unknown attach/detach outcome blocks destructive cleanup and automatic
   retry.
 
+Canonical teardown diagnostics cover typed removal, `RemoveUSBBus`, and
+`CloseUSBServer`. They record the logical identity and tracked attachment
+evidence where relevant, the teardown phase and classified result, and the
+before/after lifecycle state. These records are diagnostic evidence only, are
+not a public ABI contract, and are emitted after the owning lifecycle lock is
+released.
+
 ## Attachment API
 
 The tracked attachment functions operate on a typed device handle:
