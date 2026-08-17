@@ -66,6 +66,13 @@ Canonical server wrappers use `active`, `closing`, `close-failed`, and
 `closed` lifecycle states. Server-owned mutation APIs share one lifecycle
 boundary. Partial close is fail-closed.
 
+Typed lifecycle mutations owned by one server are serialized at that server's
+`lifecycleMu` boundary. A later operation observes the authoritative
+attachment state and exact token committed by the earlier operation; it does
+not act on a pre-lock snapshot. `close-failed` is server-scoped: it blocks
+ordinary mutation for every typed device owned by that server while retaining
+diagnostic ownership evidence.
+
 `CloseUSBServer` establishes the closing boundary before taking its
 authoritative bus snapshot, tears down buses in ascending BusID order, and
 waits for callback and managed USB/IP transport work before returning.
@@ -77,6 +84,11 @@ Attached typed devices store their exact attachment backend and positive
 usbip-win2 import port. Detach uses that stored token only. Unknown attach or
 detach outcomes transition the owning server to `close-failed`; no destructive
 automatic retry is attempted.
+
+Separate `USBServerHandle` instances have independent lifecycle state. Within
+one process, `virtualbus` BusID allocation is process-global, so same-process
+isolation tests and callers must use distinct BusIDs; this does not establish
+cross-process BusID coordination.
 
 ## Diagnostic logging
 

@@ -108,6 +108,15 @@ diagnostic/identity operations and retry `CloseUSBServer` according to the
 failure state. A failed close is fail-closed; callers must not recreate buses,
 retry an unknown attachment outcome, or continue normal mutation.
 
+All typed mutations owned by one `USBServerHandle` serialize at that server's
+lifecycle boundary. A queued operation observes the committed attachment
+state and exact backend/import token from the operation before it. The
+`close-failed` state is server-wide: it blocks ordinary mutation for every
+device on that server while preserving diagnostic evidence. Different
+`USBServerHandle` instances have independent lifecycle state. Because
+`virtualbus` BusID allocation is process-global, same-process tests and users
+must use distinct BusIDs; this is not a cross-process coordination guarantee.
+
 ### Detached-ready typed devices
 
 A typed device created with `autoAttachLocalhost=false` is immediately
