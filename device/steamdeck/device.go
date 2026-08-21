@@ -387,16 +387,22 @@ func fillSettings(buf []byte, settings map[uint8]uint16) byte {
 }
 
 func (d *SteamDeck) fillAttributesLocked(buf []byte) byte {
+	// The values and order follow an observed real Steam Deck response:
+	// InputPlumber identifies its bytes as real-device output, and HHD uses the
+	// same nine entries. Preserve the unknown 0x0D/0x0C/0x0E tags byte-for-byte.
 	entries := []struct {
 		tag   byte
 		value uint32
 	}{
-		{tag: AttributeUniqueID, value: d.controller.uniqueID},
 		{tag: AttributeProductID, value: uint32(d.descriptor.Device.IDProduct)},
-		{tag: AttributeCapabilities, value: CapabilityGamepad},
-		{tag: AttributeFirmwareBuildTime, value: d.controller.firmwareTime},
-		{tag: AttributeBoardRevision, value: d.controller.boardRev},
+		{tag: AttributeCapabilities, value: 0},
+		{tag: AttributeBootloaderBuildTime, value: 0x62a9122b},
+		{tag: AttributeFirmwareBuildTime, value: 0x677c61b7},
+		{tag: AttributeBoardRevision, value: 0x2e},
 		{tag: AttributeConnectionIntervalUs, value: 4000},
+		{tag: attributeUnknown0D, value: 0},
+		{tag: attributeUnknown0C, value: 0},
+		{tag: attributeUnknown0E, value: 0},
 	}
 
 	offset := 0

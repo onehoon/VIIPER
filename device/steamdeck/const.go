@@ -75,6 +75,13 @@ const (
 	AttributeFirmwareBuildTime    = 0x04
 	AttributeBoardRevision        = 0x09
 	AttributeConnectionIntervalUs = 0x0b
+	AttributeBootloaderBuildTime  = 0x0a
+
+	// These observed real-device tags intentionally remain unnamed until their
+	// semantics are established.
+	attributeUnknown0D = 0x0d
+	attributeUnknown0C = 0x0c
+	attributeUnknown0E = 0x0e
 )
 
 const (

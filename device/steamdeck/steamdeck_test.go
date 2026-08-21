@@ -10,6 +10,7 @@ import (
 	"time"
 
 	viiperTesting "github.com/Alia5/VIIPER/_testing"
+	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/steamdeck"
 	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/internal/server/api/handler"
@@ -903,11 +904,31 @@ func TestFeatureResponses(t *testing.T) {
 		return
 	}
 	assert.Equal(t, byte(steamdeck.FeatureGetAttributesValues), resp[0])
-	assert.Equal(t, byte(30), resp[1])
-	assert.Equal(t, byte(steamdeck.AttributeProductID), resp[7])
-	assert.Equal(t, uint32(steamdeck.DefaultPID), binary.LittleEndian.Uint32(resp[8:12]))
-	assert.Equal(t, byte(steamdeck.AttributeConnectionIntervalUs), resp[27])
-	assert.Equal(t, uint32(4000), binary.LittleEndian.Uint32(resp[28:32]))
+	expected := []byte{
+		steamdeck.FeatureGetAttributesValues, 0x2d,
+		0x01, 0x05, 0x12, 0x00, 0x00,
+		0x02, 0x00, 0x00, 0x00, 0x00,
+		0x0a, 0x2b, 0x12, 0xa9, 0x62,
+		0x04, 0xb7, 0x61, 0x7c, 0x67,
+		0x09, 0x2e, 0x00, 0x00, 0x00,
+		0x0b, 0xa0, 0x0f, 0x00, 0x00,
+		0x0d, 0x00, 0x00, 0x00, 0x00,
+		0x0c, 0x00, 0x00, 0x00, 0x00,
+		0x0e, 0x00, 0x00, 0x00, 0x00,
+	}
+	assert.Equal(t, expected, resp[:len(expected)])
+	assert.Equal(t, make([]byte, steamdeck.InputReportLen-len(expected)), resp[len(expected):])
+
+	customPID := uint16(0x4321)
+	custom, err := steamdeck.New(&device.CreateOptions{IDProduct: &customPID})
+	if !assert.NoError(t, err) {
+		return
+	}
+	customResp, handled := custom.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetAttributesValues), 0, steamdeck.InputReportLen, nil)
+	if !assert.True(t, handled) {
+		return
+	}
+	assert.Equal(t, uint32(customPID), binary.LittleEndian.Uint32(customResp[3:7]))
 
 	resp, handled = dev.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetStringAttribute), 0, steamdeck.InputReportLen, nil)
 	if !assert.True(t, handled) {
