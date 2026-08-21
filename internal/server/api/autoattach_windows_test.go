@@ -62,6 +62,27 @@ func TestNativeAttachResponseRequiresExactOwnershipToken(t *testing.T) {
 	}
 }
 
+func TestAttachViaIOCTLUsesIPv4LoopbackEndpoint(t *testing.T) {
+	meta := &usbip.ExportMeta{BusID: 1, DevID: 2}
+	var host [niMaxHost]byte
+	ops := nativeAttachOps{
+		discoverDevicePath: func() (string, error) { return "fake-device-path", nil },
+		openDevice:         func(string) (windows.Handle, error) { return windows.Handle(1), nil },
+		closeDevice:        func(windows.Handle) error { return nil },
+		pluginHardware: func(_ windows.Handle, data *attachIOCTL) (uint32, error) {
+			copy(host[:], data.Host[:])
+			data.PortOutput = 55
+			return attachPortOutputLength, nil
+		},
+	}
+	if _, err := attachViaIOCTLWithOps(meta, 3241, slog.Default(), ops); err != nil {
+		t.Fatalf("native attach failed: %v", err)
+	}
+	if got := string(host[:len("127.0.0.1")]); got != "127.0.0.1" {
+		t.Fatalf("native host = %q, want 127.0.0.1", got)
+	}
+}
+
 // These tests exercise the native-ioctl/command breakdown timing entirely through the
 // nativeAttachOps/nativeDetachOps/commandRunner fake seams -- they never touch the real
 // usbip-win2 driver, SetupAPI, DeviceIoControl, or a real usbip.exe process, and never skip.

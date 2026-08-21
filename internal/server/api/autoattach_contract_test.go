@@ -102,7 +102,7 @@ func TestParseUSBIPTerseAttachPort(t *testing.T) {
 
 func TestUSBIPCommandArgumentsTargetOneExactPort(t *testing.T) {
 	attach := usbipAttachCommandArgs(3241, "9-12")
-	wantAttach := []string{"--tcp-port", "3241", "attach", "-r", "localhost", "-b", "9-12", "--terse"}
+	wantAttach := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", "--terse"}
 	if !reflect.DeepEqual(attach, wantAttach) {
 		t.Fatalf("attach arguments = %#v, want %#v", attach, wantAttach)
 	}
