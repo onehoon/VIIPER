@@ -18,9 +18,10 @@ architectural source of truth for the fork.
   Xbox360 and the other supported device families.
 - `AttachUSBDevice` and `DetachUSBDevice` provide tracked localhost USB/IP
   attachment lifecycle for typed device handles on Windows.
-- The tracked native ABI is pinned to usbip-win2 `v0.9.7.7`
-  (`7c219953101cc5d0ec9a0bcb3eb87259cf72bedd`). Later versions are unsupported
-  until their ABI and runtime behavior are explicitly validated.
+- The tracked native ABI is pinned to usbip-win2 `v0.9.8.0`
+  (`83bd1f781d57ed6efdf15530c55710cf5d4482bc`). Windows localhost attach
+  always selects the low-latency receive path; older and later package versions
+  are not claimed compatible by this fork.
 - Non-Windows builds remain ABI-compatible, but tracked localhost attachment
   is unsupported and fails safely without recording ownership.
 - `clib/` remains a compatibility flat API. New integrations must not use it

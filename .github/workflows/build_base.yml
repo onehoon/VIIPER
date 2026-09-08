@@ -257,6 +257,11 @@ jobs:
               run: |
                   just build-libVIIPER Release
 
+            - name: Run Windows attachment contract tests
+              shell: bash
+              run: |
+                  go test -count=1 ./internal/server/api
+
             - name: Verify canonical C ABI
               shell: bash
               run: |

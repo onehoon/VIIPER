@@ -15,14 +15,14 @@ matching header under `dist/libVIIPER/`.
 | --- | --- | --- |
 | Typed virtual device creation | Supported | Compile-compatible; validate the target USB/IP client separately |
 | Typed device state and callbacks | Supported | Compile-compatible; runtime support depends on the USB/IP client |
-| Tracked localhost `AttachUSBDevice` / `DetachUSBDevice` | Supported with usbip-win2 `v0.9.7.7` | Not provided by this fork |
+| Tracked localhost `AttachUSBDevice` / `DetachUSBDevice` | Supported with usbip-win2 `v0.9.8.0` | Not provided by this fork |
 | Caller-owned bus lifetime | Supported | Same canonical lifecycle contract |
 
-The tracked Windows attachment ABI is pinned to usbip-win2 `v0.9.7.7`, commit
-`7c219953101cc5d0ec9a0bcb3eb87259cf72bedd`. Version `v0.9.7.8` is intentionally
-unsupported because the upstream release carried a memory-corruption/BSOD
-warning. Later versions require explicit ABI and runtime validation before
-they can be considered compatible.
+The tracked Windows attachment ABI is pinned to usbip-win2 `v0.9.8.0`, commit
+`83bd1f781d57ed6efdf15530c55710cf5d4482bc`. Windows localhost attach always
+uses the low-latency receive path. The fork does not claim compatibility with
+older or later package versions until their ABI and runtime behavior are
+explicitly validated.
 
 Non-Windows builds remain compile-compatible, but they must fail safely for
 tracked localhost attachment. They must not record a fake attachment token or
