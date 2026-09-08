@@ -1,0 +1,2299 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — PR3: Fix usbip-win2 0.9.8.0 MSVC plugin_hardware ABI Padding - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-pr3-fix-usbip-win2-0980-msvc-plugin_hardware-abi-padding" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — PR3: Fix usbip-win2 0.9.8.0 MSVC plugin_hardware ABI Padding
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-pr3-fix-usbip-win2-0980-msvc-plugin_hardware-abi-padding">Work Order — PR3: Fix usbip-win2 0.9.8.0 MSVC <code>plugin_hardware</code> ABI Padding</h1>
+<h2 id="status">Status</h2>
+<p>Implementation work order for a <strong>hardware-reproduced production blocker</strong> in the Steam Addon for Claw integration.</p>
+<p>Target repository:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>repository: onehoon/VIIPER
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>branch:     main
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>baseline:   e00fbf01277a2c354a32b0e54418a9bd917a05ae
+</code></pre></div>
+<p>This work order is a focused correction to the usbip-win2 <code>v0.9.8.0</code> migration implemented by the previous VIIPER PR.</p>
+<p>It does <strong>not</strong> redesign attachment ownership, fallback behavior, low-latency policy, VIIPER lifecycle, or the public C ABI.</p>
+<hr />
+<h1 id="1-goal">1. Goal</h1>
+<p>Fix the Windows native <code>PLUGIN_HARDWARE</code> request layout so VIIPER sends the exact Microsoft C++ ABI layout expected by usbip-win2 <code>v0.9.8.0</code>.</p>
+<p>The current Go binding incorrectly models the upstream C++ multiple-inheritance layout as a flat C-style concatenation and therefore omits the tail padding of the <code>imported_device_location</code> base subobject.</p>
+<p>Current broken native request:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Serial offset     = 1097
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>WskEvents offset  = 1113
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>input size        = 1116
+</code></pre></div>
+<p>Required usbip-win2 <code>v0.9.8.0</code> Windows/MSVC layout:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Size offset       = 0
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>PortOutput offset = 4
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>BusID offset      = 8
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Service offset    = 40
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Host offset       = 72
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>Serial offset     = 1100
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>WskEvents offset  = 1116
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>WskEvents size    = 1
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>struct size       = 1120
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>output prefix     = 8
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>plugoutIOCTL size = 8
+</code></pre></div>
+<p>After this PR:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>native tracked attach → exact v0.9.8.0 ABI request → low-latency flag true
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>known pre-submit failure → existing single command fallback policy remains unchanged
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>submitted native IOCTL with unknown result → existing fail-close policy remains unchanged
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>successful attach → exact positive imported port ownership remains unchanged
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>public libVIIPER C ABI → unchanged
+</code></pre></div>
+<hr />
+<h1 id="2-why-this-is-a-blocker">2. Why this is a blocker</h1>
+<p>2026-09-09 MSI Claw hardware validation reproduced the following real product lifecycle:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>usbip-win2 0.9.8.0 installed and accepted as Ready
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Center M Disabled
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>PID1902 physical controller present
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>DirectInput acquire succeeds
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>first physical input read succeeds
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>HidHide isolation succeeds
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>physical Addon ownership becomes Owned
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>Xbox360 presentation selected
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>VIIPER native PLUGIN_HARDWARE attach attempted
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>usbip-win2 interface discovered
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>control-device handle opened
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>DeviceIoControl fails immediately
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>attachment classified ErrAttachmentOutcomeUnknown
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>canonical runtime fails closed
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>virtual Xbox360 presentation never appears
+</code></pre></div>
+<p>Because the physical PID1902 controller is correctly hidden by HidHide while the virtual presentation is absent, the user experiences this as <strong>no usable controller at all</strong>.</p>
+<p>This is not a theoretical timing race. It is a deterministic ABI mismatch on the normal supported Full1902 startup path.</p>
+<p>The Full1902 product contract still requires:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Center M Disabled
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>→ Addon owns PID1902
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>→ physical input is isolated
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>→ exactly one VIIPER virtual presentation is live
+</code></pre></div>
+<p>Do not weaken HidHide isolation or fail-close behavior to mask the attach failure. Fix the native ABI request.</p>
+<hr />
+<h1 id="3-root-cause">3. Root cause</h1>
+<h2 id="31-upstream-abi-source-of-truth">3.1 Upstream ABI source of truth</h2>
+<p>Use exactly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>repository: vadimgrn/usbip-win2
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>tag:        v.0.9.8.0
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>commit:     83bd1f781d57ed6efdf15530c55710cf5d4482bc
+</code></pre></div>
+<p>Relevant upstream files:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>include/usbip/vhci.h
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>userspace/libusbip/src/vhci.cpp
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>drivers/ude/vhci_ioctl.cpp
+</code></pre></div>
+<p>Upstream defines:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">base</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="p">{</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="n">ULONG</span><span class="w"> </span><span class="n">size</span><span class="p">;</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">};</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">struct</span><span class="w"> </span><span class="nc">imported_device_location</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">{</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">port</span><span class="p">;</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">busid</span><span class="p">[</span><span class="n">BUS_ID_SIZE</span><span class="p">];</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">service</span><span class="p">[</span><span class="mi">32</span><span class="p">];</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">host</span><span class="p">[</span><span class="mi">1025</span><span class="p">];</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="p">};</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="k">struct</span><span class="w"> </span><span class="nc">plugin_hardware</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">base</span><span class="p">,</span><span class="w"> </span><span class="n">imported_device_location</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="p">{</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">serial</span><span class="p">[</span><span class="n">SERIAL_BUFSZ</span><span class="p">];</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">wsk_events</span><span class="p">;</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="p">};</span>
+</code></pre></div>
+<p>The important detail is that this is <strong>C++ multiple inheritance</strong>, not a flat packed C struct.</p>
+<h2 id="32-the-missed-base-subobject-padding">3.2 The missed base-subobject padding</h2>
+<p>The raw fields of <code>imported_device_location</code> occupy:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>port       4 bytes
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>busid     32 bytes
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>service   32 bytes
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>host    1025 bytes
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>-----------------
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>raw      1093 bytes
+</code></pre></div>
+<p>That base type has 4-byte alignment because it contains <code>int port</code>.</p>
+<p>Therefore its C++ object size is rounded to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sizeof(imported_device_location) = 1096
+</code></pre></div>
+<p>In <code>plugin_hardware</code>, the second base begins at offset 4:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>base                         offset    0, size 4
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>imported_device_location     offset    4, size 1096
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>next derived member          offset 1100
+</code></pre></div>
+<p>So the three bytes after <code>host[1025]</code> are <strong>base-subobject tail padding</strong> and are preserved before the derived <code>serial</code> member.</p>
+<p>The correct Windows/MSVC layout is therefore:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>0       size[4]
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>4       port[4]
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>8       busid[32]
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>40      service[32]
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>72      host[1025]
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>1097    &lt;3 bytes imported_device_location tail padding&gt;
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>1100    serial[16]
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>1116    wsk_events[1]
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>1117    &lt;3 bytes final object padding&gt;
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>1120    end
+</code></pre></div>
+<h2 id="33-independent-compiler-verification">3.3 Independent compiler verification</h2>
+<p>The upstream record definition was independently checked with Clang using the Microsoft x64 ABI target:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>clang++ -target x86_64-pc-windows-msvc -std=c++20 \
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>  -Xclang -fdump-record-layouts -fsyntax-only layout.cpp
+</code></pre></div>
+<p>The compiler record layout is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>0    struct plugin_hardware
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>0      struct base (base)
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>0        UINT32 size
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>4      struct imported_device_location (base)
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>4        int port
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>8        char[32] busid
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>40       char[32] service
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>72       char[1025] host
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>1100   char[16] serial
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>1116   bool wsk_events
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>       [sizeof=1120, align=4]
+</code></pre></div>
+<p>This is the contract the Go binding must reproduce.</p>
+<h2 id="34-why-the-current-tests-passed-while-hardware-failed">3.4 Why the current tests passed while hardware failed</h2>
+<p>The previous PR work order incorrectly stated:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>Serial offset    = 1097
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>WskEvents offset = 1113
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>struct size      = 1116
+</code></pre></div>
+<p>and explicitly instructed implementation not to add manual padding.</p>
+<p>The Windows unit tests then pinned those incorrect values.</p>
+<p>Current code therefore consistently proves only that Go matches the earlier mistaken calculation, not that Go matches the upstream C++ ABI.</p>
+<p>This PR3 supersedes the previous work order <strong>only for the numeric <code>plugin_hardware</code> layout assumptions and the tests derived from them</strong>.</p>
+<p>Do not rewrite the previous historical work order as if it never existed.</p>
+<hr />
+<h1 id="4-why-usbip-win2-rejects-the-current-request">4. Why usbip-win2 rejects the current request</h1>
+<p>The upstream userspace library performs attach with its compiler-computed C++ object size:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">ioctl</span><span class="o">::</span><span class="n">plugin_hardware</span><span class="w"> </span><span class="n">r</span><span class="p">{};</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">r</span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="n">DeviceIoControl</span><span class="p">(</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="n">dev</span><span class="p">,</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="n">ctl</span><span class="p">,</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">r</span><span class="p">,</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="k">sizeof</span><span class="p">(</span><span class="n">r</span><span class="p">),</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">r</span><span class="p">,</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">    </span><span class="n">outlen</span><span class="p">,</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">BytesReturned</span><span class="p">,</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">    </span><span class="nb">nullptr</span><span class="p">);</span>
+</code></pre></div>
+<p>The upstream driver retrieves and validates the full <code>plugin_hardware</code> input buffer and rejects a size mismatch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">vhci</span><span class="o">::</span><span class="n">ioctl</span><span class="o">::</span><span class="n">plugin_hardware</span><span class="w"> </span><span class="o">*</span><span class="n">r</span><span class="p">{};</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="kt">size_t</span><span class="w"> </span><span class="n">length</span><span class="p">;</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">auto</span><span class="w"> </span><span class="n">st</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WdfRequestRetrieveInputBuffer</span><span class="p">(</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="n">request</span><span class="p">,</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">r</span><span class="p">),</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">PVOID</span><span class="o">*&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">r</span><span class="p">),</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">length</span><span class="p">);</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">NT_ERROR</span><span class="p">(</span><span class="n">st</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">st</span><span class="p">;</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">length</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">r</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">STATUS_INVALID_BUFFER_SIZE</span><span class="p">;</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">r</span><span class="o">-&gt;</span><span class="n">size</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">USBIP_ERROR_ABI</span><span class="p">;</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a><span class="p">}</span>
+</code></pre></div>
+<p>Current VIIPER sends:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>inputLength = 1116
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>Size        = 1116
+</code></pre></div>
+<p>while the v0.9.8.0 Windows ABI requires:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>inputLength = 1120
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>Size        = 1120
+</code></pre></div>
+<p>Therefore the request can fail before the driver reaches USB/IP connect/import processing.</p>
+<p>The existing 8-byte output-prefix contract remains correct and must not change.</p>
+<hr />
+<h1 id="5-required-source-review-before-editing">5. Required source review before editing</h1>
+<p>Read the current fork code first:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>FORK_ARCHITECTURE.md
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>docs/libviiper/fork-api.md
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>internal/server/api/autoattach_windows.go
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>internal/server/api/autoattach_windows_test.go
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>internal/server/api/autoattach_contract.go
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>internal/server/api/autoattach_contract_test.go
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>lib/viiper/attach_invariants_test.go
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>lib/viiper/classified_attachment_test.go
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>lib/viiper/ownership_invariants_test.go
+</code></pre></div>
+<p>Also re-read the previous migration work order:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>docs/work-order/PR2_USBIP_WIN2_0_9_8_0_LOW_LATENCY_ATTACH_WORK_ORDER.md
+</code></pre></div>
+<p>Treat its ownership/fallback/low-latency requirements as still authoritative except for the incorrect numeric ABI layout described above.</p>
+<hr />
+<h1 id="6-required-implementation">6. Required implementation</h1>
+<h2 id="61-correct-attachioctl">6.1 Correct <code>attachIOCTL</code></h2>
+<p>Modify only the existing Windows ABI binding in:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>internal/server/api/autoattach_windows.go
+</code></pre></div>
+<p>Current broken shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">    </span><span class="nx">Size</span><span class="w">       </span><span class="kt">uint32</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w"> </span><span class="kt">int32</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">      </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">    </span><span class="nx">Service</span><span class="w">    </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">    </span><span class="nx">Host</span><span class="w">       </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">    </span><span class="nx">Serial</span><span class="w">     </span><span class="p">[</span><span class="nx">serialBufSize</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">    </span><span class="nx">WskEvents</span><span class="w">  </span><span class="kt">bool</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="p">}</span>
+</code></pre></div>
+<p>Required minimal shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">    </span><span class="nx">Size</span><span class="w">       </span><span class="kt">uint32</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w"> </span><span class="kt">int32</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">      </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w">    </span><span class="nx">Service</span><span class="w">    </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="w">    </span><span class="nx">Host</span><span class="w">       </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="w">    </span><span class="nx">_</span><span class="w">          </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="kt">byte</span><span class="w"> </span><span class="c1">// MSVC imported_device_location base-subobject tail padding</span>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="w">    </span><span class="nx">Serial</span><span class="w">     </span><span class="p">[</span><span class="nx">serialBufSize</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="w">    </span><span class="nx">WskEvents</span><span class="w">  </span><span class="kt">bool</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="p">}</span>
+</code></pre></div>
+<p>With the existing 4-byte-aligned fields, Go will then apply the final trailing alignment automatically and produce:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>Serial offset    = 1100
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>WskEvents offset = 1116
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>sizeof           = 1120
+</code></pre></div>
+<p>Do not add a generalized ABI-marshalling layer, reflection-based serializer, packed byte-buffer builder, CGo dependency, or version-switching abstraction.</p>
+<p>This is one known external Windows ABI and one explicit padding requirement.</p>
+<p>A clearly named padding member is preferable to a more complex abstraction.</p>
+<h2 id="62-preserve-request-initialization">6.2 Preserve request initialization</h2>
+<p>Keep:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">ioctlData</span><span class="w"> </span><span class="nx">attachIOCTL</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="nx">ioctlData</span><span class="p">.</span><span class="nx">Size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">ioctlData</span><span class="p">))</span>
+</code></pre></div>
+<p>Continue filling:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>BusID     = exact exported &lt;bus&gt;-&lt;device&gt;
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>Service   = exact local USB/IP server port
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>Host      = 127.0.0.1
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>Serial    = zero-filled unless an existing authoritative source exists
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>WskEvents = true
+</code></pre></div>
+<p>Do not make low-latency conditional.</p>
+<p>Do not write arbitrary bytes into the explicit padding field.</p>
+<p>Zero initialization is correct.</p>
+<h2 id="63-preserve-output-length">6.3 Preserve output length</h2>
+<p>Keep:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nx">attachPortOutputLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">    </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">attachIOCTL</span><span class="p">{}.</span><span class="nx">PortOutput</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">        </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">attachIOCTL</span><span class="p">{}.</span><span class="nx">PortOutput</span><span class="p">))</span>
+</code></pre></div>
+<p>Expected:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>8
+</code></pre></div>
+<p>Do not change response validation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>bytesReturned must equal 8
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>PortOutput must be &gt; 0
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>otherwise attachment outcome remains unknown
+</code></pre></div>
+<h2 id="64-do-not-change-detach">6.4 Do not change detach</h2>
+<p><code>plugoutIOCTL</code> remains:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">plugoutIOCTL</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="w">    </span><span class="nx">Size</span><span class="w"> </span><span class="kt">uint32</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">    </span><span class="nx">Port</span><span class="w"> </span><span class="kt">int32</span>
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>Expected size remains 8.</p>
+<p>Do not change exact-port detach ownership.</p>
+<hr />
+<h1 id="7-preserve-fail-close-and-fallback-behavior-exactly">7. Preserve fail-close and fallback behavior exactly</h1>
+<p>The current tracked attach contract is correct and must stay unchanged:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>native failure before DeviceIoControl submission
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>→ known failure
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>→ command fallback may run exactly once under the existing contract
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>DeviceIoControl submitted and returns error
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>→ ErrAttachmentOutcomeUnknown
+<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>→ no command fallback
+<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>
+<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>unexpected returned byte count
+<a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a>→ ErrAttachmentOutcomeUnknown
+<a id="__codelineno-32-11" name="__codelineno-32-11" href="#__codelineno-32-11"></a>→ no command fallback
+<a id="__codelineno-32-12" name="__codelineno-32-12" href="#__codelineno-32-12"></a>
+<a id="__codelineno-32-13" name="__codelineno-32-13" href="#__codelineno-32-13"></a>non-positive returned import port
+<a id="__codelineno-32-14" name="__codelineno-32-14" href="#__codelineno-32-14"></a>→ ErrAttachmentOutcomeUnknown
+<a id="__codelineno-32-15" name="__codelineno-32-15" href="#__codelineno-32-15"></a>→ no command fallback
+</code></pre></div>
+<p>Do not reinterpret the current hardware failure as safe for fallback merely because this PR identifies its likely driver-side cause.</p>
+<p>The request was submitted to the driver, so the conservative unknown-outcome classification remains the correct generic runtime policy.</p>
+<p>Do not add:</p>
+<ul>
+<li>retry loops;</li>
+<li>attach epochs;</li>
+<li>driver-state inspectors;</li>
+<li>post-failure VID/PID rediscovery;</li>
+<li>all-port cleanup;</li>
+<li>automatic command fallback after unknown native outcome;</li>
+<li>a second attachment authority.</li>
+</ul>
+<p>Fixing the ABI should make the normal native path succeed without weakening safety.</p>
+<hr />
+<h1 id="8-small-diagnostic-improvement-required">8. Small diagnostic improvement required</h1>
+<p>The 2026-09-09 hardware log showed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>result=unsafe-outcome-unknown
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>backendCalled=true
+</code></pre></div>
+<p>but did not preserve the underlying Win32 <code>DeviceIoControl</code> error in the normal VIIPER log.</p>
+<p>That made a real native transport failure unnecessarily difficult to diagnose.</p>
+<p>Add the smallest practical error log at the existing IOCTL failure branch.</p>
+<p>Recommended shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="k">if</span><span class="w"> </span><span class="nx">ioctlErr</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="w">    </span><span class="nx">logger</span><span class="p">.</span><span class="nx">Error</span><span class="p">(</span><span class="s">"native PLUGIN_HARDWARE DeviceIoControl failed"</span><span class="p">,</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="w">        </span><span class="s">"error"</span><span class="p">,</span><span class="w"> </span><span class="nx">ioctlErr</span><span class="p">,</span>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="w">        </span><span class="s">"inputLength"</span><span class="p">,</span><span class="w"> </span><span class="nx">attachInputLength</span><span class="p">,</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a><span class="w">        </span><span class="s">"outputLength"</span><span class="p">,</span><span class="w"> </span><span class="nx">attachPortOutputLength</span><span class="p">)</span>
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a><span class="w">    </span><span class="nx">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="w">        </span><span class="s">"%w: native PLUGIN_HARDWARE DeviceIoControl failed: %v"</span><span class="p">,</span>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a><span class="w">        </span><span class="nx">ErrAttachmentOutcomeUnknown</span><span class="p">,</span>
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a><span class="w">        </span><span class="nx">ioctlErr</span><span class="p">)</span>
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="w">    </span><span class="k">return</span>
+<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a><span class="p">}</span>
+</code></pre></div>
+<p>Requirements:</p>
+<ul>
+<li>keep the returned error/classification unchanged;</li>
+<li>do not log the entire request buffer;</li>
+<li>do not add a new logging framework;</li>
+<li>do not add verbose per-report logging;</li>
+<li>one error record for the failed mutation is sufficient.</li>
+</ul>
+<p>This is diagnostic hardening for a proven operation failure, not speculative telemetry expansion.</p>
+<hr />
+<h1 id="9-required-windows-abi-tests">9. Required Windows ABI tests</h1>
+<p>Update:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>internal/server/api/autoattach_windows_test.go
+</code></pre></div>
+<p>The ABI test must pin the <strong>correct Microsoft C++ layout</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">TestUSBIPWin20980NativeABIContract</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">request</span><span class="w"> </span><span class="nx">attachIOCTL</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">Size</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware size offset = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">PortOutput</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware port offset = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-10" name="__codelineno-36-10" href="#__codelineno-36-10"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">BusID</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-11" name="__codelineno-36-11" href="#__codelineno-36-11"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware busid offset = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-12" name="__codelineno-36-12" href="#__codelineno-36-12"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-13" name="__codelineno-36-13" href="#__codelineno-36-13"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">Service</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">40</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-14" name="__codelineno-36-14" href="#__codelineno-36-14"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware service offset = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-15" name="__codelineno-36-15" href="#__codelineno-36-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-16" name="__codelineno-36-16" href="#__codelineno-36-16"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">Host</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">72</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-17" name="__codelineno-36-17" href="#__codelineno-36-17"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware host offset = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-18" name="__codelineno-36-18" href="#__codelineno-36-18"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-19" name="__codelineno-36-19" href="#__codelineno-36-19"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">Serial</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">1100</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-20" name="__codelineno-36-20" href="#__codelineno-36-20"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware serial offset = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-21" name="__codelineno-36-21" href="#__codelineno-36-21"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-22" name="__codelineno-36-22" href="#__codelineno-36-22"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">WskEvents</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">1116</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-23" name="__codelineno-36-23" href="#__codelineno-36-23"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware WSK events offset = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-24" name="__codelineno-36-24" href="#__codelineno-36-24"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-25" name="__codelineno-36-25" href="#__codelineno-36-25"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">WskEvents</span><span class="p">),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-26" name="__codelineno-36-26" href="#__codelineno-36-26"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware WSK events size = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-27" name="__codelineno-36-27" href="#__codelineno-36-27"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-28" name="__codelineno-36-28" href="#__codelineno-36-28"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">attachInputLength</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span><span class="mi">1120</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-29" name="__codelineno-36-29" href="#__codelineno-36-29"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware input length = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-30" name="__codelineno-36-30" href="#__codelineno-36-30"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-31" name="__codelineno-36-31" href="#__codelineno-36-31"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">attachPortOutputLength</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-32" name="__codelineno-36-32" href="#__codelineno-36-32"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugin_hardware output length = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-33" name="__codelineno-36-33" href="#__codelineno-36-33"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-34" name="__codelineno-36-34" href="#__codelineno-36-34"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">plugoutIOCTL</span><span class="p">{}),</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">8</span><span class="p">);</span><span class="w"> </span><span class="nx">got</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-35" name="__codelineno-36-35" href="#__codelineno-36-35"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"plugout_hardware size = %d, want %d"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-36-36" name="__codelineno-36-36" href="#__codelineno-36-36"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-36-37" name="__codelineno-36-37" href="#__codelineno-36-37"></a><span class="p">}</span>
+</code></pre></div>
+<p>Use current repository assertion style if preferred.</p>
+<p>The test must specifically prevent regression back to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>Serial=1097 / WskEvents=1113 / Size=1116
+</code></pre></div>
+<h2 id="91-update-native-request-content-test">9.1 Update native request-content test</h2>
+<p>Current test hard-codes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="nx">captured</span><span class="p">.</span><span class="nx">Size</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">1116</span>
+</code></pre></div>
+<p>Change the expected value to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>1120
+</code></pre></div>
+<p>Prefer deriving the expected request size from the explicitly pinned ABI constant/test where practical, while still keeping at least one clear numeric ABI assertion.</p>
+<p>Continue verifying:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>BusID = expected value
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>Service = expected port
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>Host = 127.0.0.1
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>Serial = zero-filled
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>WskEvents = true
+</code></pre></div>
+<p>The explicit padding field must remain zero-filled after normal request construction.</p>
+<p>A focused assertion is acceptable:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="k">if</span><span class="w"> </span><span class="nx">captured</span><span class="p">.</span><span class="nx">Padding</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="kt">byte</span><span class="p">{}</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>if the padding field is named rather than anonymous.</p>
+<p>Do not invent a mock framework.</p>
+<hr />
+<h1 id="10-preserve-all-existing-ownership-and-transport-tests">10. Preserve all existing ownership and transport tests</h1>
+<p>The following behavior must remain covered and passing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>known native pre-submit failure → command fallback once
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>unknown native result → no command fallback
+<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>positive exact native port accepted
+<a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a>wrong byte count rejected as unknown
+<a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a>zero/negative port rejected as unknown
+<a id="__codelineno-42-6" name="__codelineno-42-6" href="#__codelineno-42-6"></a>tracked backend retained
+<a id="__codelineno-42-7" name="__codelineno-42-7" href="#__codelineno-42-7"></a>exact imported port retained
+<a id="__codelineno-42-8" name="__codelineno-42-8" href="#__codelineno-42-8"></a>exact-port detach
+<a id="__codelineno-42-9" name="__codelineno-42-9" href="#__codelineno-42-9"></a>unknown detach fail-close
+<a id="__codelineno-42-10" name="__codelineno-42-10" href="#__codelineno-42-10"></a>low-latency command argument present exactly once
+<a id="__codelineno-42-11" name="__codelineno-42-11" href="#__codelineno-42-11"></a>legacy command path remains low-latency if still reachable
+</code></pre></div>
+<p>Do not modify tests merely to weaken the existing ownership contract.</p>
+<hr />
+<h1 id="11-windows-ci-requirement">11. Windows CI requirement</h1>
+<p>The corrected ABI test is Windows-only and must execute in Windows CI.</p>
+<p>The previous migration already added/uses the focused Windows <code>internal/server/api</code> test execution. Preserve that coverage.</p>
+<p>At minimum the implementation PR must demonstrate:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>go test -count=1 ./internal/server/api
+</code></pre></div>
+<p>on a Windows runner.</p>
+<p>Also run the existing repository-required checks and canonical libVIIPER build.</p>
+<p>Do not add a new workflow or large test matrix for this fix.</p>
+<hr />
+<h1 id="12-documentation-handling">12. Documentation handling</h1>
+<p>Do not rewrite the historical PR2 work order.</p>
+<p>This PR3 work order is the corrective record and explicitly supersedes PR2's incorrect <code>plugin_hardware</code> numeric layout assumptions.</p>
+<p>If current non-historical architecture/API documentation contains any of the incorrect values:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>Serial offset = 1097
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>WskEvents offset = 1113
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>plugin_hardware size = 1116
+</code></pre></div>
+<p>update those current documents to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>Serial offset = 1100
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>WskEvents offset = 1116
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a>plugin_hardware size = 1120
+</code></pre></div>
+<p>Do not broadly rewrite documentation that only states:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>usbip-win2 = v0.9.8.0
+<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>receive mode = low-latency
+</code></pre></div>
+<p>because those policies remain correct.</p>
+<hr />
+<h1 id="13-explicit-non-goals">13. Explicit non-goals</h1>
+<p>Do not include any of the following:</p>
+<ul>
+<li>usbip-win2 0.9.7.7 compatibility;</li>
+<li>runtime driver-version detection inside VIIPER;</li>
+<li>a second ABI struct for legacy versions;</li>
+<li>user-selectable receive mode;</li>
+<li>zero-copy fallback;</li>
+<li>changes to SteamAddonforClaw prerequisite policy;</li>
+<li>HidHide changes;</li>
+<li>controller-mode/routing policy changes;</li>
+<li>public libVIIPER C ABI changes;</li>
+<li>controller identity changes;</li>
+<li>new attachment manager/state machine;</li>
+<li>retries after unknown native mutation outcome;</li>
+<li>broad refactoring of Windows auto-attach code.</li>
+</ul>
+<p>This PR fixes one concrete ABI defect.</p>
+<hr />
+<h1 id="14-expected-implementation-diff">14. Expected implementation diff</h1>
+<p>The final implementation should remain small.</p>
+<p>Expected primary files:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>internal/server/api/autoattach_windows.go
+<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>internal/server/api/autoattach_windows_test.go
+</code></pre></div>
+<p>Possible additional files only when required by current factual documentation/tests:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>FORK_ARCHITECTURE.md
+<a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>docs/libviiper/fork-api.md
+</code></pre></div>
+<p>Do not create new runtime packages or abstractions.</p>
+<hr />
+<h1 id="15-acceptance-criteria">15. Acceptance criteria</h1>
+<p>Implementation is complete when all of the following are true.</p>
+<h2 id="abi">ABI</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>PortOutput offset = 4
+<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a>BusID offset      = 8
+<a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a>Service offset    = 40
+<a id="__codelineno-49-4" name="__codelineno-49-4" href="#__codelineno-49-4"></a>Host offset       = 72
+<a id="__codelineno-49-5" name="__codelineno-49-5" href="#__codelineno-49-5"></a>Serial offset     = 1100
+<a id="__codelineno-49-6" name="__codelineno-49-6" href="#__codelineno-49-6"></a>WskEvents offset  = 1116
+<a id="__codelineno-49-7" name="__codelineno-49-7" href="#__codelineno-49-7"></a>WskEvents size    = 1
+<a id="__codelineno-49-8" name="__codelineno-49-8" href="#__codelineno-49-8"></a>attach input size = 1120
+<a id="__codelineno-49-9" name="__codelineno-49-9" href="#__codelineno-49-9"></a>attach output size = 8
+<a id="__codelineno-49-10" name="__codelineno-49-10" href="#__codelineno-49-10"></a>plugout size      = 8
+</code></pre></div>
+<h2 id="request-policy">Request policy</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>Host = 127.0.0.1
+<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>Service = exact VIIPER USB/IP listen port
+<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>BusID = exact exported device bus/device ID
+<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>Serial = zero unless current authoritative source exists
+<a id="__codelineno-50-5" name="__codelineno-50-5" href="#__codelineno-50-5"></a>padding = zero
+<a id="__codelineno-50-6" name="__codelineno-50-6" href="#__codelineno-50-6"></a>WskEvents = true
+</code></pre></div>
+<h2 id="ownershipfailure-policy">Ownership/failure policy</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>native success → exact native backend + exact positive port
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>known pre-submit native failure → existing command fallback policy
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>unknown submitted native outcome → no fallback, fail closed
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a>exact-port detach unchanged
+</code></pre></div>
+<h2 id="diagnostics">Diagnostics</h2>
+<p>A failed native <code>PLUGIN_HARDWARE</code> <code>DeviceIoControl</code> leaves the underlying Windows error visible in <code>libVIIPER.log</code> without changing classification.</p>
+<h2 id="verification">Verification</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>Windows internal/server/api tests pass
+<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a>existing Go tests pass
+<a id="__codelineno-52-3" name="__codelineno-52-3" href="#__codelineno-52-3"></a>canonical Release libVIIPER build passes
+<a id="__codelineno-52-4" name="__codelineno-52-4" href="#__codelineno-52-4"></a>public generated C header remains unchanged
+<a id="__codelineno-52-5" name="__codelineno-52-5" href="#__codelineno-52-5"></a>no new exported C ABI symbols
+</code></pre></div>
+<hr />
+<h1 id="16-hardware-validation-after-merge">16. Hardware validation after merge</h1>
+<p>After the corrected libVIIPER artifact is adopted by SteamAddonforClaw, validate on the real MSI Claw with usbip-win2 <code>0.9.8.0</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>1. Cold boot with Center M Disabled.
+<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a>2. Confirm Addon prerequisite status = Ready.
+<a id="__codelineno-53-3" name="__codelineno-53-3" href="#__codelineno-53-3"></a>3. Confirm PID1902 DirectInput first valid state succeeds.
+<a id="__codelineno-53-4" name="__codelineno-53-4" href="#__codelineno-53-4"></a>4. Confirm HidHide physical isolation succeeds.
+<a id="__codelineno-53-5" name="__codelineno-53-5" href="#__codelineno-53-5"></a>5. Confirm initial Xbox360 native attach succeeds.
+<a id="__codelineno-53-6" name="__codelineno-53-6" href="#__codelineno-53-6"></a>6. Confirm libVIIPER reports a positive exact import port.
+<a id="__codelineno-53-7" name="__codelineno-53-7" href="#__codelineno-53-7"></a>7. Confirm the Xbox360 controller is visible and receives input.
+<a id="__codelineno-53-8" name="__codelineno-53-8" href="#__codelineno-53-8"></a>8. Enter Steam/BPM and confirm SteamDeck presentation transition succeeds.
+<a id="__codelineno-53-9" name="__codelineno-53-9" href="#__codelineno-53-9"></a>9. Leave Steam/BPM and confirm Xbox360 presentation returns.
+<a id="__codelineno-53-10" name="__codelineno-53-10" href="#__codelineno-53-10"></a>10. Confirm output/rumble still works.
+<a id="__codelineno-53-11" name="__codelineno-53-11" href="#__codelineno-53-11"></a>11. Restart the Addon Runtime and confirm normal ownership recovery.
+<a id="__codelineno-53-12" name="__codelineno-53-12" href="#__codelineno-53-12"></a>12. Sleep/Resume once and verify presentation recovery.
+</code></pre></div>
+<p>The critical regression signal from the 2026-09-09 failure must disappear:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>Opened device handle
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>→ immediate unsafe-outcome-unknown
+<a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a>→ Xbox360AttachUnsafeOutcomeUnknown
+</code></pre></div>
+<p>Expected instead:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>Opened device handle
+<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>→ IOCTL completed, bytesReturned=8, portOutput&gt;0
+<a id="__codelineno-55-3" name="__codelineno-55-3" href="#__codelineno-55-3"></a>→ Successfully attached device via IOCTL
+<a id="__codelineno-55-4" name="__codelineno-55-4" href="#__codelineno-55-4"></a>→ canonical attachment state = attached with exact native port
+</code></pre></div>
+<p>If the corrected 1120-byte ABI still produces a real <code>DeviceIoControl</code> failure, use the newly preserved Win32 error to diagnose that concrete failure. Do not add speculative compatibility/fallback machinery in advance.</p>
+<hr />
+<h1 id="17-codex-implementation-guidance">17. Codex implementation guidance</h1>
+<p>Implement this as a focused bug-fix PR from current <code>main</code>.</p>
+<p>Before editing:</p>
+<ol>
+<li>inspect current main and confirm the broken values still exist;</li>
+<li>verify upstream <code>v0.9.8.0</code> sources at commit <code>83bd1f781d57ed6efdf15530c55710cf5d4482bc</code>;</li>
+<li>preserve all current ownership/fail-close invariants;</li>
+<li>make the smallest ABI/layout correction;</li>
+<li>update the focused Windows tests;</li>
+<li>run required verification;</li>
+<li>ensure the generated/public libVIIPER C ABI is unchanged.</li>
+</ol>
+<p>Do not broaden the PR into general USB/IP refactoring.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
