@@ -17,22 +17,34 @@ import (
 
 func TestUSBIPWin20980NativeABIContract(t *testing.T) {
 	var request attachIOCTL
+	if got, want := unsafe.Offsetof(request.Size), uintptr(0); got != want {
+		t.Fatalf("plugin_hardware size offset = %d, want %d", got, want)
+	}
 	if got, want := unsafe.Offsetof(request.PortOutput), uintptr(4); got != want {
 		t.Fatalf("plugin_hardware port offset = %d, want %d", got, want)
+	}
+	if got, want := unsafe.Offsetof(request.BusID), uintptr(8); got != want {
+		t.Fatalf("plugin_hardware busid offset = %d, want %d", got, want)
+	}
+	if got, want := unsafe.Offsetof(request.Service), uintptr(40); got != want {
+		t.Fatalf("plugin_hardware service offset = %d, want %d", got, want)
+	}
+	if got, want := unsafe.Offsetof(request.Host), uintptr(72); got != want {
+		t.Fatalf("plugin_hardware host offset = %d, want %d", got, want)
 	}
 	if got, want := attachPortOutputLength, uint32(8); got != want {
 		t.Fatalf("plugin_hardware output length = %d, want %d", got, want)
 	}
-	if got, want := unsafe.Offsetof(request.Serial), uintptr(1097); got != want {
+	if got, want := unsafe.Offsetof(request.Serial), uintptr(1100); got != want {
 		t.Fatalf("plugin_hardware serial offset = %d, want %d", got, want)
 	}
-	if got, want := unsafe.Offsetof(request.WskEvents), uintptr(1113); got != want {
+	if got, want := unsafe.Offsetof(request.WskEvents), uintptr(1116); got != want {
 		t.Fatalf("plugin_hardware WSK events offset = %d, want %d", got, want)
 	}
 	if got, want := unsafe.Sizeof(request.WskEvents), uintptr(1); got != want {
 		t.Fatalf("plugin_hardware WSK events size = %d, want %d", got, want)
 	}
-	if got, want := attachInputLength, uint32(1116); got != want {
+	if got, want := attachInputLength, uint32(1120); got != want {
 		t.Fatalf("plugin_hardware input length = %d, want %d", got, want)
 	}
 	inputLength, outputLength := nativeAttachIOCTLLengths()
@@ -112,12 +124,42 @@ func TestAttachViaIOCTLBuildsV0980LowLatencyRequest(t *testing.T) {
 	if _, err := attachViaIOCTLWithOps(meta, 3241, slog.Default(), ops); err != nil {
 		t.Fatalf("native attach failed: %v", err)
 	}
-	if captured.Size != 1116 || string(captured.BusID[:4]) != "9-12" || string(captured.Service[:4]) != "3241" || string(captured.Host[:9]) != "127.0.0.1" {
+	if captured.Size != 1120 || string(captured.BusID[:4]) != "9-12" || string(captured.Service[:4]) != "3241" || string(captured.Host[:9]) != "127.0.0.1" {
 		t.Fatalf("unexpected request contents: %+v", captured)
 	}
-	if captured.Serial != [serialBufSize]byte{} || !captured.WskEvents {
+	if captured.ImportedDeviceLocationPadding != [3]byte{} || captured.Serial != [serialBufSize]byte{} || !captured.WskEvents {
 		t.Fatalf("serial/WSK policy = serial=%v wskEvents=%v", captured.Serial, captured.WskEvents)
 	}
+}
+
+func TestAttachViaIOCTLLogsDeviceIoControlError(t *testing.T) {
+	meta := &usbip.ExportMeta{BusID: 9, DevID: 12}
+	ioctlErr := errors.New("ERROR_INVALID_PARAMETER")
+	handler := &timingRecordingHandler{}
+	ops := fakeNativeAttachOps(nil, nil, ioctlErr, 0, 0)
+
+	_, err := attachViaIOCTLWithOps(meta, 3241, slog.New(handler), ops)
+	if !errors.Is(err, ErrAttachmentOutcomeUnknown) {
+		t.Fatalf("error = %v, want ErrAttachmentOutcomeUnknown", err)
+	}
+
+	for _, record := range handler.records {
+		if record.Message != "native PLUGIN_HARDWARE DeviceIoControl failed" {
+			continue
+		}
+		attrs := recordAttrs(record)
+		loggedError, ok := attrs["error"].(error)
+		if !ok || loggedError.Error() != ioctlErr.Error() {
+			t.Fatalf("logged error = %v, want %v", attrs["error"], ioctlErr)
+		}
+		inputLength, inputOK := attrs["inputLength"].(uint64)
+		outputLength, outputOK := attrs["outputLength"].(uint64)
+		if !inputOK || !outputOK || inputLength != 1120 || outputLength != 8 {
+			t.Fatalf("logged lengths = input %v (%T) output %v (%T), want values 1120/8", attrs["inputLength"], attrs["inputLength"], attrs["outputLength"], attrs["outputLength"])
+		}
+		return
+	}
+	t.Fatal("native DeviceIoControl error log record was not emitted")
 }
 
 func TestUSBIPLegacyAttachCommandSelectsLowLatency(t *testing.T) {

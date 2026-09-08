@@ -61,13 +61,14 @@ const (
 // plugin_hardware is intentionally pinned to that released ABI. The driver
 // validates the complete request size, so the trailing fields are required.
 type attachIOCTL struct {
-	Size       uint32
-	PortOutput int32
-	BusID      [32]byte
-	Service    [niMaxServ]byte
-	Host       [niMaxHost]byte
-	Serial     [serialBufSize]byte
-	WskEvents  bool
+	Size                          uint32
+	PortOutput                    int32
+	BusID                         [32]byte
+	Service                       [niMaxServ]byte
+	Host                          [niMaxHost]byte
+	ImportedDeviceLocationPadding [3]byte // MSVC imported_device_location base-subobject tail padding
+	Serial                        [serialBufSize]byte
+	WskEvents                     bool
 }
 
 // plugoutIOCTL is usbip-win2 v0.9.8.0 ioctl::plugout_hardware.
@@ -295,6 +296,10 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 	ioctlUs = time.Since(ioctlStart).Microseconds()
 	reachedIOCTL = true
 	if ioctlErr != nil {
+		logger.Error("native PLUGIN_HARDWARE DeviceIoControl failed",
+			"error", ioctlErr,
+			"inputLength", attachInputLength,
+			"outputLength", attachPortOutputLength)
 		err = fmt.Errorf("%w: native PLUGIN_HARDWARE DeviceIoControl failed: %v", ErrAttachmentOutcomeUnknown, ioctlErr)
 		return
 	}
