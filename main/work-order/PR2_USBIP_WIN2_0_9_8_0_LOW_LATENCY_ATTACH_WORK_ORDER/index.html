@@ -1,0 +1,2429 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — PR2: usbip-win2 0.9.8.0 ABI Migration and Always-On Low-Latency Attach - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-pr2-usbip-win2-0980-abi-migration-and-always-on-low-latency-attach" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — PR2: usbip-win2 0.9.8.0 ABI Migration and Always-On Low-Latency Attach
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-pr2-usbip-win2-0980-abi-migration-and-always-on-low-latency-attach">Work Order — PR2: usbip-win2 0.9.8.0 ABI Migration and Always-On Low-Latency Attach</h1>
+<h2 id="status">Status</h2>
+<p>Implementation work order for the second step of the Steam Addon for Claw usbip-win2 migration sequence.</p>
+<p>This work order targets the <strong>user fork</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>repository: onehoon/VIIPER
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>branch:     main
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>baseline:   77a8af547de2253862ede648a212c01d4dd950c1
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>message:    Reduce Windows USBIP loopback attach latency (#44)
+</code></pre></div>
+<p>This is <strong>not</strong> an upstream VIIPER work order.</p>
+<p>The fork is the implementation authority. Upstream <code>vadimgrn/usbip-win2</code> is used only as the authoritative external ABI/runtime reference for usbip-win2 <code>v0.9.8.0</code>.</p>
+<p>The previous Addon-side prerequisite PR is already complete. SteamAddonforClaw can now classify an older installed usbip-win2 package as <code>UpdateRequired</code> and route that upgrade through its existing elevated prerequisite setup path. This VIIPER PR must now make the canonical Windows attach implementation compatible with usbip-win2 <code>0.9.8.0</code> and make low-latency receive mode the fixed product policy.</p>
+<hr />
+<h1 id="1-goal">1. Goal</h1>
+<p>Migrate the fork's Windows localhost USB/IP attach contract from usbip-win2 <code>0.9.7.7</code> to <strong>usbip-win2 <code>0.9.8.0</code> only</strong>, while preserving all existing fork ownership and fail-close behavior.</p>
+<p>Final intended contract after this PR:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Supported usbip-win2 for tracked Windows localhost attach = 0.9.8.0 only
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Native PLUGIN_HARDWARE ABI                           = v0.9.8.0
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Receive mode                                         = low-latency, always
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Native attach                                        = preferred
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>Command attach                                       = fallback only when current contract permits
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>Tracked detach                                       = exact stored backend + exact stored import port
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>Unknown native attach outcome                        = fail closed; never command-fallback
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>Public libVIIPER C ABI                               = unchanged
+</code></pre></div>
+<p>No compatibility layer for <code>0.9.7.7</code> is required because the Steam Addon product is still pre-release and the coordinated Addon migration will move directly to <code>0.9.8.0</code>.</p>
+<hr />
+<h1 id="2-required-source-review-before-implementation">2. Required source review before implementation</h1>
+<p>Read the current fork implementation first. At minimum inspect:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>FORK_ARCHITECTURE.md
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docs/libviiper/fork-api.md
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>internal/server/api/autoattach_contract.go
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>internal/server/api/autoattach_windows.go
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>internal/server/api/autoattach_contract_test.go
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>internal/server/api/autoattach_windows_test.go
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>.github/workflows/PR_check.yml
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>.github/workflows/build_base.yml
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>justfile
+</code></pre></div>
+<p>Also inspect the canonical embedded library attachment callers and ownership tests before touching shared behavior:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>lib/viiper/attach_invariants_test.go
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>lib/viiper/classified_attachment_test.go
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>lib/viiper/ownership_invariants_test.go
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>lib/viiper/lifecycle_serialization_test.go
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>lib/viiper/attachment_state_query_test.go
+</code></pre></div>
+<p>Do not refactor these layers merely because this PR changes the usbip driver ABI. Their ownership semantics are already part of the fork contract.</p>
+<hr />
+<h1 id="3-external-abi-reference-usbip-win2-v0980">3. External ABI reference — usbip-win2 v0.9.8.0</h1>
+<p>Use this exact upstream usbip-win2 source revision as the ABI reference:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>repository: vadimgrn/usbip-win2
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>tag:        v.0.9.8.0
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>commit:     83bd1f781d57ed6efdf15530c55710cf5d4482bc
+</code></pre></div>
+<p>Relevant upstream files:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>include/usbip/consts.h
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>include/usbip/vhci.h
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>drivers/ude/vhci_ioctl.cpp
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>userspace/libusbip/src/vhci.cpp
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>userspace/usbip/usbip.cpp
+</code></pre></div>
+<p>Do not copy unrelated upstream architecture into the fork. Only reproduce the ABI and command semantics necessary for the fork's existing localhost attach owner.</p>
+<h2 id="31-constants">3.1 Constants</h2>
+<p>Upstream <code>v0.9.8.0</code> defines:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">constexpr</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">BUS_ID_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">constexpr</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">SERIAL_BUFSZ</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span><span class="p">;</span>
+</code></pre></div>
+<p>The existing fork already matches the bus ID and Windows network constants used by the old struct.</p>
+<h2 id="32-plugin_hardware-abi">3.2 <code>plugin_hardware</code> ABI</h2>
+<p>Upstream <code>include/usbip/vhci.h</code> defines the relevant layout conceptually as:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">base</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="n">UINT32</span><span class="w"> </span><span class="n">size</span><span class="p">;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="p">};</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">struct</span><span class="w"> </span><span class="nc">imported_device_location</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">port</span><span class="p">;</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">busid</span><span class="p">[</span><span class="n">BUS_ID_SIZE</span><span class="p">];</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">service</span><span class="p">[</span><span class="n">NI_MAXSERV</span><span class="p">];</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">host</span><span class="p">[</span><span class="n">NI_MAXHOST</span><span class="p">];</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="p">};</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="k">struct</span><span class="w"> </span><span class="nc">plugin_hardware</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">base</span><span class="p">,</span><span class="w"> </span><span class="n">imported_device_location</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">serial</span><span class="p">[</span><span class="n">SERIAL_BUFSZ</span><span class="p">];</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">wsk_events</span><span class="p">;</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="p">};</span>
+</code></pre></div>
+<p>Compared with the fork's current <code>0.9.7.7</code> binding, two fields are now required at the end:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>serial[16]
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>wsk_events
+</code></pre></div>
+<p>The v0.9.8.0 driver validates the <strong>full input buffer size</strong> against <code>sizeof(plugin_hardware)</code> and also validates the <code>size</code> field. Therefore the current 0.9.7.7-sized request must not be sent to a 0.9.8.0 driver.</p>
+<h2 id="33-driver-response-length-remains-the-port-prefix">3.3 Driver response length remains the port prefix</h2>
+<p>The v0.9.8.0 driver sets the request information length to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">offsetof</span><span class="p">(</span><span class="n">plugin_hardware</span><span class="p">,</span><span class="w"> </span><span class="n">port</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
+</code></pre></div>
+<p>That remains 8 bytes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>size : bytes 0..3
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>port : bytes 4..7
+</code></pre></div>
+<p>Therefore the fork's existing exact response check remains valid:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>bytesReturned == 8
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>returned port &gt; 0
+</code></pre></div>
+<p>Do not expand the output buffer expectation to the entire input struct.</p>
+<h2 id="34-low-latency-selection">3.4 Low-latency selection</h2>
+<p>Upstream <code>userspace/libusbip/src/vhci.cpp</code> maps:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>receive_mode::low_latency
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>→ plugin_hardware.wsk_events = true
+</code></pre></div>
+<p>and the UDE driver chooses the WSK event-callback receive path when <code>wsk_events</code> is true.</p>
+<p>Upstream CLI exposes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>--receive-mode=zero-copy
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>--receive-mode=low-latency
+</code></pre></div>
+<p>with <code>zero-copy</code> remaining the default when the option is omitted.</p>
+<p>Because this fork's product policy is <strong>always low-latency</strong>, every Windows localhost attach path used by the fork must explicitly select low-latency.</p>
+<hr />
+<h1 id="4-product-decision-no-compatibility-matrix">4. Product decision — no compatibility matrix</h1>
+<p>The Steam Addon product is not released yet. Do not preserve a dual ABI solely for old development installations.</p>
+<p>Required support policy:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>0.9.7.7 → no longer the supported final binding
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>0.9.8.0 → supported binding
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>later unknown versions → not claimed compatible by this PR
+</code></pre></div>
+<p>Do not add:</p>
+<ul>
+<li>runtime ABI auto-detection;</li>
+<li><code>attachIOCTL2977</code> plus <code>attachIOCTL2980</code> structs;</li>
+<li>a version-switching adapter;</li>
+<li>package registry probing inside VIIPER;</li>
+<li>a compatibility table;</li>
+<li>a user-selectable zero-copy/low-latency option;</li>
+<li>environment variables for receive mode;</li>
+<li>a new attachment manager or strategy abstraction.</li>
+</ul>
+<p>SteamAddonforClaw owns package-version admission. VIIPER only needs one explicit binding for the package version the product ships.</p>
+<hr />
+<h1 id="5-current-fork-invariants-must-remain-unchanged">5. Current fork invariants — must remain unchanged</h1>
+<h2 id="51-native-first-tracked-attach">5.1 Native-first tracked attach</h2>
+<p><code>attachLocalhostClientWithFallback(...)</code> currently implements the correct authority boundary:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>native attach succeeds
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>→ return native ownership token
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>native attach fails before ownership can exist
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>→ command fallback may run exactly once
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>native attach returns ErrAttachmentOutcomeUnknown
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>→ do not command-fallback
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>→ return unknown outcome
+</code></pre></div>
+<p>Preserve this behavior.</p>
+<p>Do not change an ABI error that occurs <strong>after the native DeviceIoControl was submitted</strong> into a known pre-ownership failure unless there is concrete evidence that Windows guarantees no mutation occurred.</p>
+<p>The existing conservative classification is intentional because command fallback after an unknown native outcome could create a second import whose ownership is unclear.</p>
+<h2 id="52-exact-imported-port-ownership">5.2 Exact imported-port ownership</h2>
+<p>Successful tracked attachment stores:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>backend
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>positive imported port
+</code></pre></div>
+<p>Detach must continue to use that exact stored token.</p>
+<p>Do not:</p>
+<ul>
+<li>rediscover a port by VID/PID;</li>
+<li>enumerate and choose the only visible import;</li>
+<li>detach all ports;</li>
+<li>detach by bus ID after ownership is committed;</li>
+<li>convert exact detach into best-effort cleanup.</li>
+</ul>
+<p>The v0.9.8.0 migration does not change this ownership model.</p>
+<h2 id="53-public-c-abi-remains-unchanged">5.3 Public C ABI remains unchanged</h2>
+<p>No change is required to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>AttachUSBDevice
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>AttachUSBDeviceEx
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>DetachUSBDevice
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>DetachUSBDeviceEx
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>GetUSBDeviceAttachmentState
+</code></pre></div>
+<p>No new public enum or C export is required for low-latency mode.</p>
+<p>Low-latency is an internal Windows transport policy for this product integration.</p>
+<hr />
+<h1 id="6-required-implementation-native-v0980-struct">6. Required implementation — native v0.9.8.0 struct</h1>
+<p>Modify only the existing Windows ABI binding in:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>internal/server/api/autoattach_windows.go
+</code></pre></div>
+<p>Current shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">    </span><span class="nx">Size</span><span class="w">       </span><span class="kt">uint32</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w"> </span><span class="kt">int32</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">      </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="nx">Service</span><span class="w">    </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="nx">Host</span><span class="w">       </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="p">}</span>
+</code></pre></div>
+<p>Target shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">    </span><span class="nx">niMaxHost</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">1025</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="nx">niMaxServ</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="nx">serialBufSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="p">)</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">    </span><span class="nx">Size</span><span class="w">       </span><span class="kt">uint32</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w"> </span><span class="kt">int32</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">      </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">    </span><span class="nx">Service</span><span class="w">    </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">    </span><span class="nx">Host</span><span class="w">       </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="w">    </span><span class="nx">Serial</span><span class="w">     </span><span class="p">[</span><span class="nx">serialBufSize</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="w">    </span><span class="nx">WskEvents</span><span class="w">  </span><span class="kt">bool</span>
+<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="p">}</span>
+</code></pre></div>
+<p>Naming may be adjusted to match existing Go style, but keep the layout obvious and directly traceable to upstream <code>plugin_hardware</code>.</p>
+<p>Do not introduce a nested inheritance-mirroring hierarchy in Go. One flat struct is simpler and matches the current fork style.</p>
+<h2 id="61-expected-windows-layout">6.1 Expected Windows layout</h2>
+<p>Pin the actual layout with <code>unsafe.Offsetof</code> / <code>unsafe.Sizeof</code> tests.</p>
+<p>Expected values on the supported Windows binding:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>Size offset       = 0
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>PortOutput offset = 4
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>BusID offset      = 8
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>Service offset    = 40
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>Host offset       = 72
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>Serial offset     = 1097
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>WskEvents offset  = 1113
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>WskEvents size    = 1
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>struct size       = 1116
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>output prefix     = 8
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>plugoutIOCTL size = 8
+</code></pre></div>
+<p>Why total size is 1116:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>end of Host      = 1097
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>+ Serial[16]     = 1113
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>+ bool           = 1114
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>natural 4-byte struct alignment
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>→ total 1116
+</code></pre></div>
+<p>Do <strong>not</strong> add a manual padding member unless the actual compiler/test proves the layout does not match. Go already applies trailing struct alignment.</p>
+<h2 id="62-set-low-latency-explicitly">6.2 Set low-latency explicitly</h2>
+<p>Current request creation zero-initializes <code>attachIOCTL</code>, fills bus ID/service/host, and sets <code>Size</code>.</p>
+<p>Add only the product policy field:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">ioctlData</span><span class="w"> </span><span class="nx">attachIOCTL</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nx">ioctlData</span><span class="p">.</span><span class="nx">Size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">ioctlData</span><span class="p">))</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="p">...</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="nx">ioctlData</span><span class="p">.</span><span class="nx">WskEvents</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div>
+<p>Do not make this conditional.</p>
+<p>The serial field should remain zero-initialized unless the current fork already has a real, authoritative serial source for this exact attach operation. Do not invent a serial identifier merely because v0.9.8.0 added the field.</p>
+<p>The upstream libusbip path also starts from a zero-initialized request and only fills serial when a serial is explicitly supplied.</p>
+<h2 id="63-preserve-response-validation">6.3 Preserve response validation</h2>
+<p>Keep the existing output contract:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nx">attachPortOutputLength</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">    </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">attachIOCTL</span><span class="p">{}.</span><span class="nx">PortOutput</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">        </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">attachIOCTL</span><span class="p">{}.</span><span class="nx">PortOutput</span><span class="p">))</span>
+</code></pre></div>
+<p>Expected value remains:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>8
+</code></pre></div>
+<p>Preserve <code>validateNativeAttachResponse(...)</code> behavior:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>bytesReturned != 8
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>→ ErrAttachmentOutcomeUnknown
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>returned port &lt;= 0
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>→ ErrAttachmentOutcomeUnknown
+</code></pre></div>
+<p>Do not weaken this just because the input struct becomes larger.</p>
+<hr />
+<h1 id="7-required-implementation-command-attach-must-also-be-low-latency">7. Required implementation — command attach must also be low-latency</h1>
+<p>The tracked command backend currently builds:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>usbip --tcp-port &lt;port&gt; attach -r 127.0.0.1 -b &lt;busid&gt; --terse
+</code></pre></div>
+<p>Change it to explicitly select low-latency:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>usbip --tcp-port &lt;port&gt; attach -r 127.0.0.1 -b &lt;busid&gt; --receive-mode=low-latency --terse
+</code></pre></div>
+<p>Recommended minimal code:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">usbipAttachCommandArgs</span><span class="p">(</span><span class="nx">usbipServerPort</span><span class="w"> </span><span class="kt">uint16</span><span class="p">,</span><span class="w"> </span><span class="nx">busID</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">        </span><span class="s">"--tcp-port"</span><span class="p">,</span><span class="w"> </span><span class="nx">strconv</span><span class="p">.</span><span class="nx">FormatUint</span><span class="p">(</span><span class="kt">uint64</span><span class="p">(</span><span class="nx">usbipServerPort</span><span class="p">),</span><span class="w"> </span><span class="mi">10</span><span class="p">),</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="w">        </span><span class="s">"attach"</span><span class="p">,</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="w">        </span><span class="s">"-r"</span><span class="p">,</span><span class="w"> </span><span class="s">"127.0.0.1"</span><span class="p">,</span>
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="w">        </span><span class="s">"-b"</span><span class="p">,</span><span class="w"> </span><span class="nx">busID</span><span class="p">,</span>
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="w">        </span><span class="s">"--receive-mode=low-latency"</span><span class="p">,</span>
+<a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a><span class="w">        </span><span class="s">"--terse"</span><span class="p">,</span>
+<a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="p">}</span>
+</code></pre></div>
+<p>Do not rely on the upstream CLI default. In v0.9.8.0 the default remains zero-copy.</p>
+<h2 id="71-legacy-windows-command-path">7.1 Legacy Windows command path</h2>
+<p><code>autoattach_windows.go</code> also contains an isolated legacy command attach path that constructs <code>exec.CommandContext(...)</code> directly instead of using the tracked <code>usbipAttachCommandArgs(...)</code> helper.</p>
+<p>If that path remains reachable in the current fork, it must also include:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>--receive-mode=low-latency
+</code></pre></div>
+<p>because the product policy is not “tracked path only”; it is “Windows localhost attach uses low-latency.”</p>
+<p>Keep the change local. Do not redesign or merge the legacy and tracked ownership systems in this PR.</p>
+<p>If a tiny shared constant such as:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">usbipLowLatencyReceiveArg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"--receive-mode=low-latency"</span>
+</code></pre></div>
+<p>avoids spelling drift between the two existing command paths, that is acceptable. Do not build a receive-mode abstraction or option type.</p>
+<hr />
+<h1 id="8-do-not-change-detach">8. Do not change detach</h1>
+<p>usbip-win2 v0.9.8.0 does not require a new detach ownership design for this fork.</p>
+<p>Preserve:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">plugoutIOCTL</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="w">    </span><span class="nx">Size</span><span class="w"> </span><span class="kt">uint32</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">    </span><span class="nx">Port</span><span class="w"> </span><span class="kt">int32</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>and preserve command detach:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>usbip detach -p &lt;exact stored port&gt;
+</code></pre></div>
+<p>Do not add receive-mode arguments to detach.</p>
+<p>Do not change exact-port validation.</p>
+<hr />
+<h1 id="9-failure-classification-must-stay-fail-closed">9. Failure classification must stay fail-closed</h1>
+<p>This PR changes an ABI field and a transport receive policy. It must not weaken the existing ownership classifications.</p>
+<p>Required behavior:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>native open/control-device setup fails before attach submission
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>→ known failure
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>→ command fallback may be allowed by current contract
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>DeviceIoControl is submitted and returns an error
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>→ ErrAttachmentOutcomeUnknown
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>→ no command fallback
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>DeviceIoControl reports unexpected byte count
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>→ ErrAttachmentOutcomeUnknown
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a>→ no command fallback
+<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a>
+<a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a>DeviceIoControl reports non-positive port
+<a id="__codelineno-34-14" name="__codelineno-34-14" href="#__codelineno-34-14"></a>→ ErrAttachmentOutcomeUnknown
+<a id="__codelineno-34-15" name="__codelineno-34-15" href="#__codelineno-34-15"></a>→ no command fallback
+<a id="__codelineno-34-16" name="__codelineno-34-16" href="#__codelineno-34-16"></a>
+<a id="__codelineno-34-17" name="__codelineno-34-17" href="#__codelineno-34-17"></a>command fallback returns malformed/non-positive terse port
+<a id="__codelineno-34-18" name="__codelineno-34-18" href="#__codelineno-34-18"></a>→ attach failure
+<a id="__codelineno-34-19" name="__codelineno-34-19" href="#__codelineno-34-19"></a>→ do not invent ownership
+</code></pre></div>
+<p>Do not add retries around <code>PLUGIN_HARDWARE</code> just to tolerate hypothetical scheduling windows.</p>
+<p>Do not add a second probe to guess whether the driver actually imported after an unknown result. The current unknown-outcome contract is deliberately conservative and is a real protection against duplicate ownership.</p>
+<hr />
+<h1 id="10-required-windows-abi-tests">10. Required Windows ABI tests</h1>
+<p>Update:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>internal/server/api/autoattach_windows_test.go
+</code></pre></div>
+<p>The current test is explicitly named for <code>0.9.7.7</code> and pins the old 1100-byte request.</p>
+<p>Replace it with a v0.9.8.0 contract test, for example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">TestUSBIPWin20980NativeABIContract</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">request</span><span class="w"> </span><span class="nx">attachIOCTL</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">PortOutput</span><span class="p">))</span>
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span><span class="mi">8</span><span class="p">),</span><span class="w"> </span><span class="nx">attachPortOutputLength</span><span class="p">)</span>
+<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">1097</span><span class="p">),</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">Serial</span><span class="p">))</span>
+<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">1113</span><span class="p">),</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Offsetof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">WskEvents</span><span class="p">))</span>
+<a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">request</span><span class="p">.</span><span class="nx">WskEvents</span><span class="p">))</span>
+<a id="__codelineno-36-9" name="__codelineno-36-9" href="#__codelineno-36-9"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span><span class="mi">1116</span><span class="p">),</span><span class="w"> </span><span class="nx">attachInputLength</span><span class="p">)</span>
+<a id="__codelineno-36-10" name="__codelineno-36-10" href="#__codelineno-36-10"></a>
+<a id="__codelineno-36-11" name="__codelineno-36-11" href="#__codelineno-36-11"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Len</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">request</span><span class="p">.</span><span class="nx">BusID</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">)</span>
+<a id="__codelineno-36-12" name="__codelineno-36-12" href="#__codelineno-36-12"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Len</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">request</span><span class="p">.</span><span class="nx">Service</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">)</span>
+<a id="__codelineno-36-13" name="__codelineno-36-13" href="#__codelineno-36-13"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Len</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">request</span><span class="p">.</span><span class="nx">Host</span><span class="p">,</span><span class="w"> </span><span class="mi">1025</span><span class="p">)</span>
+<a id="__codelineno-36-14" name="__codelineno-36-14" href="#__codelineno-36-14"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Len</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="nx">request</span><span class="p">.</span><span class="nx">Serial</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">)</span>
+<a id="__codelineno-36-15" name="__codelineno-36-15" href="#__codelineno-36-15"></a>
+<a id="__codelineno-36-16" name="__codelineno-36-16" href="#__codelineno-36-16"></a><span class="w">    </span><span class="nx">require</span><span class="p">.</span><span class="nx">Equal</span><span class="p">(</span><span class="nx">t</span><span class="p">,</span><span class="w"> </span><span class="kt">uintptr</span><span class="p">(</span><span class="mi">8</span><span class="p">),</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Sizeof</span><span class="p">(</span><span class="nx">plugoutIOCTL</span><span class="p">{}))</span>
+<a id="__codelineno-36-17" name="__codelineno-36-17" href="#__codelineno-36-17"></a><span class="p">}</span>
+</code></pre></div>
+<p>Use the repository's current assertion style; the exact helper package is not important.</p>
+<p>The test must explicitly fail if a future edit silently returns the native request to the old 0.9.7.7 size.</p>
+<hr />
+<h1 id="11-required-native-request-content-test">11. Required native request-content test</h1>
+<p>The fork already has a <code>nativeAttachOps</code> seam used to verify the IPv4 loopback endpoint without a real kernel driver.</p>
+<p>Extend that test or add one focused adjacent test to verify the v0.9.8.0 request sent to <code>DeviceIoControl</code> contains:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>Size       = 1116
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>BusID      = expected &lt;bus&gt;-&lt;device&gt;
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>Service    = expected local USB/IP server port
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>Host       = 127.0.0.1
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a>Serial     = empty / zero-filled unless an authoritative serial source exists
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a>WskEvents  = true
+</code></pre></div>
+<p>Prefer inspecting the struct received by the existing fake operation.</p>
+<p>Do not create a new mock framework.</p>
+<p>No real usbip driver should be required for this unit test.</p>
+<hr />
+<h1 id="12-required-command-argument-tests">12. Required command argument tests</h1>
+<p>Update the existing test in:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>internal/server/api/autoattach_contract_test.go
+</code></pre></div>
+<p>Current expected attach command omits receive mode.</p>
+<p>New expected attach args must contain exactly one:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>--receive-mode=low-latency
+</code></pre></div>
+<p>and must still contain:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>--tcp-port &lt;exact server port&gt;
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>attach
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>-r 127.0.0.1
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>-b &lt;exact bus ID&gt;
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>--terse
+</code></pre></div>
+<p>Example expected slice:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="nx">wantAttach</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">{</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a><span class="w">    </span><span class="s">"--tcp-port"</span><span class="p">,</span><span class="w"> </span><span class="s">"3241"</span><span class="p">,</span>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="w">    </span><span class="s">"attach"</span><span class="p">,</span>
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a><span class="w">    </span><span class="s">"-r"</span><span class="p">,</span><span class="w"> </span><span class="s">"127.0.0.1"</span><span class="p">,</span>
+<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a><span class="w">    </span><span class="s">"-b"</span><span class="p">,</span><span class="w"> </span><span class="s">"9-12"</span><span class="p">,</span>
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="w">    </span><span class="s">"--receive-mode=low-latency"</span><span class="p">,</span>
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a><span class="w">    </span><span class="s">"--terse"</span><span class="p">,</span>
+<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a><span class="p">}</span>
+</code></pre></div>
+<p>Keep the exact-port detach assertion unchanged.</p>
+<p>If the isolated legacy command path is still reachable and not built from this helper, add the smallest focused test or seam necessary to pin low-latency there as well. Do not rewrite the legacy path into the tracked contract solely to make it testable.</p>
+<hr />
+<h1 id="13-preserve-existing-fallback-and-ownership-tests">13. Preserve existing fallback and ownership tests</h1>
+<p>These tests must continue to pass without weakening their expectations:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>TestTrackedAttachFallbackIsSingleLayerAndFailClosed
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>native known failure → command fallback exactly once
+<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>native ErrAttachmentOutcomeUnknown → command fallback zero times
+</code></pre></div>
+<p>Also preserve tests covering:</p>
+<ul>
+<li>exact positive port parsing;</li>
+<li>malformed terse output rejection;</li>
+<li>non-positive port rejection;</li>
+<li>tracked attachment state;</li>
+<li>exact backend retention;</li>
+<li>exact-port detach;</li>
+<li>unknown detach result classification;</li>
+<li>typed-device lifecycle serialization;</li>
+<li>server close-failed behavior after unsafe outcomes.</li>
+</ul>
+<p>Do not “fix” a test by changing the ownership contract to match a new implementation shortcut.</p>
+<hr />
+<h1 id="14-windows-ci-must-actually-execute-the-abi-tests">14. Windows CI must actually execute the ABI tests</h1>
+<p>The current PR workflow has an important coverage gap for this specific change:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>build_base.yml / test job
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>→ runs on ubuntu-latest
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>→ just test-coverage
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>→ Windows-only autoattach_windows_test.go is not executed
+</code></pre></div>
+<p>The Windows <code>libviiper-windows</code> job builds the DLL but currently does not explicitly run <code>internal/server/api</code> Windows tests.</p>
+<p>Because this PR is specifically a Windows kernel ABI migration, add a focused Windows test step to the existing <code>libviiper-windows</code> job.</p>
+<p>Recommended step before the canonical DLL build:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Test Windows USB/IP attach contract</span>
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a><span class="w">  </span><span class="nt">shell</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pwsh</span>
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a><span class="w">      </span><span class="no">go test -count=1 ./internal/server/api</span>
+</code></pre></div>
+<p>This is justified product coverage, not generic CI expansion.</p>
+<p>Do not add another workflow or a large Windows test matrix.</p>
+<p>Do not move the entire existing Ubuntu suite to Windows.</p>
+<p>The purpose is only to ensure that the v0.9.8.0 native layout and low-latency Windows attach tests are executed in PR CI.</p>
+<hr />
+<h1 id="15-documentation-updates-required-in-the-fork">15. Documentation updates required in the fork</h1>
+<h2 id="151-fork_architecturemd">15.1 <code>FORK_ARCHITECTURE.md</code></h2>
+<p>Current text pins the tracked native ABI to usbip-win2 <code>v0.9.7.7</code>.</p>
+<p>Update the architectural source of truth to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>tracked Windows native ABI = usbip-win2 v0.9.8.0
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>reference commit = 83bd1f781d57ed6efdf15530c55710cf5d4482bc
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a>receive mode = low-latency for the fork's Windows localhost attach contract
+</code></pre></div>
+<p>State that later versions remain unsupported until explicitly validated.</p>
+<p>Do not claim that the fork dynamically checks the installed usbip version if it does not.</p>
+<p>The Addon integration provides the package-version admission boundary.</p>
+<h2 id="152-docslibviiperfork-apimd">15.2 <code>docs/libviiper/fork-api.md</code></h2>
+<p>Update the support matrix and Windows attachment section.</p>
+<p>Required semantic changes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>Tracked localhost AttachUSBDevice / DetachUSBDevice
+<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>→ Supported with usbip-win2 v0.9.8.0
+</code></pre></div>
+<p>Replace the old v0.9.7.7 ABI pin with the v0.9.8.0 commit above.</p>
+<p>Document that:</p>
+<ul>
+<li>native tracked attach sets the v0.9.8.0 WSK-event flag;</li>
+<li>command attach passes <code>--receive-mode=low-latency</code>;</li>
+<li>low-latency is fixed for this fork's Windows localhost attach path, not caller-configurable;</li>
+<li>exact imported-port ownership and fail-close behavior are unchanged;</li>
+<li>v0.9.7.7 is not retained as a second supported ABI.</li>
+</ul>
+<p>Do not broadly rewrite generic usbip installation documentation in <code>docs/getting-started/usbip.md</code> unless implementation exposes a factual inconsistency that must be corrected.</p>
+<hr />
+<h1 id="16-explicit-non-goals">16. Explicit non-goals</h1>
+<p>Do not include any of the following in PR2.</p>
+<h2 id="161-no-steamaddonforclaw-package-update">16.1 No SteamAddonforClaw package update</h2>
+<p>Do not modify the SteamAddonforClaw repository in this PR.</p>
+<p>The later Addon PR will:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>bundle USBip-0.9.8.0-x64.exe
+<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>update installer hash/version metadata
+<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>adopt this PR's canonical libVIIPER artifact
+<a id="__codelineno-47-4" name="__codelineno-47-4" href="#__codelineno-47-4"></a>exercise 0.9.7.7 → 0.9.8.0 UpdateRequired migration
+</code></pre></div>
+<h2 id="162-no-usbip-installer-bundling-in-viiper">16.2 No usbip installer bundling in VIIPER</h2>
+<p>VIIPER does not become the driver installer owner.</p>
+<p>Do not add an installer download, package registry manager, or elevation flow here.</p>
+<h2 id="163-no-receive-mode-setting">16.3 No receive-mode setting</h2>
+<p>Do not expose:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>zero-copy / low-latency toggle
+<a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>CLI setting owned by libVIIPER
+<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>C API parameter
+<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>configuration file option
+<a id="__codelineno-48-5" name="__codelineno-48-5" href="#__codelineno-48-5"></a>environment variable
+</code></pre></div>
+<p>The current product decision is low-latency always.</p>
+<h2 id="164-no-latency-benchmark-requirement-for-merge">16.4 No latency benchmark requirement for merge</h2>
+<p>Do not block this PR on proving a numerical latency reduction.</p>
+<p>The reasons for selecting low-latency are:</p>
+<ul>
+<li>upstream explicitly added it for small/high-frequency traffic such as HID;</li>
+<li>the product workload is controller/HID-oriented;</li>
+<li>the user selected low-latency as the product policy.</li>
+</ul>
+<p>Acceptance is based on correctness, ownership, input/output behavior, and lifecycle stability.</p>
+<p>An A/B performance study can be done separately if useful, but must not force a receive-mode abstraction into production code.</p>
+<h2 id="165-no-unrelated-usb-transport-refactor">16.5 No unrelated USB transport refactor</h2>
+<p>Do not refactor:</p>
+<ul>
+<li><code>internal/server/usb</code> request processing;</li>
+<li>device report scheduling;</li>
+<li>Steam Deck report formats;</li>
+<li>Xbox360 report formats;</li>
+<li>callbacks;</li>
+<li>typed-device handle architecture;</li>
+<li>logging architecture;</li>
+<li>bus allocation.</li>
+</ul>
+<p>This PR is a Windows attach ABI/receive-path migration only.</p>
+<hr />
+<h1 id="17-expected-files-to-change">17. Expected files to change</h1>
+<p>Primary production code:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>internal/server/api/autoattach_windows.go
+<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a>internal/server/api/autoattach_contract.go
+</code></pre></div>
+<p><code>autoattach_contract.go</code> should change only if needed for the command argument string/helper. Do not alter fallback policy.</p>
+<p>Tests:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>internal/server/api/autoattach_windows_test.go
+<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>internal/server/api/autoattach_contract_test.go
+</code></pre></div>
+<p>CI:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>.github/workflows/build_base.yml
+</code></pre></div>
+<p>Fork documentation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>FORK_ARCHITECTURE.md
+<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a>docs/libviiper/fork-api.md
+</code></pre></div>
+<p>Files that should normally <strong>not</strong> change:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>libviiper.h
+<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a>lib/viiper public export definitions
+<a id="__codelineno-53-3" name="__codelineno-53-3" href="#__codelineno-53-3"></a>lib/viiper typed-device public APIs
+<a id="__codelineno-53-4" name="__codelineno-53-4" href="#__codelineno-53-4"></a>internal/server/usb/*
+<a id="__codelineno-53-5" name="__codelineno-53-5" href="#__codelineno-53-5"></a>device/steamdeck/*
+<a id="__codelineno-53-6" name="__codelineno-53-6" href="#__codelineno-53-6"></a>device/steamcontroller/*
+<a id="__codelineno-53-7" name="__codelineno-53-7" href="#__codelineno-53-7"></a>device/xbox360/*
+<a id="__codelineno-53-8" name="__codelineno-53-8" href="#__codelineno-53-8"></a>usbip/usbip.go
+</code></pre></div>
+<p>If implementation requires touching one of those, first prove that the v0.9.8.0 attach contract cannot be implemented inside the existing Windows attachment owner.</p>
+<hr />
+<h1 id="18-validation-source-and-unit-level">18. Validation — source and unit level</h1>
+<p>Run at minimum:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>go fmt ./...
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>go test ./...
+<a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a>go vet ./...
+<a id="__codelineno-54-4" name="__codelineno-54-4" href="#__codelineno-54-4"></a>git diff --check
+</code></pre></div>
+<p>Because the ABI code is Windows-only, also run on Windows:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>go test -count=1 ./internal/server/api
+</code></pre></div>
+<p>Then build the canonical Windows embedded library using the repository-supported path:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a>just build-libVIIPER Release
+</code></pre></div>
+<p>Do not use the legacy root <code>build_dll.bat</code> as the canonical artifact authority. <code>FORK_ARCHITECTURE.md</code> defines <code>just build-libVIIPER Release</code> and the <code>libviiper-windows</code> CI job as the canonical build path for downstream SteamAddonforClaw adoption.</p>
+<p>The PR must pass the existing canonical export/header/manifest verification.</p>
+<hr />
+<h1 id="19-hardwareruntime-validation-for-pr2">19. Hardware/runtime validation for PR2</h1>
+<p>A unit test can prove the struct layout and request contents, but it cannot prove the real usbip-win2 0.9.8.0 driver accepts the IOCTL and operates correctly.</p>
+<p>Before downstream Addon adoption, validate the canonical Windows library against a machine with usbip-win2 <code>0.9.8.0</code> installed.</p>
+<p>Minimum VIIPER-level validation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a>1. Start VIIPER/libVIIPER localhost USB server.
+<a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>2. Create a supported logical controller device.
+<a id="__codelineno-57-3" name="__codelineno-57-3" href="#__codelineno-57-3"></a>3. Native tracked attach succeeds.
+<a id="__codelineno-57-4" name="__codelineno-57-4" href="#__codelineno-57-4"></a>4. Returned import port is positive and recorded exactly.
+<a id="__codelineno-57-5" name="__codelineno-57-5" href="#__codelineno-57-5"></a>5. Attachment query reports Attached.
+<a id="__codelineno-57-6" name="__codelineno-57-6" href="#__codelineno-57-6"></a>6. Input reports reach the virtual controller normally.
+<a id="__codelineno-57-7" name="__codelineno-57-7" href="#__codelineno-57-7"></a>7. Host output/callback path works for the tested controller.
+<a id="__codelineno-57-8" name="__codelineno-57-8" href="#__codelineno-57-8"></a>8. Detach targets the exact stored port and succeeds.
+<a id="__codelineno-57-9" name="__codelineno-57-9" href="#__codelineno-57-9"></a>9. Attachment query returns Detached afterward.
+<a id="__codelineno-57-10" name="__codelineno-57-10" href="#__codelineno-57-10"></a>10. Repeat attach/detach multiple times without leaked imports.
+</code></pre></div>
+<p>For Steam Addon integration priority, validate at least:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a>Xbox360 presentation
+<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a>SteamDeck presentation
+</code></pre></div>
+<p>For Steam Deck, verify both input and the existing output callback path. For Xbox360, verify input and rumble/output behavior through the existing supported callback path.</p>
+<p>Do not turn this PR into a new controller feature project if an unrelated output feature is already unsupported by the current fork.</p>
+<hr />
+<h1 id="20-real-lifecycle-checks">20. Real lifecycle checks</h1>
+<p>The following are realistic supported conditions and should be exercised where practical before the canonical artifact is adopted by SteamAddonforClaw:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a>repeated attach → detach
+<a id="__codelineno-59-2" name="__codelineno-59-2" href="#__codelineno-59-2"></a>process/server teardown while detached
+<a id="__codelineno-59-3" name="__codelineno-59-3" href="#__codelineno-59-3"></a>process/server teardown after attached device has been cleanly detached
+<a id="__codelineno-59-4" name="__codelineno-59-4" href="#__codelineno-59-4"></a>runtime restart and fresh attach
+<a id="__codelineno-59-5" name="__codelineno-59-5" href="#__codelineno-59-5"></a>USB/IP service/device temporarily unavailable
+<a id="__codelineno-59-6" name="__codelineno-59-6" href="#__codelineno-59-6"></a>real native attach failure
+<a id="__codelineno-59-7" name="__codelineno-59-7" href="#__codelineno-59-7"></a>real native detach failure
+<a id="__codelineno-59-8" name="__codelineno-59-8" href="#__codelineno-59-8"></a>Windows sleep → resume
+<a id="__codelineno-59-9" name="__codelineno-59-9" href="#__codelineno-59-9"></a>Windows hibernate → resume
+</code></pre></div>
+<p>For this VIIPER PR, the important question is whether ownership state and exact-port cleanup remain correct.</p>
+<p>Full MSI Claw authority behavior involving:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a>PID1901 ↔ PID1902
+<a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a>HidHide physical isolation
+<a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>Center M Disabled authority
+<a id="__codelineno-60-4" name="__codelineno-60-4" href="#__codelineno-60-4"></a>Steam/BPM presentation policy
+<a id="__codelineno-60-5" name="__codelineno-60-5" href="#__codelineno-60-5"></a>PnP physical-controller recovery
+</code></pre></div>
+<p>belongs to the downstream SteamAddonforClaw integration PR, not to VIIPER PR2.</p>
+<p>Do not add MSI-specific state to VIIPER to test those scenarios here.</p>
+<hr />
+<h1 id="21-operation-failure-acceptance">21. Operation-failure acceptance</h1>
+<p>A real attach failure must not create an unowned duplicate import.</p>
+<p>A real detach failure must not silently erase the tracked ownership token.</p>
+<p>Preserve the existing classified public behavior used by the Addon:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a>Success
+<a id="__codelineno-61-2" name="__codelineno-61-2" href="#__codelineno-61-2"></a>RetryableFailure
+<a id="__codelineno-61-3" name="__codelineno-61-3" href="#__codelineno-61-3"></a>UnsafeOutcomeUnknown
+<a id="__codelineno-61-4" name="__codelineno-61-4" href="#__codelineno-61-4"></a>Invalid
+</code></pre></div>
+<p>The exact classification mapping must remain consistent with the current fork tests.</p>
+<p>Do not translate <code>ErrAttachmentOutcomeUnknown</code> into a retryable result merely because a second attach might work.</p>
+<hr />
+<h1 id="22-race-overengineering-boundary">22. Race / overengineering boundary</h1>
+<p>Follow the Steam Addon / fork review policy.</p>
+<p>This PR must defend real lifecycle safety, but it must not invent synchronization for pathological timing combinations.</p>
+<p>Already-existing ownership boundaries are sufficient unless real evidence proves otherwise:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a>tracked attachment token
+<a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a>exact import port
+<a id="__codelineno-62-3" name="__codelineno-62-3" href="#__codelineno-62-3"></a>existing lifecycleMu serialization in canonical libVIIPER
+<a id="__codelineno-62-4" name="__codelineno-62-4" href="#__codelineno-62-4"></a>ErrAttachmentOutcomeUnknown fail-close
+<a id="__codelineno-62-5" name="__codelineno-62-5" href="#__codelineno-62-5"></a>single command fallback layer
+<a id="__codelineno-62-6" name="__codelineno-62-6" href="#__codelineno-62-6"></a>server close-failed state
+</code></pre></div>
+<p>Do not add:</p>
+<ul>
+<li>attach epochs;</li>
+<li>WSK-mode state machines;</li>
+<li>retry coordinators;</li>
+<li>native/command ownership arbiters;</li>
+<li>receive-mode managers;</li>
+<li>extra locks around immutable receive-mode policy;</li>
+<li>background reconciliation loops.</li>
+</ul>
+<p>The v0.9.8.0 migration is deterministic: one ABI, one low-latency policy, one existing owner.</p>
+<hr />
+<h1 id="23-acceptance-criteria">23. Acceptance criteria</h1>
+<p>PR2 is complete only when all of the following are true.</p>
+<ol>
+<li>Implementation targets <code>onehoon/VIIPER</code> current fork architecture, not upstream VIIPER architecture.</li>
+<li>The tracked Windows native ABI is pinned to usbip-win2 <code>v0.9.8.0</code> commit <code>83bd1f781d57ed6efdf15530c55710cf5d4482bc</code>.</li>
+<li>The old v0.9.7.7-only <code>attachIOCTL</code> layout is removed.</li>
+<li><code>attachIOCTL</code> includes <code>Serial[16]</code> and one-byte <code>WskEvents</code> in the upstream v0.9.8.0 order.</li>
+<li>Native request size is pinned by test to 1116 bytes on Windows/amd64.</li>
+<li><code>PortOutput</code> remains at offset 4.</li>
+<li>Native output-prefix length remains exactly 8 bytes.</li>
+<li><code>Serial</code> offset is pinned to 1097.</li>
+<li><code>WskEvents</code> offset is pinned to 1113 and its size to 1 byte.</li>
+<li>Native attach always sends <code>WskEvents=true</code>.</li>
+<li>Native attach keeps IPv4 loopback host <code>127.0.0.1</code> and current bus/service semantics.</li>
+<li>No fabricated serial is introduced.</li>
+<li>Tracked command attach always passes <code>--receive-mode=low-latency</code>.</li>
+<li>Any still-reachable legacy Windows command attach also explicitly selects low-latency.</li>
+<li>No user/config/API receive-mode selector is introduced.</li>
+<li>Native success still records the exact positive imported port.</li>
+<li>Exact stored backend/port detach behavior is unchanged.</li>
+<li><code>ErrAttachmentOutcomeUnknown</code> still prevents command fallback.</li>
+<li>Known pre-ownership native failure still has at most one command fallback.</li>
+<li>Command terse-port validation remains strict.</li>
+<li>Public libVIIPER C ABI is unchanged.</li>
+<li>Typed-device ownership/lifecycle semantics are unchanged.</li>
+<li>Windows <code>internal/server/api</code> tests are executed in CI, not only compiled indirectly.</li>
+<li><code>FORK_ARCHITECTURE.md</code> documents the v0.9.8.0 pin and low-latency policy.</li>
+<li><code>docs/libviiper/fork-api.md</code> documents v0.9.8.0 as the supported tracked Windows package and removes v0.9.7.7 as a second supported ABI.</li>
+<li>Full Go tests/vet/format checks pass.</li>
+<li>Canonical <code>just build-libVIIPER Release</code> succeeds on Windows.</li>
+<li>Existing canonical export/header/manifest verification passes.</li>
+<li>Real usbip-win2 0.9.8.0 native attach/detach is hardware/runtime-smoke-tested before downstream Addon adoption.</li>
+<li>No unrelated USB transport/controller refactor is mixed into the PR.</li>
+</ol>
+<hr />
+<h1 id="24-recommended-pr-description">24. Recommended PR description</h1>
+<p>Use a concise PR description similar to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a><span class="gu">## Summary</span>
+<a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a>
+<a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a><span class="k">-</span><span class="w"> </span>Migrate the fork's tracked Windows localhost attach ABI from usbip-win2 0.9.7.7 to 0.9.8.0.
+<a id="__codelineno-63-4" name="__codelineno-63-4" href="#__codelineno-63-4"></a><span class="k">-</span><span class="w"> </span>Always select the usbip-win2 low-latency / WSK-event receive path for native and command attach.
+<a id="__codelineno-63-5" name="__codelineno-63-5" href="#__codelineno-63-5"></a><span class="k">-</span><span class="w"> </span>Preserve exact imported-port ownership, exact-port detach, native-first fallback, and unknown-outcome fail-close behavior.
+<a id="__codelineno-63-6" name="__codelineno-63-6" href="#__codelineno-63-6"></a><span class="k">-</span><span class="w"> </span>Add Windows CI coverage for the v0.9.8.0 ABI contract and update fork architecture/API documentation.
+<a id="__codelineno-63-7" name="__codelineno-63-7" href="#__codelineno-63-7"></a>
+<a id="__codelineno-63-8" name="__codelineno-63-8" href="#__codelineno-63-8"></a><span class="gu">## Non-goals</span>
+<a id="__codelineno-63-9" name="__codelineno-63-9" href="#__codelineno-63-9"></a>
+<a id="__codelineno-63-10" name="__codelineno-63-10" href="#__codelineno-63-10"></a><span class="k">-</span><span class="w"> </span>No 0.9.7.7 compatibility layer.
+<a id="__codelineno-63-11" name="__codelineno-63-11" href="#__codelineno-63-11"></a><span class="k">-</span><span class="w"> </span>No receive-mode user setting.
+<a id="__codelineno-63-12" name="__codelineno-63-12" href="#__codelineno-63-12"></a><span class="k">-</span><span class="w"> </span>No SteamAddonforClaw package/installer update in this PR.
+<a id="__codelineno-63-13" name="__codelineno-63-13" href="#__codelineno-63-13"></a><span class="k">-</span><span class="w"> </span>No public libVIIPER ABI change.
+</code></pre></div>
+<hr />
+<h1 id="25-follow-up-after-pr2">25. Follow-up after PR2</h1>
+<p>After PR2 is merged and a successful <strong>main-branch canonical Windows libVIIPER artifact</strong> exists, the next work belongs in SteamAddonforClaw.</p>
+<p>Downstream PR3 should:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a>1. adopt the exact successful main-branch VIIPER commit/artifact;
+<a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a>2. replace bundled usbip-win2 0.9.7.7 with 0.9.8.0;
+<a id="__codelineno-64-3" name="__codelineno-64-3" href="#__codelineno-64-3"></a>3. update Addon installer filename/version/SHA-256/publish verification;
+<a id="__codelineno-64-4" name="__codelineno-64-4" href="#__codelineno-64-4"></a>4. exercise the already-merged Addon UpdateRequired path using a real 0.9.7.7 → 0.9.8.0 migration;
+<a id="__codelineno-64-5" name="__codelineno-64-5" href="#__codelineno-64-5"></a>5. reboot when required;
+<a id="__codelineno-64-6" name="__codelineno-64-6" href="#__codelineno-64-6"></a>6. verify exact 0.9.8.0 package readiness;
+<a id="__codelineno-64-7" name="__codelineno-64-7" href="#__codelineno-64-7"></a>7. perform Full1902 MSI Claw lifecycle validation with the new low-latency VIIPER runtime.
+</code></pre></div>
+<p>That Addon PR is the correct place to validate the complete product lifecycle:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a>Velopack delivers updated Addon files
+<a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a>→ Addon sees old usbip package
+<a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a>→ UpdateRequired
+<a id="__codelineno-65-4" name="__codelineno-65-4" href="#__codelineno-65-4"></a>→ elevated prerequisite setup installs 0.9.8.0
+<a id="__codelineno-65-5" name="__codelineno-65-5" href="#__codelineno-65-5"></a>→ exact version verified
+<a id="__codelineno-65-6" name="__codelineno-65-6" href="#__codelineno-65-6"></a>→ new canonical libVIIPER is allowed to attach
+<a id="__codelineno-65-7" name="__codelineno-65-7" href="#__codelineno-65-7"></a>→ Full1902 controller ownership/presentation resumes safely
+</code></pre></div>
+<p>Do not pre-implement that integration inside VIIPER PR2.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
