@@ -50,24 +50,27 @@ var deviceGUID = windows.GUID{
 }
 
 const (
-	niMaxHost = 1025
-	niMaxServ = 32
+	niMaxHost     = 1025
+	niMaxServ     = 32
+	serialBufSize = 16
 )
 
-// usbip-win2 v0.9.7.7 ABI reference:
-// https://github.com/vadimgrn/usbip-win2/blob/7c219953101cc5d0ec9a0bcb3eb87259cf72bedd/include/usbip/vhci.h
+// usbip-win2 v0.9.8.0 ABI reference:
+// https://github.com/vadimgrn/usbip-win2/blob/83bd1f781d57ed6efdf15530c55710cf5d4482bc/include/usbip/vhci.h
 //
-// plugin_hardware is intentionally pinned to that released ABI. Later
-// usbip-win2 versions add fields and are not supported by this native binding.
+// plugin_hardware is intentionally pinned to that released ABI. The driver
+// validates the complete request size, so the trailing fields are required.
 type attachIOCTL struct {
 	Size       uint32
 	PortOutput int32
 	BusID      [32]byte
 	Service    [niMaxServ]byte
 	Host       [niMaxHost]byte
+	Serial     [serialBufSize]byte
+	WskEvents  bool
 }
 
-// plugoutIOCTL is usbip-win2 v0.9.7.7 ioctl::plugout_hardware.
+// plugoutIOCTL is usbip-win2 v0.9.8.0 ioctl::plugout_hardware.
 type plugoutIOCTL struct {
 	Size uint32
 	Port int32
@@ -274,6 +277,7 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 	}
 	copy(ioctlData.Service[:], service)
 	copy(ioctlData.Host[:], "127.0.0.1")
+	ioctlData.WskEvents = true
 
 	openStart := time.Now()
 	handle, openErr := ops.openDevice(devicePath)
@@ -367,12 +371,7 @@ func attachViaCommandWithRunner(ctx context.Context, deviceExportMeta *usbip.Exp
 // migration must happen atomically with PR3B's device lifecycle state.
 func attachViaCommandLegacy(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) error {
 	logger.Info("Auto-attaching localhost client", "busID", deviceExportMeta.BusID, "deviceID", deviceExportMeta.DevID)
-	cmd := exec.CommandContext(
-		ctx,
-		"usbip",
-		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),
-		"attach", "-r", "127.0.0.1", "-b", fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID),
-	)
+	cmd := exec.CommandContext(ctx, "usbip", usbipLegacyAttachCommandArgs(usbipServerPort, fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID))...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		logger.Error("Failed to attach device", "error", err, "port", usbipServerPort, "output", string(output))
@@ -380,6 +379,14 @@ func attachViaCommandLegacy(ctx context.Context, deviceExportMeta *usbip.ExportM
 	}
 	logger.Debug("usbip attach output", "output", string(output))
 	return nil
+}
+
+func usbipLegacyAttachCommandArgs(usbipServerPort uint16, busID string) []string {
+	return []string{
+		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),
+		"attach", "-r", "127.0.0.1", "-b", busID,
+		"--receive-mode=low-latency",
+	}
 }
 
 func validateNativeAttachResponse(bytesReturned uint32, port int32) error {

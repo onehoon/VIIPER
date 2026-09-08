@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"os/exec"
+	"reflect"
 	"testing"
 	"unsafe"
 
@@ -14,7 +15,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func TestUSBIPWin2977NativeABIContract(t *testing.T) {
+func TestUSBIPWin20980NativeABIContract(t *testing.T) {
 	var request attachIOCTL
 	if got, want := unsafe.Offsetof(request.PortOutput), uintptr(4); got != want {
 		t.Fatalf("plugin_hardware port offset = %d, want %d", got, want)
@@ -22,7 +23,16 @@ func TestUSBIPWin2977NativeABIContract(t *testing.T) {
 	if got, want := attachPortOutputLength, uint32(8); got != want {
 		t.Fatalf("plugin_hardware output length = %d, want %d", got, want)
 	}
-	if got, want := attachInputLength, uint32(1100); got != want {
+	if got, want := unsafe.Offsetof(request.Serial), uintptr(1097); got != want {
+		t.Fatalf("plugin_hardware serial offset = %d, want %d", got, want)
+	}
+	if got, want := unsafe.Offsetof(request.WskEvents), uintptr(1113); got != want {
+		t.Fatalf("plugin_hardware WSK events offset = %d, want %d", got, want)
+	}
+	if got, want := unsafe.Sizeof(request.WskEvents), uintptr(1); got != want {
+		t.Fatalf("plugin_hardware WSK events size = %d, want %d", got, want)
+	}
+	if got, want := attachInputLength, uint32(1116); got != want {
 		t.Fatalf("plugin_hardware input length = %d, want %d", got, want)
 	}
 	inputLength, outputLength := nativeAttachIOCTLLengths()
@@ -37,6 +47,9 @@ func TestUSBIPWin2977NativeABIContract(t *testing.T) {
 	}
 	if got, want := len(request.Host), 1025; got != want {
 		t.Fatalf("NI_MAXHOST = %d, want %d", got, want)
+	}
+	if got, want := len(request.Serial), 16; got != want {
+		t.Fatalf("SERIAL_BUFSZ = %d, want %d", got, want)
 	}
 	if got, want := unsafe.Sizeof(plugoutIOCTL{}), uintptr(8); got != want {
 		t.Fatalf("plugout_hardware size = %d, want %d", got, want)
@@ -80,6 +93,37 @@ func TestAttachViaIOCTLUsesIPv4LoopbackEndpoint(t *testing.T) {
 	}
 	if got := string(host[:len("127.0.0.1")]); got != "127.0.0.1" {
 		t.Fatalf("native host = %q, want 127.0.0.1", got)
+	}
+}
+
+func TestAttachViaIOCTLBuildsV0980LowLatencyRequest(t *testing.T) {
+	meta := &usbip.ExportMeta{BusID: 9, DevID: 12}
+	var captured attachIOCTL
+	ops := nativeAttachOps{
+		discoverDevicePath: func() (string, error) { return "fake-device-path", nil },
+		openDevice:         func(string) (windows.Handle, error) { return windows.Handle(1), nil },
+		closeDevice:        func(windows.Handle) error { return nil },
+		pluginHardware: func(_ windows.Handle, data *attachIOCTL) (uint32, error) {
+			captured = *data
+			data.PortOutput = 55
+			return attachPortOutputLength, nil
+		},
+	}
+	if _, err := attachViaIOCTLWithOps(meta, 3241, slog.Default(), ops); err != nil {
+		t.Fatalf("native attach failed: %v", err)
+	}
+	if captured.Size != 1116 || string(captured.BusID[:4]) != "9-12" || string(captured.Service[:4]) != "3241" || string(captured.Host[:9]) != "127.0.0.1" {
+		t.Fatalf("unexpected request contents: %+v", captured)
+	}
+	if captured.Serial != [serialBufSize]byte{} || !captured.WskEvents {
+		t.Fatalf("serial/WSK policy = serial=%v wskEvents=%v", captured.Serial, captured.WskEvents)
+	}
+}
+
+func TestUSBIPLegacyAttachCommandSelectsLowLatency(t *testing.T) {
+	want := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", "--receive-mode=low-latency"}
+	if got := usbipLegacyAttachCommandArgs(3241, "9-12"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("legacy attach arguments = %#v, want %#v", got, want)
 	}
 }
 
