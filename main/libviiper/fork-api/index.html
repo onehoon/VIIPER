@@ -2289,7 +2289,7 @@ matching header under <code>dist/libVIIPER/</code>.</p>
 </tr>
 <tr>
 <td>Tracked localhost <code>AttachUSBDevice</code> / <code>DetachUSBDevice</code></td>
-<td>Supported with usbip-win2 <code>v0.9.7.7</code></td>
+<td>Supported with usbip-win2 <code>v0.9.8.0</code></td>
 <td>Not provided by this fork</td>
 </tr>
 <tr>
@@ -2299,11 +2299,11 @@ matching header under <code>dist/libVIIPER/</code>.</p>
 </tr>
 </tbody>
 </table>
-<p>The tracked Windows attachment ABI is pinned to usbip-win2 <code>v0.9.7.7</code>, commit
-<code>7c219953101cc5d0ec9a0bcb3eb87259cf72bedd</code>. Version <code>v0.9.7.8</code> is intentionally
-unsupported because the upstream release carried a memory-corruption/BSOD
-warning. Later versions require explicit ABI and runtime validation before
-they can be considered compatible.</p>
+<p>The tracked Windows attachment ABI is pinned to usbip-win2 <code>v0.9.8.0</code>, commit
+<code>83bd1f781d57ed6efdf15530c55710cf5d4482bc</code>. Windows localhost attach always
+uses the low-latency receive path. The fork does not claim compatibility with
+older or later package versions until their ABI and runtime behavior are
+explicitly validated.</p>
 <p>Non-Windows builds remain compile-compatible, but they must fail safely for
 tracked localhost attachment. They must not record a fake attachment token or
 claim that a device is attached.</p>
