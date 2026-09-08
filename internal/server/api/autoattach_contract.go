@@ -132,7 +132,8 @@ func classifyNativeDetachResult(err error) error {
 func usbipAttachCommandArgs(usbipServerPort uint16, busID string) []string {
 	return []string{
 		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),
-		"attach", "-r", "127.0.0.1", "-b", busID, "--terse",
+		"attach", "-r", "127.0.0.1", "-b", busID,
+		"--receive-mode=low-latency", "--terse",
 	}
 }
 
