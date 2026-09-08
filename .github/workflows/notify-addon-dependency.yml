@@ -1,7 +1,7 @@
 name: Notify Addon Dependency
 
 # Fires only after a successful main-branch "Dev Snapshot Build" push run and
-# tells SteamInputAddonforClaw's receiver which exact VIIPER commit produced
+# tells SteamAddonforClaw's receiver which exact VIIPER commit produced
 # a new canonical artifact. This dispatch is a hint/input only: it carries no
 # adoption authority. The Addon receiver independently rediscovers and
 # re-verifies the exact push/main/success canonical artifact, its manifest,
@@ -46,7 +46,7 @@ jobs:
           private-key: ${{ secrets.VIIPER_ADDON_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: |
-            SteamInputAddonforClaw
+            SteamAddonforClaw
           permission-contents: write
 
       - name: Dispatch viiper-canonical-ready
@@ -60,7 +60,7 @@ jobs:
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
-            /repos/onehoon/SteamInputAddonforClaw/dispatches \
+            /repos/onehoon/SteamAddonforClaw/dispatches \
             -f event_type='viiper-canonical-ready' \
             -f "client_payload[commit]=${COMMIT}" \
             -f "client_payload[source_run_id]=${SOURCE_RUN_ID}"
