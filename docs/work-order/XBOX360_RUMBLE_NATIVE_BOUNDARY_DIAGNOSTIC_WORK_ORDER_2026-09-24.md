@@ -133,8 +133,10 @@ Required properties:
 - no retry;
 - no queue dedicated to rumble;
 - no synchronization added solely for theoretical races;
-- use the existing libVIIPER owned logger / async logging path;
-- logging failure must remain diagnostic-only.
+- use the existing libVIIPER owned **file-only asynchronous** logging sink;
+- rumble trace records must never fan out through the embedding application's synchronous `VIIPERLogCallback`;
+- logging failure must remain diagnostic-only;
+- a missing trace record is never treated as packet-loss proof unless trace completeness is independently established for that measurement session.
 
 Do not modify usbip-win2 integration.
 
@@ -156,7 +158,11 @@ Exact value `1` enables the trace.
 
 Unset, empty, or any other value leaves the trace disabled.
 
-Read the switch at the narrow Xbox360 callback-registration boundary; do not poll environment state per packet.
+Read the switch once when the canonical Xbox360 typed device is created; do not poll environment state per packet.
+
+The trace lifetime is the **Xbox360 logical-device lifetime**, not the callback-registration lifetime.
+
+This is intentional: the trace must remain able to observe a recognized host packet while the application callback is absent and record `CallbackPresent=false`.
 
 This is deliberately an environment-gated diagnostic feature rather than a new exported runtime-control API.
 
@@ -175,30 +181,138 @@ Do not make `internal/server/usb` understand Xbox360 report semantics.
 
 The generic USB server must remain generic.
 
-The preferred shape is a small **internal Go-only diagnostic hook/logger association owned by the Xbox360 device**, installed by the canonical typed wrapper when the trace switch is enabled.
+## 6.1 File-only trace sink — never the composite server logger
 
-A reasonable implementation shape is:
+The existing `NewUSBServer` logger is a composite:
 
 ```text
-SetXbox360RumbleCallback(...)
-    ↓
-resolve deviceHandleWrapper
-    ↓
-obtain owning server's existing logger
-    ↓
-if VIIPER_X360_RUMBLE_TRACE == 1:
-    give the Xbox360 device a narrow diagnostic sink/logger
-else:
-    diagnostic sink = nil
+libVIIPER.log file handler
++
+optional synchronous VIIPERLogCallback observer
 ```
+
+The rumble trace must **not** use that composite logger.
+
+Per-packet trace logging through the composite logger would synchronously invoke the embedding application's `VIIPERLogCallback` from the USB OUT path and could perturb timing or allow re-entrancy into application code.
+
+Instead, add the smallest internal helper that returns a logger backed only by:
+
+```text
+openRealEmbeddedLogFileHandler()
+-> existing bounded asyncLogWriter
+-> libVIIPER.log
+```
+
+with **no callback handler attached**.
+
+Conceptually:
+
+```text
+buildEmbeddedRumbleTraceLogger()
+    -> file handler only
+    -> slog.DiscardHandler when file sink is unavailable
+```
+
+Reuse the same cached file handler / async writer already owned by `embeddedlog.go`.
+
+Do not:
+
+- open a second libVIIPER.log file;
+- create a rumble-specific file writer;
+- create another logging goroutine or queue;
+- route trace events through `hw.logger`;
+- invoke `VIIPERLogCallback` for rumble trace records.
+
+Ordinary existing VIIPER diagnostics continue using the current composite server logger unchanged.
+
+## 6.2 Device-owned trace lifetime
+
+The preferred shape is a small **internal Go-only trace context owned by the Xbox360 device**.
+
+Install it when `CreateXbox360Device` creates the typed logical device and:
+
+```text
+VIIPER_X360_RUMBLE_TRACE == 1
+```
+
+was observed at creation.
+
+The trace context contains only diagnostic state needed for this investigation:
+
+```text
+file-only logger
+BusID
+DeviceID
+per-device TraceSeq
+enabled flag
+```
+
+Use the canonical logical identity already owned by the wrapper:
+
+```text
+BusID
+DeviceID
+```
+
+in every trace event. Do not use only `TraceSeq` as identity.
 
 The hook is internal Go implementation detail only.
 
 Do not expose it through `libVIIPER.h`.
 
-On callback clear/removal, release/clear the diagnostic hook together with the callback lifetime.
+## 6.3 Callback lifetime stays independent
 
-Keep callback teardown behavior unchanged.
+`SetXbox360RumbleCallback(NULL)` clears only the application callback.
+
+It must **not** disable the device trace.
+
+This allows a recognized packet after callback clear to produce:
+
+```text
+CallbackPresent=false
+```
+
+without invoking any application callback.
+
+Existing teardown paths such as `clearDeviceCallbackLocked` call `Xbox360.SetRumbleCallback(nil)` directly. They must keep doing so; do not route teardown through a new wrapper or alter callback ownership merely for tracing.
+
+The trace context ends only when the typed Xbox360 logical device is actually removed/finalized.
+
+Keep all callback teardown behavior unchanged.
+
+## 6.4 Trace session completeness markers
+
+When trace is enabled for a device, emit:
+
+```text
+Event=X360RumbleTraceStart
+BusID=<bus>
+DeviceID=<device>
+TraceSeq=0
+```
+
+after the trace identity is established.
+
+Before the logical Xbox360 device is finalized, emit:
+
+```text
+Event=X360RumbleTraceEnd
+BusID=<bus>
+DeviceID=<device>
+LastTraceSeq=<n>
+```
+
+through the same file-only async sink.
+
+The existing async writer can report queue saturation as:
+
+```text
+libVIIPER logging backlog droppedLogRecords=<n>
+```
+
+The trace-end marker is part of the evidence contract: if it is absent, the trace session is incomplete and absence-based conclusions are not allowed.
+
+Do not make logging completeness a controller-lifecycle success criterion. A missing trace-end record remains diagnostic-only and must never block device removal or server close.
 
 ---
 
@@ -207,6 +321,15 @@ Keep callback teardown behavior unchanged.
 Use a per-Xbox360-device monotonic diagnostic sequence number so lines from one host OUT transfer can be correlated.
 
 The counter is diagnostic-only.
+
+Every rumble trace event must also include:
+
+```text
+BusID=<canonical bus id>
+DeviceID=<canonical logical device id>
+```
+
+because multiple Xbox360 typed devices may write to the same `libVIIPER.log`. `TraceSeq` alone is not globally unique.
 
 ## 7.1 Raw EP1 OUT arrival
 
@@ -223,6 +346,8 @@ Suggested event:
 
 ```text
 Event=X360RumbleRaw
+BusID=<bus>
+DeviceID=<device>
 TraceSeq=<n>
 Length=<len>
 Payload=<bounded hex>
@@ -242,6 +367,8 @@ For a recognized current rumble packet:
 
 ```text
 Event=X360RumbleParsed
+BusID=<bus>
+DeviceID=<device>
 TraceSeq=<n>
 Recognized=true
 Left=<0..255>
@@ -253,6 +380,8 @@ For an EP1 OUT packet that is not recognized by the current rumble parser:
 
 ```text
 Event=X360RumbleParsed
+BusID=<bus>
+DeviceID=<device>
 TraceSeq=<n>
 Recognized=false
 Length=<len>
@@ -268,6 +397,8 @@ Immediately before invoking the currently registered Xbox360 rumble callback:
 
 ```text
 Event=X360RumbleCallbackDispatch
+BusID=<bus>
+DeviceID=<device>
 TraceSeq=<n>
 Left=<0..255>
 Right=<0..255>
@@ -302,9 +433,11 @@ Do not:
 - invoke the application callback asynchronously;
 - reorder callback and trace events.
 
-The existing libVIIPER logger already owns bounded asynchronous file output. Use that path rather than synchronous direct file I/O from `HandleTransfer`.
+The existing libVIIPER owned file handler already uses bounded asynchronous file output. Use the **file-only handler** required by section 6.1 rather than synchronous direct file I/O from `HandleTransfer` and rather than the composite server logger.
 
-Formatting a small diagnostic record on the callback thread is acceptable for this measurement build. Do not add a larger logging subsystem.
+Formatting a small diagnostic record on the OUT-transfer thread is acceptable for this measurement build. Do not add a larger logging subsystem.
+
+Because the async file queue is intentionally lossy under saturation, absence of an individual trace line is not by itself proof that the corresponding USB packet was absent. Section 10/11 defines the completeness gate required before making an absence-based conclusion.
 
 ---
 
@@ -354,13 +487,45 @@ parsed Recognized=false exists
 callback not invoked
 ```
 
-### Callback cleared
+### Callback cleared while trace remains active
 
-After `SetXbox360RumbleCallback(NULL)`:
+After `SetXbox360RumbleCallback(NULL)` while the Xbox360 device still exists:
 
-- normal callback behavior remains cleared;
-- diagnostic association is also cleared;
+- normal application callback behavior remains cleared;
+- the device trace remains active;
+- a subsequent valid rumble packet is still logged as raw + parsed;
+- the parsed event records `CallbackPresent=false`;
+- no dispatch event is emitted;
 - no stale managed/native callback is retained.
+
+### Device removal ends trace
+
+On typed Xbox360 removal/finalization:
+
+- callback clearing keeps its existing behavior;
+- one trace-end marker is attempted before finalization;
+- trace state is no longer retained after the device is finalized;
+- direct teardown callback clearing through `clearDeviceCallbackLocked` does not accidentally clear the trace before the logical device is removed.
+
+### Multiple Xbox360 devices
+
+Create two traced Xbox360 devices.
+
+Prove:
+
+- each has its own per-device `TraceSeq`;
+- every record contains the correct `BusID` and `DeviceID`;
+- equal sequence values from different devices cannot be mistaken for one stream.
+
+### Trace records do not invoke VIIPERLogCallback
+
+Provide a synchronous callback observer in the test seam and a separate file-handler capture.
+
+With rumble tracing enabled:
+
+- ordinary existing server diagnostics may still reach the callback observer as before;
+- `X360RumbleTraceStart`, raw, parsed, dispatch, and trace-end records reach only the file-only trace sink;
+- no rumble trace event is forwarded through `VIIPERLogCallback`.
 
 Do not add timing-race tests for pathological scheduler interleavings.
 
@@ -386,6 +551,16 @@ Collect:
 - `libVIIPER.log`
 - SteamInputAddonforClaw Runtime log, or CTW measuring-build log
 
+For the target `BusID/DeviceID`, a run is **trace-complete enough for absence-based reasoning** only when all of the following hold:
+
+1. `X360RumbleTraceStart` is present;
+2. `X360RumbleTraceEnd` is present for the same `BusID/DeviceID`;
+3. the sequence range is internally consistent for the captured events;
+4. there is no `libVIIPER logging backlog droppedLogRecords=...` marker between the relevant start/end interval;
+5. shutdown/removal completed normally enough for the existing bounded libVIIPER file flush path to run.
+
+If any of these conditions is missing, a missing individual raw trace is **inconclusive**, not evidence of upstream packet loss.
+
 Then compare ordered motor pairs and timestamps.
 
 ---
@@ -394,11 +569,25 @@ Then compare ordered motor pairs and timestamps.
 
 ## Probe sends 0/0, VIIPER raw trace has no corresponding 0/0
 
+First apply the trace-completeness gate from section 10.
+
+If the session is not proven trace-complete:
+
 ```text
-loss is before Xbox360.HandleTransfer
+result = inconclusive
 ```
 
-Investigate Windows/XInput/XUSB/USB-IP host delivery.
+Do not attribute the missing line to the host or transport.
+
+Only when the target-device trace session is complete and has no observed async-log drops may the result be classified as:
+
+```text
+no corresponding packet was observed at Xbox360.HandleTransfer
+-> investigate upstream of this boundary
+   (Windows/XInput/XUSB/USB-IP host delivery)
+```
+
+Even then, phrase the result as a measured boundary observation, not as proof of which upstream component lost the command.
 
 Do not modify VIIPER's parser.
 
@@ -460,7 +649,10 @@ The PR description must state:
 - trace is disabled by default;
 - no public ABI/header change;
 - exact activation variable;
-- exact trace event names;
+- trace records use the file-only async sink and never invoke `VIIPERLogCallback`;
+- trace lifetime is Xbox360-device lifetime, independent of callback registration;
+- exact trace event names and `BusID/DeviceID` identity fields;
+- the trace-completeness gate and the rule that a missing record is otherwise inconclusive;
 - tests added;
 - this instrumentation must not be interpreted as confirmation of a VIIPER defect.
 
