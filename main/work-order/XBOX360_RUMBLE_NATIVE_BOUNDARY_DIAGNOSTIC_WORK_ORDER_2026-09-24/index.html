@@ -1823,21 +1823,40 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>file-only logger
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>BusID
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>DeviceID
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>per-device TraceSeq
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>enabled flag
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>TraceSessionID
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>per-session TraceSeq
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>enabled / sealed state
 </code></pre></div>
-<p>Use the canonical logical identity already owned by the wrapper:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>BusID
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>DeviceID
+<h2 id="621-tracesessionid-distinguishes-logical-device-incarnations">6.2.1 TraceSessionID distinguishes logical-device incarnations</h2>
+<p><code>BusID/DeviceID</code> is not a sufficient session key.</p>
+<p><code>VirtualBus</code> returns a removed <code>DevID</code> to its allocation pool, so a later Xbox360 creation on the same bus may reuse the same <code>BusID/DeviceID</code>. The previous transport may also still be draining after its public handle has already been finalized.</p>
+<p>Assign each enabled Xbox360 trace context a process-local monotonically increasing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>TraceSessionID=&lt;uint64&gt;
 </code></pre></div>
-<p>in every trace event. Do not use only <code>TraceSeq</code> as identity.</p>
+<p>when that trace context is created.</p>
+<p>Requirements:</p>
+<ul>
+<li>allocate from one process-wide atomic counter;</li>
+<li>zero is reserved for "no trace session" and must never be emitted for an active session;</li>
+<li>do not persist the counter across processes;</li>
+<li>do not derive it from handles, pointers, BusID, DeviceID, wall-clock time, or random values;</li>
+<li>every Start/raw/parsed/dispatch/End/Abort record for that context must carry the same <code>TraceSessionID</code>;</li>
+<li><code>TraceSeq</code> starts from zero independently for each <code>TraceSessionID</code>.</li>
+</ul>
+<p>This is diagnostic identity only. It must not participate in controller ownership, attachment, callback, or teardown decisions.</p>
+<p>Use the full trace identity:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>BusID
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>DeviceID
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>TraceSessionID
+</code></pre></div>
+<p>in every trace event. Do not use only <code>BusID/DeviceID</code> or only <code>TraceSeq</code> as identity.</p>
 <p>The hook is internal Go implementation detail only.</p>
 <p>Do not expose it through <code>libVIIPER.h</code>.</p>
 <h2 id="63-callback-lifetime-stays-independent">6.3 Callback lifetime stays independent</h2>
 <p><code>SetXbox360RumbleCallback(NULL)</code> clears only the application callback.</p>
 <p>It must <strong>not</strong> disable the device trace.</p>
 <p>This allows a recognized packet after callback clear to produce:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>CallbackPresent=false
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>CallbackPresent=false
 </code></pre></div>
 <p>without invoking any application callback.</p>
 <p>Existing teardown paths such as <code>clearDeviceCallbackLocked</code> call <code>Xbox360.SetRumbleCallback(nil)</code> directly. They must keep doing so; do not route teardown through a new wrapper or alter callback ownership merely for tracing.</p>
@@ -1846,10 +1865,11 @@
 <p>Keep all callback teardown behavior unchanged.</p>
 <h2 id="64-trace-session-startend-and-transport-drain-fence">6.4 Trace session start/end and transport-drain fence</h2>
 <p>When trace is enabled for a device, emit:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>Event=X360RumbleTraceStart
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>BusID=&lt;bus&gt;
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>DeviceID=&lt;device&gt;
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>TraceSeq=0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>Event=X360RumbleTraceStart
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>BusID=&lt;bus&gt;
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>DeviceID=&lt;device&gt;
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>TraceSessionID=&lt;session&gt;
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>TraceSeq=0
 </code></pre></div>
 <p>after <code>exportMeta</code> establishes the canonical identity and <strong>before any auto-attach can expose the device to a host</strong>, as required by section 6.2.</p>
 <h3 id="traceend-must-be-after-the-existing-transport-drain">TraceEnd must be after the existing transport drain</h3>
@@ -1861,30 +1881,31 @@
 <li>any point before the corresponding <code>TransportDrain.Wait()</code> has completed.</li>
 </ul>
 <p>The current teardown architecture intentionally permits this ordering:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>under lifecycleMu:
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    clear callback
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    detach
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    BeginDeviceDrain
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    logical device/bus removal
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    handle finalization
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    ForgetDeviceTransport
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>unlock lifecycleMu
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>outside lifecycleMu:
-<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>    waitTransportDrains(...)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>under lifecycleMu:
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    clear callback
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    detach
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    BeginDeviceDrain
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    logical device/bus removal
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    handle finalization
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    ForgetDeviceTransport
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>unlock lifecycleMu
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>outside lifecycleMu:
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>    waitTransportDrains(...)
 </code></pre></div>
 <p>A <code>HandleTransfer</code> already in flight may still finish during that drain window. Its rumble trace event is valid evidence and must be included before <code>LastTraceSeq</code> is frozen.</p>
 <p>For every <strong>successfully retired</strong> traced Xbox360 device, retain the minimal trace context/identity independently of the finalized public handle until its existing transport drain completes.</p>
+<p>A newly created Xbox360 device is allowed to reuse the same <code>BusID/DeviceID</code> while the prior incarnation is still draining. The two streams remain unambiguous because they have different <code>TraceSessionID</code> values.</p>
 <p>Required order:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>BeginDeviceDrain
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>-&gt; existing logical removal/finalization path
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>-&gt; unlock lifecycleMu
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>-&gt; existing TransportDrain.Wait()
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>-&gt; no more HandleTransfer work for that retired transport
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>-&gt; seal the Xbox360 trace context
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>-&gt; atomically snapshot final LastTraceSeq
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>-&gt; enqueue X360RumbleTraceEnd
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>-&gt; release retained trace context
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>BeginDeviceDrain
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>-&gt; existing logical removal/finalization path
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>-&gt; unlock lifecycleMu
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>-&gt; existing TransportDrain.Wait()
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>-&gt; no more HandleTransfer work for that retired transport
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>-&gt; seal the Xbox360 trace context
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>-&gt; atomically snapshot final LastTraceSeq
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>-&gt; enqueue X360RumbleTraceEnd
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>-&gt; release retained trace context
 </code></pre></div>
 <p>The trace seal must ensure no later raw/parsed/dispatch event can be emitted after <code>X360RumbleTraceEnd</code>.</p>
 <p>Use the smallest synchronization already appropriate for the trace context (for example an atomic/sealed flag plus the sequence state). Do not introduce a new lifecycle manager, worker, epoch, or generalized teardown abstraction.</p>
@@ -1903,39 +1924,69 @@
 <p>A later successful retry owns the final drain fence and trace end.</p>
 <h3 id="end-marker">End marker</h3>
 <p>After the successful drain fence:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>Event=X360RumbleTraceEnd
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>BusID=&lt;bus&gt;
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>DeviceID=&lt;device&gt;
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>LastTraceSeq=&lt;n&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>Event=X360RumbleTraceEnd
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>BusID=&lt;bus&gt;
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>DeviceID=&lt;device&gt;
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>TraceSessionID=&lt;session&gt;
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>LastTraceSeq=&lt;n&gt;
 </code></pre></div>
 <p>through the same file-only async sink.</p>
 <p>The existing async writer can report queue saturation as:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>libVIIPER logging backlog droppedLogRecords=&lt;n&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>libVIIPER logging backlog droppedLogRecords=&lt;n&gt;
 </code></pre></div>
 <p>The trace-end marker is part of the evidence contract: if it is absent, the trace session is incomplete and absence-based conclusions are not allowed.</p>
 <p>Do not make logging completeness a controller-lifecycle success criterion. A missing trace-end record remains diagnostic-only and must never block device removal or server close.</p>
+<h2 id="65-creation-failure-rollback-session-closure">6.5 Creation failure / rollback session closure</h2>
+<p>Because trace activation must occur before auto-attach, a trace session may start even though <code>CreateXbox360Device</code> ultimately fails.</p>
+<p>Handle those paths explicitly.</p>
+<h3 id="known-creation-rollback">Known creation rollback</h3>
+<p>If creation fails with a known/safe failure and the just-created Xbox360 device is rolled back/finalized before the create call returns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>X360RumbleTraceStart
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>-&gt; creation/auto-attach attempt
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>-&gt; known failure
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>-&gt; rollback succeeds
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>-&gt; X360RumbleTraceAbort
+</code></pre></div>
+<p>Emit:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>Event=X360RumbleTraceAbort
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>BusID=&lt;bus&gt;
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>DeviceID=&lt;device&gt;
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>TraceSessionID=&lt;session&gt;
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>LastTraceSeq=&lt;n&gt;
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>Reason=&lt;stable diagnostic reason&gt;
+</code></pre></div>
+<p>after any transport drain required by that rollback has completed. If no transport was ever exposed and no drain exists, emit Abort after rollback/finalization is complete.</p>
+<p><code>TraceAbort</code> is a terminal marker for a <strong>non-committed creation session</strong>. It is never interchangeable with <code>TraceEnd</code>, and an aborted session is never eligible for absence-based packet-loss reasoning.</p>
+<h3 id="unsafeunknown-creation-outcome">Unsafe/unknown creation outcome</h3>
+<p>If auto-attach/create enters the existing unsafe/unknown ownership state and the logical device remains retained under the fail-closed server contract, do <strong>not</strong> emit Abort merely because the public create operation returned failure.</p>
+<p>The trace remains attached to that retained logical device until the existing fail-closed lifecycle eventually retires it successfully. That later successful retirement gets the normal drain-fenced <code>TraceEnd</code>.</p>
+<p>If the process terminates before a safe retirement is observed, the session is simply incomplete and cannot support absence-based conclusions.</p>
+<h3 id="session-identity-on-retry">Session identity on retry</h3>
+<p>A later retry/new creation always gets a new <code>TraceSessionID</code>, even when it reuses the same <code>BusID/DeviceID</code>.</p>
+<p>No Start/End/Abort matching rule may group records solely by <code>BusID/DeviceID</code>.</p>
 <hr />
 <h1 id="7-required-trace-points">7. Required trace points</h1>
 <p>Use a per-Xbox360-device monotonic diagnostic sequence number so lines from one host OUT transfer can be correlated.</p>
 <p>The counter is diagnostic-only.</p>
 <p>Every rumble trace event must also include:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>BusID=&lt;canonical bus id&gt;
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>DeviceID=&lt;canonical logical device id&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>BusID=&lt;canonical bus id&gt;
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>DeviceID=&lt;canonical logical device id&gt;
 </code></pre></div>
-<p>because multiple Xbox360 typed devices may write to the same <code>libVIIPER.log</code>. <code>TraceSeq</code> alone is not globally unique.</p>
+<p>because multiple Xbox360 typed devices — including a new incarnation reusing the same <code>BusID/DeviceID</code> while an older one drains — may write to the same <code>libVIIPER.log</code>. <code>TraceSessionID + TraceSeq</code> is the session-local correlation key.</p>
 <h2 id="71-raw-ep1-out-arrival">7.1 Raw EP1 OUT arrival</h2>
 <p>Inside <code>Xbox360.HandleTransfer</code>, for every:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>dir == usbip.DirOut
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>ep == 1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>dir == usbip.DirOut
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>ep == 1
 </code></pre></div>
 <p>when tracing is enabled, log before validating the rumble packet.</p>
 <p>Suggested event:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>Event=X360RumbleRaw
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>BusID=&lt;bus&gt;
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>DeviceID=&lt;device&gt;
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>TraceSeq=&lt;n&gt;
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>Length=&lt;len&gt;
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>Payload=&lt;bounded hex&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>Event=X360RumbleRaw
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>BusID=&lt;bus&gt;
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>DeviceID=&lt;device&gt;
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>TraceSessionID=&lt;session&gt;
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>TraceSeq=&lt;n&gt;
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>Length=&lt;len&gt;
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>Payload=&lt;bounded hex&gt;
 </code></pre></div>
 <p>The payload is small for this device. Log at most the first 32 bytes.</p>
 <p>This line is essential because a terminal command may arrive in a form the current parser does not recognize.</p>
@@ -1943,41 +1994,44 @@
 <h2 id="72-parser-classification">7.2 Parser classification</h2>
 <p>For the same <code>TraceSeq</code>, classify the OUT packet.</p>
 <p>For a recognized current rumble packet:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>Event=X360RumbleParsed
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>BusID=&lt;bus&gt;
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>DeviceID=&lt;device&gt;
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>TraceSeq=&lt;n&gt;
-<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>Recognized=true
-<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>Left=&lt;0..255&gt;
-<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>Right=&lt;0..255&gt;
-<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>CallbackPresent=&lt;true|false&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>Event=X360RumbleParsed
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>BusID=&lt;bus&gt;
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>DeviceID=&lt;device&gt;
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>TraceSessionID=&lt;session&gt;
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>TraceSeq=&lt;n&gt;
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>Recognized=true
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>Left=&lt;0..255&gt;
+<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>Right=&lt;0..255&gt;
+<a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>CallbackPresent=&lt;true|false&gt;
 </code></pre></div>
 <p>For an EP1 OUT packet that is not recognized by the current rumble parser:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>Event=X360RumbleParsed
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>BusID=&lt;bus&gt;
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>DeviceID=&lt;device&gt;
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>TraceSeq=&lt;n&gt;
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>Recognized=false
-<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>Length=&lt;len&gt;
-<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>ReportId=&lt;if available&gt;
-<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>DeclaredLength=&lt;if available&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>Event=X360RumbleParsed
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>BusID=&lt;bus&gt;
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>DeviceID=&lt;device&gt;
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>TraceSessionID=&lt;session&gt;
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>TraceSeq=&lt;n&gt;
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>Recognized=false
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a>Length=&lt;len&gt;
+<a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>ReportId=&lt;if available&gt;
+<a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>DeclaredLength=&lt;if available&gt;
 </code></pre></div>
 <p>Do <strong>not</strong> change parser acceptance to make the diagnostic pass.</p>
 <h2 id="73-callback-dispatch">7.3 Callback dispatch</h2>
 <p>Immediately before invoking the currently registered Xbox360 rumble callback:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>Event=X360RumbleCallbackDispatch
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>BusID=&lt;bus&gt;
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>DeviceID=&lt;device&gt;
-<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>TraceSeq=&lt;n&gt;
-<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>Left=&lt;0..255&gt;
-<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>Right=&lt;0..255&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>Event=X360RumbleCallbackDispatch
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>BusID=&lt;bus&gt;
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>DeviceID=&lt;device&gt;
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>TraceSessionID=&lt;session&gt;
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>TraceSeq=&lt;n&gt;
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>Left=&lt;0..255&gt;
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>Right=&lt;0..255&gt;
 </code></pre></div>
 <p>This must be emitted before the callback call.</p>
 <p>The ordering for one recognized packet should therefore be:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>X360RumbleRaw
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>X360RumbleParsed Recognized=true
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>X360RumbleCallbackDispatch
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>&lt;application managed callback log&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>X360RumbleRaw
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>X360RumbleParsed Recognized=true
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>X360RumbleCallbackDispatch
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>&lt;application managed callback log&gt;
 </code></pre></div>
 <p>If no callback is registered, the parsed line must record <code>CallbackPresent=false</code> and there is no dispatch line.</p>
 <hr />
@@ -2001,30 +2055,30 @@
 <p>Add narrow tests proving behavior, not implementation style.</p>
 <p>At minimum:</p>
 <h3 id="trace-disabled">Trace disabled</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>VIIPER_X360_RUMBLE_TRACE unset
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>valid non-zero packet
-<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>-&gt; callback exactly once
-<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>-&gt; values unchanged
-<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>-&gt; no rumble-trace records
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>VIIPER_X360_RUMBLE_TRACE unset
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>valid non-zero packet
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>-&gt; callback exactly once
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>-&gt; values unchanged
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>-&gt; no rumble-trace records
 </code></pre></div>
 <h3 id="explicit-stop">Explicit STOP</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>00 08 00 00 00 00 00 00
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>-&gt; raw trace
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>-&gt; recognized trace Left=0 Right=0
-<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>-&gt; dispatch trace Left=0 Right=0
-<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>-&gt; callback exactly once with 0/0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>00 08 00 00 00 00 00 00
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>-&gt; raw trace
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>-&gt; recognized trace Left=0 Right=0
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>-&gt; dispatch trace Left=0 Right=0
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>-&gt; callback exactly once with 0/0
 </code></pre></div>
 <h3 id="non-zero">Non-zero</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>00 08 00 03 06 00 00 00
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>-&gt; same TraceSeq across raw/parsed/dispatch
-<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>-&gt; callback exactly once with 3/6
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>00 08 00 03 06 00 00 00
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>-&gt; same TraceSeq across raw/parsed/dispatch
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>-&gt; callback exactly once with 3/6
 </code></pre></div>
 <h3 id="non-rumble-ep1-out">Non-rumble EP1 OUT</h3>
 <p>Provide at least one EP1 OUT packet that does not satisfy the current <code>0x00 / 0x08 / len&gt;=8</code> parser.</p>
 <p>Expected:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>raw trace exists
-<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>parsed Recognized=false exists
-<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>callback not invoked
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>raw trace exists
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>parsed Recognized=false exists
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>callback not invoked
 </code></pre></div>
 <h3 id="callback-cleared-while-trace-remains-active">Callback cleared while trace remains active</h3>
 <p>After <code>SetXbox360RumbleCallback(NULL)</code> while the Xbox360 device still exists:</p>
@@ -2063,10 +2117,41 @@
 <p>Create two traced Xbox360 devices.</p>
 <p>Prove:</p>
 <ul>
-<li>each has its own per-device <code>TraceSeq</code>;</li>
-<li>every record contains the correct <code>BusID</code> and <code>DeviceID</code>;</li>
+<li>each has a distinct <code>TraceSessionID</code>;</li>
+<li>each has its own per-session <code>TraceSeq</code>;</li>
+<li>every record contains the correct <code>BusID</code>, <code>DeviceID</code>, and <code>TraceSessionID</code>;</li>
 <li>equal sequence values from different devices cannot be mistaken for one stream.</li>
 </ul>
+<h3 id="busiddeviceid-reuse-while-the-prior-session-drains">BusID/DeviceID reuse while the prior session drains</h3>
+<p>Use deterministic test seams to:</p>
+<ol>
+<li>create traced Xbox360 session A;</li>
+<li>begin successful removal so A's public handle is finalized but its transport drain is intentionally held open;</li>
+<li>create session B on the same bus so the freed <code>DeviceID</code> is reused;</li>
+<li>allow a final in-flight transfer for A during its drain;</li>
+<li>generate at least one transfer for B;</li>
+<li>release A's drain.</li>
+</ol>
+<p>Prove:</p>
+<ul>
+<li>A and B have the same <code>BusID/DeviceID</code> but different <code>TraceSessionID</code>;</li>
+<li>A's late drain-window event remains attributed to A;</li>
+<li>B's events remain attributed to B;</li>
+<li>A's <code>TraceEnd</code> occurs after A's final drain-window event;</li>
+<li>completeness can be evaluated independently for A and B.</li>
+</ul>
+<p>This test represents a real supported lifecycle property of the current DevID allocator and teardown ordering. Do not add product serialization merely to prevent the reuse.</p>
+<h3 id="creation-rollback-deviceid-reuse">Creation rollback / DeviceID reuse</h3>
+<p>Exercise a known auto-attach failure that rolls back the just-created traced device.</p>
+<p>Prove:</p>
+<ul>
+<li>Start is emitted before the attempted auto-attach;</li>
+<li>rollback closes that session with exactly one <code>X360RumbleTraceAbort</code>;</li>
+<li>no <code>TraceEnd</code> is emitted for the aborted session;</li>
+<li>a later creation that reuses the same <code>BusID/DeviceID</code> receives a different <code>TraceSessionID</code>;</li>
+<li>the two sessions cannot be merged by the log analyzer/completeness rules.</li>
+</ul>
+<p>Also exercise the unsafe/unknown creation-outcome path and prove it does <strong>not</strong> emit a premature Abort while the retained logical device remains authoritative.</p>
 <h3 id="trace-records-do-not-invoke-viiperlogcallback">Trace records do not invoke VIIPERLogCallback</h3>
 <p>Provide a synchronous callback observer in the test seam and a separate file-handler capture.</p>
 <p>With rumble tracing enabled:</p>
@@ -2080,7 +2165,7 @@
 <h1 id="10-manual-measurement-procedure">10. Manual measurement procedure</h1>
 <p>Build an instrumented <code>libVIIPER.dll</code> from this PR/branch.</p>
 <p>For measurement:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>VIIPER_X360_RUMBLE_TRACE=1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>VIIPER_X360_RUMBLE_TRACE=1
 </code></pre></div>
 <p>must be present in the host application's environment before the process loads/arms the Xbox360 callback.</p>
 <p>Use the separate SteamInputAddonforClaw <code>RumbleProbe</code> work order to generate deterministic XInput vibration commands.</p>
@@ -2090,18 +2175,23 @@
 <li><code>libVIIPER.log</code></li>
 <li>SteamInputAddonforClaw Runtime log, or CTW measuring-build log</li>
 </ul>
-<p>For the target <code>BusID/DeviceID</code>, a run is <strong>trace-complete enough for absence-based reasoning</strong> only when all of the following hold:</p>
+<p>For one target trace session identified by the exact tuple:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>BusID / DeviceID / TraceSessionID
+</code></pre></div>
+<p>a run is <strong>trace-complete enough for absence-based reasoning</strong> only when all of the following hold:</p>
 <ol>
-<li>exactly one <code>X360RumbleTraceStart</code> is present for the target identity;</li>
-<li>exactly one <code>X360RumbleTraceEnd</code> is present for the same identity;</li>
+<li>exactly one <code>X360RumbleTraceStart</code> is present for the target tuple;</li>
+<li>exactly one <code>X360RumbleTraceEnd</code> is present for the same tuple;</li>
+<li>there is <strong>no</strong> <code>X360RumbleTraceAbort</code> for that tuple;</li>
 <li><code>TraceEnd.LastTraceSeq = N</code>;</li>
 <li>the raw-event set contains <strong>exactly one</strong> <code>X360RumbleRaw</code> for every integer <code>TraceSeq</code> in the closed range <code>1..N</code>, with no gaps, duplicates, zero, or values greater than <code>N</code>;</li>
-<li>for every raw event <code>TraceSeq=n</code>, there is <strong>exactly one</strong> <code>X360RumbleParsed</code> event with the same <code>BusID/DeviceID/TraceSeq</code>;</li>
+<li>for every raw event <code>TraceSeq=n</code>, there is <strong>exactly one</strong> <code>X360RumbleParsed</code> event with the same <code>BusID/DeviceID/TraceSessionID/TraceSeq</code>;</li>
 <li>for every parsed event:</li>
 <li><code>Recognized=false</code> -&gt; there must be no dispatch event for that sequence;</li>
 <li><code>Recognized=true CallbackPresent=false</code> -&gt; there must be no dispatch event for that sequence;</li>
-<li><code>Recognized=true CallbackPresent=true</code> -&gt; there must be exactly one <code>X360RumbleCallbackDispatch</code> event for that sequence with the same Left/Right values;</li>
-<li>there are no raw/parsed/dispatch events for the target identity after <code>X360RumbleTraceEnd</code>;</li>
+<li><code>Recognized=true CallbackPresent=true</code> -&gt; there must be exactly one <code>X360RumbleCallbackDispatch</code> event for that same tuple/sequence with the same Left/Right values;</li>
+<li>there are no raw/parsed/dispatch events for the target tuple after <code>X360RumbleTraceEnd</code>;</li>
+<li>other sessions that reuse the same <code>BusID/DeviceID</code> are ignored unless their <code>TraceSessionID</code> also matches;</li>
 <li>there is no <code>libVIIPER logging backlog droppedLogRecords=...</code> marker in the relevant trace interval;</li>
 <li>successful logical retirement reached the existing transport-drain completion fence before TraceEnd;</li>
 <li>the existing bounded libVIIPER file flush path was given its normal opportunity to run.</li>
@@ -2115,18 +2205,18 @@
 <h2 id="probe-sends-00-viiper-raw-trace-has-no-corresponding-00">Probe sends 0/0, VIIPER raw trace has no corresponding 0/0</h2>
 <p>First apply the trace-completeness gate from section 10.</p>
 <p>If the session is not proven trace-complete:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>result = inconclusive
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>result = inconclusive
 </code></pre></div>
 <p>Do not attribute the missing line to the host or transport.</p>
 <p>Only when the target-device trace session is complete and has no observed async-log drops may the result be classified as:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>no corresponding packet was observed at Xbox360.HandleTransfer
-<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>-&gt; investigate upstream of this boundary
-<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>   (Windows/XInput/XUSB/USB-IP host delivery)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>no corresponding packet was observed at Xbox360.HandleTransfer
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>-&gt; investigate upstream of this boundary
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>   (Windows/XInput/XUSB/USB-IP host delivery)
 </code></pre></div>
 <p>Even then, phrase the result as a measured boundary observation, not as proof of which upstream component lost the command.</p>
 <p>Do not modify VIIPER's parser.</p>
 <h2 id="viiper-raw-trace-sees-00-but-parser-says-recognizedfalse">VIIPER raw trace sees 0/0, but parser says Recognized=false</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>packet reached VIIPER but did not match current Xbox360 parser
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>packet reached VIIPER but did not match current Xbox360 parser
 </code></pre></div>
 <p>Capture the exact bytes first. Any parser change requires a separate evidence-backed PR.</p>
 <h2 id="viiper-raw-parsed-00-exist-but-no-dispatch-line">VIIPER raw + parsed 0/0 exist, but no dispatch line</h2>
@@ -2167,7 +2257,8 @@
 <li>exact activation variable;</li>
 <li>trace records use the file-only async sink and never invoke <code>VIIPERLogCallback</code>;</li>
 <li>trace lifetime is independent of callback registration and remains retained through successful logical-handle finalization until the existing transport drain completes;</li>
-<li>exact trace event names and <code>BusID/DeviceID</code> identity fields;</li>
+<li>exact trace event names and <code>BusID/DeviceID/TraceSessionID</code> identity fields;</li>
+<li>known creation rollback is closed with <code>X360RumbleTraceAbort</code>, while unsafe/unknown retained ownership is not prematurely aborted;</li>
 <li>TraceEnd is emitted only after the existing transport-drain fence for every successful Xbox360 retirement path;</li>
 <li>the exact raw/parsed/dispatch sequence-continuity rules used by the trace-completeness gate;</li>
 <li>the rule that a missing record is otherwise inconclusive;</li>
