@@ -94,6 +94,7 @@ func RemoveUSBBus(handle C.USBServerHandle, busID uint32) bool {
 	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
+	finishRumbleTracesAfterDrain(result.rumbleTraces)
 	operationTotalUs := time.Since(opStart).Microseconds()
 	backendLogs.replay(hw.logger)
 	d := result.diagnostic
@@ -172,6 +173,7 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 		d.backendReportedError = true
 		d.error = err.Error()
 		if hw.s.GetBus(busID) == nil {
+			traces := rumbleTracesForDevices(devices)
 			hw.finalizeBusLocked(busID)
 			for _, dev := range devices {
 				hw.s.ForgetDeviceTransport(dev)
@@ -179,12 +181,13 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 			d.phase, d.result, d.busPresentAfter = "complete", "success", false
 			d.busPresentAfter = false
 			d.remainingBusCount = len(hw.s.ListBuses())
-			return transportTeardownResult{ok: true, drains: drains, diagnostic: d}
+			return transportTeardownResult{ok: true, drains: drains, rumbleTraces: traces, diagnostic: d}
 		}
 		d.phase, d.result, d.busPresentAfter = "bus-remove", "retryable-failure", true
 		d.serverStateAfter = hw.state
 		return transportTeardownResult{drains: drains, diagnostic: d}
 	}
+	traces := rumbleTracesForDevices(devices)
 	hw.finalizeBusLocked(busID)
 	for _, dev := range devices {
 		hw.s.ForgetDeviceTransport(dev)
@@ -192,5 +195,15 @@ func (hw *usbServerHandleWrapper) removeBusLockedWithDrains(busID uint32) transp
 
 	d.phase, d.result = "complete", "success"
 	d.remainingBusCount = len(hw.s.ListBuses())
-	return transportTeardownResult{ok: true, drains: drains, diagnostic: d}
+	return transportTeardownResult{ok: true, drains: drains, rumbleTraces: traces, diagnostic: d}
+}
+
+func rumbleTracesForDevices(devices []viiperusb.Device) []rumbleTraceFinalizer {
+	var traces []rumbleTraceFinalizer
+	for _, dev := range devices {
+		if trace := rumbleTraceFor(dev); trace.session != nil {
+			traces = append(traces, trace)
+		}
+	}
+	return traces
 }

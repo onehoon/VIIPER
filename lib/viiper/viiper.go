@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Alia5/VIIPER/device"
+	"github.com/Alia5/VIIPER/device/xbox360"
 	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/internal/server/usb"
 	viiperusb "github.com/Alia5/VIIPER/usb"
@@ -101,6 +102,7 @@ const (
 type transportTeardownResult struct {
 	ok                  bool
 	drains              []*usb.TransportDrain
+	rumbleTraces        []rumbleTraceFinalizer
 	diagnostic          teardownDiagnostic
 	detachBackendCalled bool
 	backendLogs         *deferredLogBatch
@@ -229,6 +231,48 @@ func waitTransportDrains(drains []*usb.TransportDrain) {
 	}
 }
 
+type rumbleTraceFinalizer struct {
+	device  *xbox360.Xbox360
+	session *xbox360.RumbleTrace
+}
+
+type rumbleTraceAbortAfterDrain struct {
+	trace  rumbleTraceFinalizer
+	drain  *usb.TransportDrain
+	reason string
+}
+
+func rumbleTraceFor(dev viiperusb.Device) rumbleTraceFinalizer {
+	pad, ok := dev.(*xbox360.Xbox360)
+	if !ok {
+		return rumbleTraceFinalizer{}
+	}
+	session := pad.RumbleTraceSession()
+	if session == nil {
+		return rumbleTraceFinalizer{}
+	}
+	return rumbleTraceFinalizer{device: pad, session: session}
+}
+
+func finishRumbleTracesAfterDrain(traces []rumbleTraceFinalizer) {
+	for _, trace := range traces {
+		if trace.session == nil {
+			continue
+		}
+		trace.session.End()
+		trace.device.ClearRumbleTrace(trace.session)
+	}
+}
+
+func finishRumbleTraceAbortAfterDrain(abort *rumbleTraceAbortAfterDrain) {
+	if abort == nil || abort.trace.session == nil {
+		return
+	}
+	waitTransportDrains([]*usb.TransportDrain{abort.drain})
+	abort.trace.session.Abort(abort.reason)
+	abort.trace.device.ClearRumbleTrace(abort.trace.session)
+}
+
 type deviceHandleWrapper struct {
 	device     any
 	exportMeta *usbip.ExportMeta
@@ -312,41 +356,59 @@ func (hw *usbServerHandleWrapper) createDeviceLocked(busID uint32, dev viiperusb
 }
 
 func (hw *usbServerHandleWrapper) createDeviceLockedPublic(busID uint32, dev viiperusb.Device, autoAttach bool) (deviceHandle, bool, mutationRejectedWarning, *rollbackDiagnostic, *deferredLogBatch) {
+	h, ok, warning, rollback, backendLogs, _ := hw.createDeviceLockedPublicWithIdentityHook(busID, dev, autoAttach, nil)
+	return h, ok, warning, rollback, backendLogs
+}
+
+func (hw *usbServerHandleWrapper) createDeviceLockedPublicWithIdentityHook(busID uint32, dev viiperusb.Device, autoAttach bool, onIdentityReady func(*deviceHandleWrapper)) (deviceHandle, bool, mutationRejectedWarning, *rollbackDiagnostic, *deferredLogBatch, *rumbleTraceAbortAfterDrain) {
 	backendLogs := newDeferredLogBatch()
 	hw.backendLogLogger = backendLogs.logger
 	if hw.state != serverActive {
-		return 0, false, hw.takeMutationRejectedWarningLocked("typed-device-create"), nil, backendLogs
+		return 0, false, hw.takeMutationRejectedWarningLocked("typed-device-create"), nil, backendLogs, nil
 	}
 	bus := hw.s.GetBus(busID)
 	if bus == nil {
-		return 0, false, mutationRejectedWarning{}, nil, backendLogs
+		return 0, false, mutationRejectedWarning{}, nil, backendLogs, nil
 	}
 
 	devCtx, err := bus.Add(dev)
 	if err != nil {
-		return 0, false, mutationRejectedWarning{}, nil, backendLogs
+		return 0, false, mutationRejectedWarning{}, nil, backendLogs, nil
 	}
 	exportMeta := device.GetDeviceMeta(devCtx)
 	if exportMeta == nil {
 		_, rollback := hw.rollbackCreatedDeviceLockedWithDiagnostic(busID, 0, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "device metadata was unavailable")
-		return 0, false, mutationRejectedWarning{}, rollback, backendLogs
+		return 0, false, mutationRejectedWarning{}, rollback, backendLogs, nil
 	}
 	dhw := &deviceHandleWrapper{device: dev, exportMeta: exportMeta, usbServer: hw, attachment: deviceAttachmentRecord{state: attachmentDetached}}
+	if onIdentityReady != nil {
+		onIdentityReady(dhw)
+	}
 	h := hw.registerDeviceLocked(dhw)
 	if autoAttach {
 		if !hw.attachDeviceLocked(dhw) {
 			if dhw.attachment.state == attachmentOutcomeUnknown {
 				hw.state = serverCloseFailed
-				return h, false, mutationRejectedWarning{}, nil, backendLogs
+				return h, false, mutationRejectedWarning{}, nil, backendLogs, nil
 			}
 			if ok, rollback := hw.rollbackCreatedDeviceLockedWithDiagnostic(exportMeta.BusID, exportMeta.DevID, func(d viiperusb.Device) error { return hw.ops.rollbackDevice(bus, d) }, dev, "auto-attach failure"); !ok {
-				return h, false, mutationRejectedWarning{}, rollback, backendLogs
+				return h, false, mutationRejectedWarning{}, rollback, backendLogs, nil
+			}
+			if pad, ok := dev.(*xbox360.Xbox360); ok {
+				if trace := pad.RumbleTraceSession(); trace != nil {
+					drain := hw.s.BeginDeviceDrain(dev)
+					hw.finalizeDeviceLocked(h)
+					hw.s.ForgetDeviceTransport(dev)
+					return 0, false, mutationRejectedWarning{}, nil, backendLogs, &rumbleTraceAbortAfterDrain{
+						trace: rumbleTraceFinalizer{device: pad, session: trace}, drain: drain, reason: "auto-attach-failure",
+					}
+				}
 			}
 			hw.finalizeDeviceLocked(h)
-			return 0, false, mutationRejectedWarning{}, nil, backendLogs
+			return 0, false, mutationRejectedWarning{}, nil, backendLogs, nil
 		}
 	}
-	return h, true, mutationRejectedWarning{}, nil, backendLogs
+	return h, true, mutationRejectedWarning{}, nil, backendLogs, nil
 }
 
 func (hw *usbServerHandleWrapper) registerDeviceLocked(dhw *deviceHandleWrapper) deviceHandle {
@@ -476,7 +538,7 @@ func (hw *usbServerHandleWrapper) removeDeviceLockedWithDrain(dhw *deviceHandleW
 	}
 	hw.finalizeDeviceLocked(h)
 	hw.s.ForgetDeviceTransport(dhw.device.(viiperusb.Device))
-	return transportTeardownResult{ok: true, drains: []*usb.TransportDrain{drain}, detachBackendCalled: timing.backendCalled}
+	return transportTeardownResult{ok: true, drains: []*usb.TransportDrain{drain}, rumbleTraces: []rumbleTraceFinalizer{rumbleTraceFor(dhw.device.(viiperusb.Device))}, detachBackendCalled: timing.backendCalled}
 }
 
 func removeTypedDevice(handle uintptr, valid func(any) bool) bool {
@@ -555,6 +617,7 @@ func removeTypedDeviceResult(handle uintptr, valid func(any) bool) typedDeviceRe
 	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
+	finishRumbleTracesAfterDrain(result.rumbleTraces)
 	operationTotalUs := time.Since(opStart).Microseconds()
 	backendLogs.replay(hw.logger)
 	logTeardownDiagnostic(hw.logger, d, operationTotalUs)

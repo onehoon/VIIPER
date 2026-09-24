@@ -55,11 +55,16 @@ static void viiper_call_rumble(Xbox360RumbleCallback fn, Xbox360DeviceHandle han
 import "C"
 import (
 	"encoding/json"
+	"os"
 	"unsafe"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/device/xbox360"
 )
+
+const xbox360RumbleTraceEnvironment = "VIIPER_X360_RUMBLE_TRACE"
+
+var rumbleTraceLoggerFactory = buildEmbeddedRumbleTraceLogger
 
 // CreateXbox360Device creates a new Xbox360 device on the bus with the given ID on the server associated with the given handle.
 // @param serverHandle Handle to the USB server.
@@ -122,10 +127,16 @@ func createXbox360Device(serverHandle uintptr, outDeviceHandle *deviceHandle, bu
 	if err != nil {
 		return false
 	}
+	traceEnabled := os.Getenv(xbox360RumbleTraceEnvironment) == "1"
 	shw.lifecycleMu.Lock()
-	h, ok, warning, rollback, backendLogs := shw.createDeviceLockedPublic(busID, d, autoAttachLocalhost)
+	h, ok, warning, rollback, backendLogs, traceAbort := shw.createDeviceLockedPublicWithIdentityHook(busID, d, autoAttachLocalhost, func(dhw *deviceHandleWrapper) {
+		if traceEnabled {
+			d.InstallRumbleTrace(rumbleTraceLoggerFactory(), dhw.exportMeta.BusID, dhw.exportMeta.DevID)
+		}
+	})
 	shw.backendLogLogger = nil
 	shw.lifecycleMu.Unlock()
+	finishRumbleTraceAbortAfterDrain(traceAbort)
 	backendLogs.replay(shw.logger)
 	emitMutationRejectedWarning(warning)
 	emitRollbackDiagnostic(rollback)

@@ -166,6 +166,7 @@ func CloseUSBServer(handle C.USBServerHandle) bool {
 	hw.backendLogLogger = nil
 	hw.lifecycleMu.Unlock()
 	waitTransportDrains(result.drains)
+	finishRumbleTracesAfterDrain(result.rumbleTraces)
 	if !result.ok {
 		d := result.diagnostic
 		d.operation = "CloseUSBServer"
@@ -208,13 +209,16 @@ func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownRes
 	slices.Sort(busIDs)
 	hw.clearAllCallbacksLocked()
 	var allDrains []*usb.TransportDrain
+	var allRumbleTraces []rumbleTraceFinalizer
 	for _, busID := range busIDs {
 		result := hw.removeBusLockedWithDrains(busID)
 		allDrains = append(allDrains, result.drains...)
+		allRumbleTraces = append(allRumbleTraces, result.rumbleTraces...)
 		if !result.ok {
 			hw.state = serverCloseFailed
 			hw.logicalCloseInProgress = false
 			result.drains = allDrains
+			result.rumbleTraces = allRumbleTraces
 			result.diagnostic.serverStateAfter = hw.state
 			result.diagnostic.serverStatePresent = true
 			result.diagnostic.remainingBusCount = len(hw.s.ListBuses())
@@ -223,7 +227,7 @@ func (hw *usbServerHandleWrapper) beginLogicalCloseLocked() transportTeardownRes
 	}
 	hw.logicalCloseInProgress = false
 	hw.closePhase = transportClosePending
-	return transportTeardownResult{ok: true, drains: allDrains}
+	return transportTeardownResult{ok: true, drains: allDrains, rumbleTraces: allRumbleTraces}
 }
 
 func (hw *usbServerHandleWrapper) unknownAttachmentDiagnosticLocked() teardownDiagnostic {
