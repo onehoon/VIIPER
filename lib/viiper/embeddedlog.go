@@ -145,6 +145,13 @@ func openRealEmbeddedLogFileHandler() slog.Handler {
 	return embeddedLogFileHandlerCache
 }
 
+// buildEmbeddedRumbleTraceLogger keeps Xbox360 per-packet diagnostics on the
+// shared owned async file sink without attaching the synchronous callback
+// observer used by the ordinary server logger.
+func buildEmbeddedRumbleTraceLogger() *slog.Logger {
+	return buildEmbeddedLogger(openRealEmbeddedLogFileHandler(), nil)
+}
+
 // flushEmbeddedLogBestEffort requests a bounded, best-effort drain of the process-wide owned-log
 // queue. It is safe to call even when no file sink exists (a no-op returning true) and its result
 // must never be treated as anything other than diagnostic -- never a reason to change a lifecycle

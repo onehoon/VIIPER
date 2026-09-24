@@ -14,11 +14,12 @@ import (
 )
 
 type Xbox360 struct {
-	tick       uint64
-	inputCh    chan InputState
-	callbackMu sync.RWMutex
-	rumbleFunc func(XRumbleState)
-	descriptor usb.Descriptor
+	tick        uint64
+	inputCh     chan InputState
+	callbackMu  sync.RWMutex
+	rumbleFunc  func(XRumbleState)
+	rumbleTrace atomic.Pointer[RumbleTrace]
+	descriptor  usb.Descriptor
 }
 
 type Xbox360CreateOptions struct {
@@ -91,17 +92,23 @@ func (x *Xbox360) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out
 		// [3]=Left (low-frequency/large) motor 0-255, [4]=Right (high-frequency/small) motor 0-255,
 		// [5..7]=Reserved (often 0x00).
 		// Some other outbound reports (e.g. LED control) use different IDs/lengths; we ignore those here.
-		if len(out) >= 8 && out[0] == 0x00 && out[1] == 0x08 {
-			rumble := XRumbleState{
+		recognized := len(out) >= 8 && out[0] == 0x00 && out[1] == 0x08
+		var rumble XRumbleState
+		var callback func(XRumbleState)
+		if recognized {
+			rumble = XRumbleState{
 				LeftMotor:  out[3], // big / low-frequency motor
 				RightMotor: out[4], // small / high-frequency motor
 			}
 			x.callbackMu.RLock()
-			callback := x.rumbleFunc
+			callback = x.rumbleFunc
 			x.callbackMu.RUnlock()
-			if callback != nil {
-				callback(rumble)
-			}
+		}
+		if trace := x.rumbleTrace.Load(); trace != nil {
+			trace.recordPacket(out, recognized, callback != nil, rumble)
+		}
+		if callback != nil {
+			callback(rumble)
 		}
 	}
 	return nil
