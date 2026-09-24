@@ -264,18 +264,45 @@ The trace context contains only diagnostic state needed for this investigation:
 file-only logger
 BusID
 DeviceID
-per-device TraceSeq
-enabled flag
+TraceSessionID
+per-session TraceSeq
+enabled / sealed state
 ```
 
-Use the canonical logical identity already owned by the wrapper:
+## 6.2.1 TraceSessionID distinguishes logical-device incarnations
+
+`BusID/DeviceID` is not a sufficient session key.
+
+`VirtualBus` returns a removed `DevID` to its allocation pool, so a later Xbox360 creation on the same bus may reuse the same `BusID/DeviceID`. The previous transport may also still be draining after its public handle has already been finalized.
+
+Assign each enabled Xbox360 trace context a process-local monotonically increasing:
+
+```text
+TraceSessionID=<uint64>
+```
+
+when that trace context is created.
+
+Requirements:
+
+- allocate from one process-wide atomic counter;
+- zero is reserved for "no trace session" and must never be emitted for an active session;
+- do not persist the counter across processes;
+- do not derive it from handles, pointers, BusID, DeviceID, wall-clock time, or random values;
+- every Start/raw/parsed/dispatch/End/Abort record for that context must carry the same `TraceSessionID`;
+- `TraceSeq` starts from zero independently for each `TraceSessionID`.
+
+This is diagnostic identity only. It must not participate in controller ownership, attachment, callback, or teardown decisions.
+
+Use the full trace identity:
 
 ```text
 BusID
 DeviceID
+TraceSessionID
 ```
 
-in every trace event. Do not use only `TraceSeq` as identity.
+in every trace event. Do not use only `BusID/DeviceID` or only `TraceSeq` as identity.
 
 The hook is internal Go implementation detail only.
 
@@ -311,6 +338,7 @@ When trace is enabled for a device, emit:
 Event=X360RumbleTraceStart
 BusID=<bus>
 DeviceID=<device>
+TraceSessionID=<session>
 TraceSeq=0
 ```
 
@@ -344,6 +372,8 @@ outside lifecycleMu:
 A `HandleTransfer` already in flight may still finish during that drain window. Its rumble trace event is valid evidence and must be included before `LastTraceSeq` is frozen.
 
 For every **successfully retired** traced Xbox360 device, retain the minimal trace context/identity independently of the finalized public handle until its existing transport drain completes.
+
+A newly created Xbox360 device is allowed to reuse the same `BusID/DeviceID` while the prior incarnation is still draining. The two streams remain unambiguous because they have different `TraceSessionID` values.
 
 Required order:
 
@@ -391,6 +421,7 @@ After the successful drain fence:
 Event=X360RumbleTraceEnd
 BusID=<bus>
 DeviceID=<device>
+TraceSessionID=<session>
 LastTraceSeq=<n>
 ```
 
@@ -405,6 +436,53 @@ libVIIPER logging backlog droppedLogRecords=<n>
 The trace-end marker is part of the evidence contract: if it is absent, the trace session is incomplete and absence-based conclusions are not allowed.
 
 Do not make logging completeness a controller-lifecycle success criterion. A missing trace-end record remains diagnostic-only and must never block device removal or server close.
+
+## 6.5 Creation failure / rollback session closure
+
+Because trace activation must occur before auto-attach, a trace session may start even though `CreateXbox360Device` ultimately fails.
+
+Handle those paths explicitly.
+
+### Known creation rollback
+
+If creation fails with a known/safe failure and the just-created Xbox360 device is rolled back/finalized before the create call returns:
+
+```text
+X360RumbleTraceStart
+-> creation/auto-attach attempt
+-> known failure
+-> rollback succeeds
+-> X360RumbleTraceAbort
+```
+
+Emit:
+
+```text
+Event=X360RumbleTraceAbort
+BusID=<bus>
+DeviceID=<device>
+TraceSessionID=<session>
+LastTraceSeq=<n>
+Reason=<stable diagnostic reason>
+```
+
+after any transport drain required by that rollback has completed. If no transport was ever exposed and no drain exists, emit Abort after rollback/finalization is complete.
+
+`TraceAbort` is a terminal marker for a **non-committed creation session**. It is never interchangeable with `TraceEnd`, and an aborted session is never eligible for absence-based packet-loss reasoning.
+
+### Unsafe/unknown creation outcome
+
+If auto-attach/create enters the existing unsafe/unknown ownership state and the logical device remains retained under the fail-closed server contract, do **not** emit Abort merely because the public create operation returned failure.
+
+The trace remains attached to that retained logical device until the existing fail-closed lifecycle eventually retires it successfully. That later successful retirement gets the normal drain-fenced `TraceEnd`.
+
+If the process terminates before a safe retirement is observed, the session is simply incomplete and cannot support absence-based conclusions.
+
+### Session identity on retry
+
+A later retry/new creation always gets a new `TraceSessionID`, even when it reuses the same `BusID/DeviceID`.
+
+No Start/End/Abort matching rule may group records solely by `BusID/DeviceID`.
 
 ---
 
@@ -421,7 +499,7 @@ BusID=<canonical bus id>
 DeviceID=<canonical logical device id>
 ```
 
-because multiple Xbox360 typed devices may write to the same `libVIIPER.log`. `TraceSeq` alone is not globally unique.
+because multiple Xbox360 typed devices — including a new incarnation reusing the same `BusID/DeviceID` while an older one drains — may write to the same `libVIIPER.log`. `TraceSessionID + TraceSeq` is the session-local correlation key.
 
 ## 7.1 Raw EP1 OUT arrival
 
@@ -440,6 +518,7 @@ Suggested event:
 Event=X360RumbleRaw
 BusID=<bus>
 DeviceID=<device>
+TraceSessionID=<session>
 TraceSeq=<n>
 Length=<len>
 Payload=<bounded hex>
@@ -461,6 +540,7 @@ For a recognized current rumble packet:
 Event=X360RumbleParsed
 BusID=<bus>
 DeviceID=<device>
+TraceSessionID=<session>
 TraceSeq=<n>
 Recognized=true
 Left=<0..255>
@@ -474,6 +554,7 @@ For an EP1 OUT packet that is not recognized by the current rumble parser:
 Event=X360RumbleParsed
 BusID=<bus>
 DeviceID=<device>
+TraceSessionID=<session>
 TraceSeq=<n>
 Recognized=false
 Length=<len>
@@ -491,6 +572,7 @@ Immediately before invoking the currently registered Xbox360 rumble callback:
 Event=X360RumbleCallbackDispatch
 BusID=<bus>
 DeviceID=<device>
+TraceSessionID=<session>
 TraceSeq=<n>
 Left=<0..255>
 Right=<0..255>
@@ -625,9 +707,45 @@ Create two traced Xbox360 devices.
 
 Prove:
 
-- each has its own per-device `TraceSeq`;
-- every record contains the correct `BusID` and `DeviceID`;
+- each has a distinct `TraceSessionID`;
+- each has its own per-session `TraceSeq`;
+- every record contains the correct `BusID`, `DeviceID`, and `TraceSessionID`;
 - equal sequence values from different devices cannot be mistaken for one stream.
+
+### BusID/DeviceID reuse while the prior session drains
+
+Use deterministic test seams to:
+
+1. create traced Xbox360 session A;
+2. begin successful removal so A's public handle is finalized but its transport drain is intentionally held open;
+3. create session B on the same bus so the freed `DeviceID` is reused;
+4. allow a final in-flight transfer for A during its drain;
+5. generate at least one transfer for B;
+6. release A's drain.
+
+Prove:
+
+- A and B have the same `BusID/DeviceID` but different `TraceSessionID`;
+- A's late drain-window event remains attributed to A;
+- B's events remain attributed to B;
+- A's `TraceEnd` occurs after A's final drain-window event;
+- completeness can be evaluated independently for A and B.
+
+This test represents a real supported lifecycle property of the current DevID allocator and teardown ordering. Do not add product serialization merely to prevent the reuse.
+
+### Creation rollback / DeviceID reuse
+
+Exercise a known auto-attach failure that rolls back the just-created traced device.
+
+Prove:
+
+- Start is emitted before the attempted auto-attach;
+- rollback closes that session with exactly one `X360RumbleTraceAbort`;
+- no `TraceEnd` is emitted for the aborted session;
+- a later creation that reuses the same `BusID/DeviceID` receives a different `TraceSessionID`;
+- the two sessions cannot be merged by the log analyzer/completeness rules.
+
+Also exercise the unsafe/unknown creation-outcome path and prove it does **not** emit a premature Abort while the retained logical device remains authoritative.
 
 ### Trace records do not invoke VIIPERLogCallback
 
@@ -663,21 +781,29 @@ Collect:
 - `libVIIPER.log`
 - SteamInputAddonforClaw Runtime log, or CTW measuring-build log
 
-For the target `BusID/DeviceID`, a run is **trace-complete enough for absence-based reasoning** only when all of the following hold:
+For one target trace session identified by the exact tuple:
 
-1. exactly one `X360RumbleTraceStart` is present for the target identity;
-2. exactly one `X360RumbleTraceEnd` is present for the same identity;
-3. `TraceEnd.LastTraceSeq = N`;
-4. the raw-event set contains **exactly one** `X360RumbleRaw` for every integer `TraceSeq` in the closed range `1..N`, with no gaps, duplicates, zero, or values greater than `N`;
-5. for every raw event `TraceSeq=n`, there is **exactly one** `X360RumbleParsed` event with the same `BusID/DeviceID/TraceSeq`;
-6. for every parsed event:
+```text
+BusID / DeviceID / TraceSessionID
+```
+
+a run is **trace-complete enough for absence-based reasoning** only when all of the following hold:
+
+1. exactly one `X360RumbleTraceStart` is present for the target tuple;
+2. exactly one `X360RumbleTraceEnd` is present for the same tuple;
+3. there is **no** `X360RumbleTraceAbort` for that tuple;
+4. `TraceEnd.LastTraceSeq = N`;
+5. the raw-event set contains **exactly one** `X360RumbleRaw` for every integer `TraceSeq` in the closed range `1..N`, with no gaps, duplicates, zero, or values greater than `N`;
+6. for every raw event `TraceSeq=n`, there is **exactly one** `X360RumbleParsed` event with the same `BusID/DeviceID/TraceSessionID/TraceSeq`;
+7. for every parsed event:
    - `Recognized=false` -> there must be no dispatch event for that sequence;
    - `Recognized=true CallbackPresent=false` -> there must be no dispatch event for that sequence;
-   - `Recognized=true CallbackPresent=true` -> there must be exactly one `X360RumbleCallbackDispatch` event for that sequence with the same Left/Right values;
-7. there are no raw/parsed/dispatch events for the target identity after `X360RumbleTraceEnd`;
-8. there is no `libVIIPER logging backlog droppedLogRecords=...` marker in the relevant trace interval;
-9. successful logical retirement reached the existing transport-drain completion fence before TraceEnd;
-10. the existing bounded libVIIPER file flush path was given its normal opportunity to run.
+   - `Recognized=true CallbackPresent=true` -> there must be exactly one `X360RumbleCallbackDispatch` event for that same tuple/sequence with the same Left/Right values;
+8. there are no raw/parsed/dispatch events for the target tuple after `X360RumbleTraceEnd`;
+9. other sessions that reuse the same `BusID/DeviceID` are ignored unless their `TraceSessionID` also matches;
+10. there is no `libVIIPER logging backlog droppedLogRecords=...` marker in the relevant trace interval;
+11. successful logical retirement reached the existing transport-drain completion fence before TraceEnd;
+12. the existing bounded libVIIPER file flush path was given its normal opportunity to run.
 
 If `N == 0`, the raw/parsed/dispatch set must be empty.
 
@@ -775,7 +901,8 @@ The PR description must state:
 - exact activation variable;
 - trace records use the file-only async sink and never invoke `VIIPERLogCallback`;
 - trace lifetime is independent of callback registration and remains retained through successful logical-handle finalization until the existing transport drain completes;
-- exact trace event names and `BusID/DeviceID` identity fields;
+- exact trace event names and `BusID/DeviceID/TraceSessionID` identity fields;
+- known creation rollback is closed with `X360RumbleTraceAbort`, while unsafe/unknown retained ownership is not prematurely aborted;
 - TraceEnd is emitted only after the existing transport-drain fence for every successful Xbox360 retirement path;
 - the exact raw/parsed/dispatch sequence-continuity rules used by the trace-completeness gate;
 - the rule that a missing record is otherwise inconclusive;
