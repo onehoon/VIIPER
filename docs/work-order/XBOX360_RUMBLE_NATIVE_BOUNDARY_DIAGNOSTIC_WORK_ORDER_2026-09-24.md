@@ -229,13 +229,34 @@ Ordinary existing VIIPER diagnostics continue using the current composite server
 
 The preferred shape is a small **internal Go-only trace context owned by the Xbox360 device**.
 
-Install it when `CreateXbox360Device` creates the typed logical device and:
+Install it during canonical Xbox360 creation when:
 
 ```text
 VIIPER_X360_RUMBLE_TRACE == 1
 ```
 
 was observed at creation.
+
+### Installation ordering is part of the measurement contract
+
+The trace must be active **before the device can be auto-attached or accept its first host OUT transfer**.
+
+The current generic creation path obtains `exportMeta`, registers the device, and may then run the `autoAttach` branch before returning to `createXbox360Device`. Therefore, do **not** attach the trace only after `createDeviceLockedPublic(...)` returns.
+
+Required ordering:
+
+```text
+xbox360.New(...)
+-> bus.Add(...)
+-> obtain exportMeta / BusID / DeviceID
+-> install Xbox360 trace context + emit X360RumbleTraceStart
+-> register/complete canonical logical-device setup
+-> only then allow autoAttachLocalhost, if requested
+```
+
+A narrow internal creation hook is acceptable if needed to install the trace after `exportMeta` exists but before the existing auto-attach branch. Keep it internal and behavior-neutral for every non-Xbox360 device.
+
+Do not restructure attachment ownership or duplicate the auto-attach implementation merely for tracing.
 
 The trace context contains only diagnostic state needed for this investigation:
 
@@ -276,11 +297,13 @@ without invoking any application callback.
 
 Existing teardown paths such as `clearDeviceCallbackLocked` call `Xbox360.SetRumbleCallback(nil)` directly. They must keep doing so; do not route teardown through a new wrapper or alter callback ownership merely for tracing.
 
-The trace context ends only when the typed Xbox360 logical device is actually removed/finalized.
+The trace context is not tied to the exported handle lifetime. A successful logical-handle finalization may occur before the existing managed transport drain has completed.
+
+Therefore the trace context must remain alive until the corresponding existing transport drain has completed and the trace has been sealed as described in section 6.4.
 
 Keep all callback teardown behavior unchanged.
 
-## 6.4 Trace session completeness markers
+## 6.4 Trace session start/end and transport-drain fence
 
 When trace is enabled for a device, emit:
 
@@ -291,9 +314,78 @@ DeviceID=<device>
 TraceSeq=0
 ```
 
-after the trace identity is established.
+after `exportMeta` establishes the canonical identity and **before any auto-attach can expose the device to a host**, as required by section 6.2.
 
-Before the logical Xbox360 device is finalized, emit:
+### TraceEnd must be after the existing transport drain
+
+Do **not** emit `X360RumbleTraceEnd` from:
+
+- `finalizeDeviceLocked`;
+- `finalizeBusLocked`;
+- immediately before either finalizer;
+- any point before the corresponding `TransportDrain.Wait()` has completed.
+
+The current teardown architecture intentionally permits this ordering:
+
+```text
+under lifecycleMu:
+    clear callback
+    detach
+    BeginDeviceDrain
+    logical device/bus removal
+    handle finalization
+    ForgetDeviceTransport
+unlock lifecycleMu
+
+outside lifecycleMu:
+    waitTransportDrains(...)
+```
+
+A `HandleTransfer` already in flight may still finish during that drain window. Its rumble trace event is valid evidence and must be included before `LastTraceSeq` is frozen.
+
+For every **successfully retired** traced Xbox360 device, retain the minimal trace context/identity independently of the finalized public handle until its existing transport drain completes.
+
+Required order:
+
+```text
+BeginDeviceDrain
+-> existing logical removal/finalization path
+-> unlock lifecycleMu
+-> existing TransportDrain.Wait()
+-> no more HandleTransfer work for that retired transport
+-> seal the Xbox360 trace context
+-> atomically snapshot final LastTraceSeq
+-> enqueue X360RumbleTraceEnd
+-> release retained trace context
+```
+
+The trace seal must ensure no later raw/parsed/dispatch event can be emitted after `X360RumbleTraceEnd`.
+
+Use the smallest synchronization already appropriate for the trace context (for example an atomic/sealed flag plus the sequence state). Do not introduce a new lifecycle manager, worker, epoch, or generalized teardown abstraction.
+
+### All canonical removal entry points must obey the same fence
+
+The rule applies whether the Xbox360 device is retired through:
+
+- `RemoveXbox360Device` / `RemoveXbox360DeviceEx`;
+- `RemoveUSBBus`;
+- `CloseUSBServer`.
+
+Those paths already aggregate and wait transport drains outside `lifecycleMu`. Preserve that architecture.
+
+If implementation needs to carry a small diagnostic-only "trace to finalize after drain" item alongside the existing drain result, keep it internal and narrowly scoped. Do not move `waitTransportDrains` under `lifecycleMu`, and do not delay controller teardown for logging I/O.
+
+### Failed removal
+
+If removal fails and the logical Xbox360 device remains authoritative/alive, do **not** emit `X360RumbleTraceEnd` merely because a drain was started or attempted.
+
+Only a successfully retired logical device gets an end marker.
+
+A later successful retry owns the final drain fence and trace end.
+
+### End marker
+
+After the successful drain fence:
 
 ```text
 Event=X360RumbleTraceEnd
@@ -498,14 +590,34 @@ After `SetXbox360RumbleCallback(NULL)` while the Xbox360 device still exists:
 - no dispatch event is emitted;
 - no stale managed/native callback is retained.
 
-### Device removal ends trace
+### Device removal ends trace only after drain
 
-On typed Xbox360 removal/finalization:
+On successful typed Xbox360 removal:
 
 - callback clearing keeps its existing behavior;
-- one trace-end marker is attempted before finalization;
-- trace state is no longer retained after the device is finalized;
-- direct teardown callback clearing through `clearDeviceCallbackLocked` does not accidentally clear the trace before the logical device is removed.
+- logical handle finalization may occur before the drain completes, matching current architecture;
+- the trace context remains retained after handle finalization while the existing transport drain is outstanding;
+- a test-controlled in-flight `HandleTransfer` that completes during the drain window can still emit its raw/parsed/dispatch trace;
+- `X360RumbleTraceEnd` is emitted only after that drain has completed;
+- `LastTraceSeq` includes the final transfer completed during drain;
+- no rumble trace event appears after `X360RumbleTraceEnd`;
+- direct teardown callback clearing through `clearDeviceCallbackLocked` does not clear the trace prematurely.
+
+Add equivalent coverage for successful removal through `RemoveUSBBus` and `CloseUSBServer`, because both paths can finalize device handles before waiting their accumulated transport drains.
+
+Also prove that a failed removal which leaves the logical device authoritative does not emit a premature trace-end marker.
+
+### Trace is active before first possible auto-attached OUT
+
+Exercise creation with `autoAttachLocalhost=true` using a test seam that can inject/observe the first host OUT as soon as attachment becomes possible.
+
+Prove:
+
+- trace context and `X360RumbleTraceStart` are established after canonical `BusID/DeviceID` are known;
+- they are established before the auto-attach operation can expose the device to host traffic;
+- the first observed EP1 OUT cannot precede trace activation.
+
+Do not require real usbip-win2 hardware in the unit test; use the existing creation/attachment seams.
 
 ### Multiple Xbox360 devices
 
@@ -553,13 +665,25 @@ Collect:
 
 For the target `BusID/DeviceID`, a run is **trace-complete enough for absence-based reasoning** only when all of the following hold:
 
-1. `X360RumbleTraceStart` is present;
-2. `X360RumbleTraceEnd` is present for the same `BusID/DeviceID`;
-3. the sequence range is internally consistent for the captured events;
-4. there is no `libVIIPER logging backlog droppedLogRecords=...` marker between the relevant start/end interval;
-5. shutdown/removal completed normally enough for the existing bounded libVIIPER file flush path to run.
+1. exactly one `X360RumbleTraceStart` is present for the target identity;
+2. exactly one `X360RumbleTraceEnd` is present for the same identity;
+3. `TraceEnd.LastTraceSeq = N`;
+4. the raw-event set contains **exactly one** `X360RumbleRaw` for every integer `TraceSeq` in the closed range `1..N`, with no gaps, duplicates, zero, or values greater than `N`;
+5. for every raw event `TraceSeq=n`, there is **exactly one** `X360RumbleParsed` event with the same `BusID/DeviceID/TraceSeq`;
+6. for every parsed event:
+   - `Recognized=false` -> there must be no dispatch event for that sequence;
+   - `Recognized=true CallbackPresent=false` -> there must be no dispatch event for that sequence;
+   - `Recognized=true CallbackPresent=true` -> there must be exactly one `X360RumbleCallbackDispatch` event for that sequence with the same Left/Right values;
+7. there are no raw/parsed/dispatch events for the target identity after `X360RumbleTraceEnd`;
+8. there is no `libVIIPER logging backlog droppedLogRecords=...` marker in the relevant trace interval;
+9. successful logical retirement reached the existing transport-drain completion fence before TraceEnd;
+10. the existing bounded libVIIPER file flush path was given its normal opportunity to run.
 
-If any of these conditions is missing, a missing individual raw trace is **inconclusive**, not evidence of upstream packet loss.
+If `N == 0`, the raw/parsed/dispatch set must be empty.
+
+If **any** rule fails, the trace is incomplete and a missing individual raw trace is **inconclusive**, not evidence of upstream packet loss.
+
+The async writer deliberately does not surface underlying file-write errors to packet-processing callers. Therefore this completeness contract detects observable queue drops and structural gaps but does not convert the logging subsystem into a correctness dependency. If the log file itself is truncated, malformed, missing the end marker, or otherwise cannot satisfy all rules above, classify the measurement as inconclusive.
 
 Then compare ordered motor pairs and timestamps.
 
@@ -650,9 +774,11 @@ The PR description must state:
 - no public ABI/header change;
 - exact activation variable;
 - trace records use the file-only async sink and never invoke `VIIPERLogCallback`;
-- trace lifetime is Xbox360-device lifetime, independent of callback registration;
+- trace lifetime is independent of callback registration and remains retained through successful logical-handle finalization until the existing transport drain completes;
 - exact trace event names and `BusID/DeviceID` identity fields;
-- the trace-completeness gate and the rule that a missing record is otherwise inconclusive;
+- TraceEnd is emitted only after the existing transport-drain fence for every successful Xbox360 retirement path;
+- the exact raw/parsed/dispatch sequence-continuity rules used by the trace-completeness gate;
+- the rule that a missing record is otherwise inconclusive;
 - tests added;
 - this instrumentation must not be interpreted as confirmation of a VIIPER defect.
 
