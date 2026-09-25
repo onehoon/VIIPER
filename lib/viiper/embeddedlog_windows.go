@@ -12,10 +12,6 @@ import (
 
 const getModuleHandleExFlagFromAddress = 0x00000004
 
-// embeddedLogFileName is fixed and deliberately unconfigurable in this PR: libVIIPER owns exactly
-// one diagnostic file, written beside the loaded shared library.
-const embeddedLogFileName = "libVIIPER.log"
-
 var (
 	kernel32               = windows.NewLazySystemDLL("kernel32.dll")
 	procGetModuleHandleExW = kernel32.NewProc("GetModuleHandleExW")
@@ -27,12 +23,12 @@ var (
 // section when built with -buildmode=c-shared).
 var moduleAnchor byte
 
-// resolveEmbeddedLogPath resolves libVIIPER.log beside the directory containing the actually
-// loaded libVIIPER.dll module -- not the process executable, not the current working directory,
-// and not any application-specific path. Returns ok=false (never an error the caller must
-// surface) if module-path discovery fails for any reason; the caller treats that identically to
-// "no file sink available."
-func resolveEmbeddedLogPath() (string, bool) {
+// resolveEmbeddedLogPathBesideModule resolves the fallback libVIIPER.log beside the directory
+// containing the actually loaded libVIIPER.dll module -- not the process executable, not the
+// current working directory, and not any application-specific path. Returns ok=false (never an
+// error the caller must surface) if module-path discovery fails for any reason; the caller treats
+// that identically to "no file sink available."
+func resolveEmbeddedLogPathBesideModule() (string, bool) {
 	dir, err := loadedModuleDir()
 	if err != nil || dir == "" {
 		return "", false

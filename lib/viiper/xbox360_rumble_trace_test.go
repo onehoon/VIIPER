@@ -93,26 +93,39 @@ func createXbox360ForTraceTest(t *testing.T, hw *usbServerHandleWrapper, busID u
 	return handle, pad
 }
 
-func TestCanonicalXbox360TraceRequiresExactEnvironmentValue(t *testing.T) {
+func TestCanonicalXbox360TraceIsForcedOnWithoutEnvironmentSwitch(t *testing.T) {
+	const legacyEnvironment = "VIIPER_X360_RUMBLE_TRACE"
 	values := []struct {
-		name    string
-		value   string
-		enabled bool
+		name  string
+		value string
+		unset bool
 	}{
-		{name: "empty"},
+		{name: "unset", unset: true},
 		{name: "zero", value: "0"},
-		{name: "true", value: "true"},
-		{name: "exact-one", value: "1", enabled: true},
 	}
 	for i, tc := range values {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(xbox360RumbleTraceEnvironment, tc.value)
+			if tc.unset {
+				previous, existed := os.LookupEnv(legacyEnvironment)
+				if err := os.Unsetenv(legacyEnvironment); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() {
+					if existed {
+						_ = os.Setenv(legacyEnvironment, previous)
+					} else {
+						_ = os.Unsetenv(legacyEnvironment)
+					}
+				})
+			} else {
+				t.Setenv(legacyEnvironment, tc.value)
+			}
 			handler := &xbox360TraceCapture{}
 			setRumbleTraceSinkForTest(t, handler)
 			hw, _ := newLifecycleTestServer(t, uint32(10200+i))
 			handle, pad := createXbox360ForTraceTest(t, hw, uint32(10200+i), false)
-			if got := pad.RumbleTraceSession() != nil; got != tc.enabled {
-				t.Fatalf("trace enabled = %t, want %t", got, tc.enabled)
+			if pad.RumbleTraceSession() == nil {
+				t.Fatal("canonical Xbox360 creation did not install the forced trace")
 			}
 			starts := 0
 			for _, event := range xbox360TraceEvents(handler) {
@@ -120,42 +133,39 @@ func TestCanonicalXbox360TraceRequiresExactEnvironmentValue(t *testing.T) {
 					starts++
 				}
 			}
-			wantStarts := 0
-			if tc.enabled {
-				wantStarts = 1
-			}
-			if starts != wantStarts {
-				t.Fatalf("TraceStart count = %d, want %d", starts, wantStarts)
+			if starts != 1 {
+				t.Fatalf("TraceStart count = %d, want 1", starts)
 			}
 			if got := removeXbox360DeviceResult(uintptr(handle)); got != typedDeviceRemoveSuccess {
 				t.Fatalf("remove result = %d", got)
 			}
 		})
 	}
-	t.Run("unset", func(t *testing.T) {
-		previous, existed := os.LookupEnv(xbox360RumbleTraceEnvironment)
-		if err := os.Unsetenv(xbox360RumbleTraceEnvironment); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() {
-			if existed {
-				_ = os.Setenv(xbox360RumbleTraceEnvironment, previous)
-			} else {
-				_ = os.Unsetenv(xbox360RumbleTraceEnvironment)
-			}
-		})
-		handler := &xbox360TraceCapture{}
-		setRumbleTraceSinkForTest(t, handler)
-		hw, _ := newLifecycleTestServer(t, 10210)
-		_, pad := createXbox360ForTraceTest(t, hw, 10210, false)
-		if pad.RumbleTraceSession() != nil || len(xbox360TraceEvents(handler)) != 0 {
-			t.Fatal("unset trace switch enabled diagnostic records")
-		}
-	})
+}
+
+func TestCanonicalXbox360TraceFileOpenFailureDoesNotBlockDeviceLifecycle(t *testing.T) {
+	failedHandler, failedWriter := openEmbeddedLogFileHandler(
+		func() (string, bool) { return `X:\unavailable\libVIIPER.log`, true },
+		noopStatModTime,
+		func(string) (dailyLogWriter, error) { return nil, errors.New("simulated file-open failure") },
+		time.Now,
+	)
+	if failedHandler != nil || failedWriter != nil {
+		t.Fatal("simulated file-open failure unexpectedly produced a sink")
+	}
+	setRumbleTraceSinkForTest(t, failedHandler)
+	hw, _ := newLifecycleTestServer(t, 10209)
+	hw.logger = buildEmbeddedLogger(failedHandler, nil)
+	handle, pad := createXbox360ForTraceTest(t, hw, 10209, false)
+	if pad.RumbleTraceSession() == nil {
+		t.Fatal("file-sink failure prevented forced trace installation")
+	}
+	if got := removeXbox360DeviceResult(uintptr(handle)); got != typedDeviceRemoveSuccess {
+		t.Fatalf("device removal after file-sink failure = %d", got)
+	}
 }
 
 func TestCanonicalXbox360TraceStartsBeforeAutoAttachAndUsesFileOnlySink(t *testing.T) {
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink, callbackSink := &xbox360TraceCapture{}, &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, _ := newLifecycleTestServer(t, 10211)
@@ -215,7 +225,6 @@ func TestCanonicalXbox360TraceStartsBeforeAutoAttachAndUsesFileOnlySink(t *testi
 }
 
 func TestCanonicalXbox360TraceKnownRollbackAbortsAndReusedIDGetsNewSession(t *testing.T) {
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, bus := newLifecycleTestServer(t, 10212)
@@ -268,12 +277,10 @@ func TestCanonicalXbox360TraceKnownRollbackAbortsAndReusedIDGetsNewSession(t *te
 }
 
 func TestCanonicalXbox360TraceCallbackClearLeavesTraceActive(t *testing.T) {
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, _ := newLifecycleTestServer(t, 10216)
 	handle, pad := createXbox360ForTraceTest(t, hw, 10216, false)
-	t.Setenv(xbox360RumbleTraceEnvironment, "0") // Creation-time decision must not be polled per packet.
 	var callbacks []xbox360.XRumbleState
 	if !setXbox360RumbleCallback(uintptr(handle), func(state xbox360.XRumbleState) { callbacks = append(callbacks, state) }) {
 		t.Fatal("callback registration failed")
@@ -317,7 +324,6 @@ func TestCanonicalXbox360TraceCallbackClearLeavesTraceActive(t *testing.T) {
 
 func TestCanonicalXbox360TraceRollbackAbortWaitsForExposedTransportDrain(t *testing.T) {
 	const busID = uint32(10217)
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	traceEntered, releaseTrace := traceSink.blockNext("X360RumbleRaw")
@@ -404,7 +410,6 @@ func TestCanonicalXbox360TraceRollbackAbortWaitsForExposedTransportDrain(t *test
 }
 
 func TestCanonicalXbox360TraceDoesNotAbortUnknownRetainedCreation(t *testing.T) {
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, _ := newLifecycleTestServer(t, 10213)
@@ -426,7 +431,6 @@ func TestCanonicalXbox360TraceDoesNotAbortUnknownRetainedCreation(t *testing.T) 
 }
 
 func TestCanonicalXbox360TraceDistinguishesMultipleDevices(t *testing.T) {
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, _ := newLifecycleTestServer(t, 10214)
@@ -464,7 +468,6 @@ func TestCanonicalXbox360TraceDistinguishesMultipleDevices(t *testing.T) {
 }
 
 func TestCanonicalXbox360TraceFailedRemovalDoesNotEndRetainedDevice(t *testing.T) {
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, _ := newLifecycleTestServer(t, 10215)
@@ -523,7 +526,6 @@ func TestCanonicalXbox360TraceEndWaitsForTransportDrainOnAllRemovalPaths(t *test
 	for i, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			busID := uint32(10220 + i)
-			t.Setenv(xbox360RumbleTraceEnvironment, "1")
 			traceSink := &xbox360TraceCapture{}
 			setRumbleTraceSinkForTest(t, traceSink)
 			hw, _ := newLifecycleTestServer(t, busID)
@@ -612,7 +614,6 @@ func TestCanonicalXbox360TraceEndWaitsForTransportDrainOnAllRemovalPaths(t *test
 
 func TestCanonicalXbox360TraceSeparatesReusedDeviceIDDuringPriorDrain(t *testing.T) {
 	const busID = uint32(10230)
-	t.Setenv(xbox360RumbleTraceEnvironment, "1")
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, _ := newLifecycleTestServer(t, busID)

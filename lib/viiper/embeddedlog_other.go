@@ -2,10 +2,10 @@
 
 package main
 
-// resolveEmbeddedLogPath has no non-Windows implementation in this PR: this fork's tracked
+// resolveEmbeddedLogPathBesideModule has no non-Windows fallback in this fork: its tracked
 // localhost attachment story is Windows-only, and module-path-beside-the-loaded-shared-library
-// discovery is a Windows-specific mechanism. Non-Windows builds get no file sink; a
-// VIIPERLogCallback, if supplied, still works normally.
-func resolveEmbeddedLogPath() (string, bool) {
+// discovery is a Windows-specific mechanism. A caller-supplied diagnostic directory still works;
+// without one, non-Windows builds get no file sink and VIIPERLogCallback remains unaffected.
+func resolveEmbeddedLogPathBesideModule() (string, bool) {
 	return "", false
 }
