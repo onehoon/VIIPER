@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"runtime/cgo"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -69,6 +70,25 @@ func xbox360TraceEvents(h *xbox360TraceCapture) []map[string]any {
 		}
 	}
 	return events
+}
+
+func assertXbox360TraceProcessIdentity(t *testing.T, events []map[string]any) {
+	t.Helper()
+	if len(events) == 0 {
+		t.Fatal("no Xbox360 trace events to validate")
+	}
+	var processID int
+	for i, event := range events {
+		got, err := strconv.Atoi(fmt.Sprint(event["ProcessID"]))
+		if err != nil || got <= 0 {
+			t.Fatalf("event %d ProcessID = %v, want a nonzero process ID", i, event["ProcessID"])
+		}
+		if processID == 0 {
+			processID = got
+		} else if got != processID {
+			t.Fatalf("event %d ProcessID = %d, want consistent process ID %d", i, got, processID)
+		}
+	}
 }
 
 func setRumbleTraceSinkForTest(t *testing.T, h slog.Handler) {
@@ -182,6 +202,7 @@ func TestCanonicalXbox360TraceStartsBeforeAutoAttachAndUsesFileOnlySink(t *testi
 		if !ok {
 			return api.LocalhostAttachment{}, fmt.Errorf("created device type is %T", devs[0])
 		}
+		pad.SetRumbleCallback(func(xbox360.XRumbleState) {})
 		pad.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{0, 8, 0, 0, 0, 0, 0, 0})
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5011}, nil
 	}
@@ -216,8 +237,20 @@ func TestCanonicalXbox360TraceStartsBeforeAutoAttachAndUsesFileOnlySink(t *testi
 			t.Fatalf("rumble trace terminal record reached VIIPERLogCallback observer: %+v", attrs)
 		}
 	}
-	for _, event := range xbox360TraceEvents(traceSink) {
+	events := xbox360TraceEvents(traceSink)
+	assertXbox360TraceProcessIdentity(t, events)
+	for _, event := range events {
 		if event["Event"] == "X360RumbleTraceEnd" {
+			foundDispatch := false
+			for _, traceEvent := range events {
+				if traceEvent["Event"] == "X360RumbleCallbackDispatch" {
+					foundDispatch = true
+					break
+				}
+			}
+			if !foundDispatch {
+				t.Fatal("auto-attached trace did not include callback dispatch")
+			}
 			return
 		}
 	}
@@ -407,6 +440,7 @@ func TestCanonicalXbox360TraceRollbackAbortWaitsForExposedTransportDrain(t *test
 	if events[3]["LastTraceSeq"] != uint64(1) || events[3]["Reason"] != "auto-attach-failure" {
 		t.Fatalf("rollback terminal marker = %+v", events[3])
 	}
+	assertXbox360TraceProcessIdentity(t, events)
 }
 
 func TestCanonicalXbox360TraceDoesNotAbortUnknownRetainedCreation(t *testing.T) {
@@ -440,7 +474,9 @@ func TestCanonicalXbox360TraceDistinguishesMultipleDevices(t *testing.T) {
 	second.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{0, 8, 0, 3, 4, 0, 0, 0})
 	seen := map[string]map[string]bool{}
 	sessions := make(map[string]string)
-	for _, event := range xbox360TraceEvents(traceSink) {
+	events := xbox360TraceEvents(traceSink)
+	assertXbox360TraceProcessIdentity(t, events)
+	for _, event := range events {
 		deviceID := fmt.Sprint(event["DeviceID"])
 		if event["Event"] == "X360RumbleTraceStart" {
 			sessions[deviceID] = fmt.Sprint(event["TraceSessionID"])

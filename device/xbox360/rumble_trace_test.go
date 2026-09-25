@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -42,6 +43,26 @@ func rumbleTraceRecordAttrs(r slog.Record) map[string]any {
 	return attrs
 }
 
+func assertRumbleTraceProcessIdentity(t *testing.T, records []slog.Record) {
+	t.Helper()
+	if len(records) == 0 {
+		t.Fatal("no rumble trace records to validate")
+	}
+	var processID int
+	for i, record := range records {
+		attrs := rumbleTraceRecordAttrs(record)
+		got, err := strconv.Atoi(fmt.Sprint(attrs["ProcessID"]))
+		if err != nil || got <= 0 {
+			t.Fatalf("record %d ProcessID = %v, want a nonzero process ID", i, attrs["ProcessID"])
+		}
+		if processID == 0 {
+			processID = got
+		} else if got != processID {
+			t.Fatalf("record %d ProcessID = %d, want consistent process ID %d", i, got, processID)
+		}
+	}
+}
+
 func TestRumbleTraceDisabledPreservesCallbackBehavior(t *testing.T) {
 	pad, err := New(nil)
 	if err != nil {
@@ -76,6 +97,7 @@ func TestRumbleTraceRecordsStopNonzeroAndUnknownPackets(t *testing.T) {
 		t.Fatalf("callbacks = %#v, want %#v", callbacks, want)
 	}
 	records := handler.snapshot()
+	assertRumbleTraceProcessIdentity(t, records)
 	if len(records) != 9 { // Start + (raw, parsed, dispatch) x 2 + raw + parsed.
 		t.Fatalf("trace record count = %d, want 9", len(records))
 	}
@@ -136,6 +158,7 @@ func TestRumbleTraceSurvivesCallbackClearAndSealsAtTerminalMarker(t *testing.T) 
 	trace.End()
 	pad.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{0, 8, 0, 4, 5, 0, 0, 0})
 	records := handler.snapshot()
+	assertRumbleTraceProcessIdentity(t, records)
 	if len(records) != 4 {
 		t.Fatalf("records after callback clear/seal = %d, want Start + raw + parsed + End", len(records))
 	}
@@ -160,8 +183,10 @@ func TestRumbleTraceSessionIDsSeparateReusedDeviceIdentity(t *testing.T) {
 	}
 	first.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{0, 8, 0, 1, 2, 0, 0, 0})
 	second.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{0, 8, 0, 3, 4, 0, 0, 0})
+	var allRecords []slog.Record
 	for i, handler := range []*rumbleTraceTestHandler{firstHandler, secondHandler} {
 		records := handler.snapshot()
+		allRecords = append(allRecords, records...)
 		if len(records) != 3 {
 			t.Fatalf("session %d records = %d, want Start + raw + parsed", i, len(records))
 		}
@@ -176,6 +201,7 @@ func TestRumbleTraceSessionIDsSeparateReusedDeviceIdentity(t *testing.T) {
 			}
 		}
 	}
+	assertRumbleTraceProcessIdentity(t, allRecords)
 }
 
 func TestRumbleTraceBoundsRawPayloadTo32Bytes(t *testing.T) {
@@ -188,11 +214,28 @@ func TestRumbleTraceBoundsRawPayloadTo32Bytes(t *testing.T) {
 	}
 	pad.HandleTransfer(context.Background(), 1, usbip.DirOut, payload)
 	records := handler.snapshot()
+	assertRumbleTraceProcessIdentity(t, records)
 	if len(records) != 3 {
 		t.Fatalf("record count = %d, want Start + raw + parsed", len(records))
 	}
 	attrs := rumbleTraceRecordAttrs(records[1])
 	if fmt.Sprint(attrs["Length"]) != "40" || attrs["Payload"] != hex.EncodeToString(payload[:32]) {
 		t.Fatalf("bounded raw record = %+v", attrs)
+	}
+}
+
+func TestRumbleTraceAbortCarriesProcessIdentity(t *testing.T) {
+	pad, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := &rumbleTraceTestHandler{}
+	trace := pad.InstallRumbleTrace(slog.New(handler), 75, 3)
+	trace.Abort("test-rollback")
+
+	records := handler.snapshot()
+	assertRumbleTraceProcessIdentity(t, records)
+	if len(records) != 2 || rumbleTraceRecordAttrs(records[1])["Event"] != "X360RumbleTraceAbort" {
+		t.Fatalf("abort records = %+v, want Start + Abort", records)
 	}
 }

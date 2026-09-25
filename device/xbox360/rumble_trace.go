@@ -4,11 +4,13 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"math"
+	"os"
 	"sync"
 	"sync/atomic"
 )
 
 var rumbleTraceSessionCounter atomic.Uint64
+var rumbleTraceProcessID = os.Getpid()
 
 // RumbleTrace is an internal Go diagnostic session. It does not participate in
 // device behavior, callback ownership, or the exported C ABI.
@@ -120,6 +122,6 @@ func (t *RumbleTrace) recordPacket(payload []byte, recognized, callbackPresent b
 }
 
 func (t *RumbleTrace) log(event string, attrs ...any) {
-	base := []any{"Event", event, "BusID", t.busID, "DeviceID", t.deviceID, "TraceSessionID", t.sessionID}
+	base := []any{"Event", event, "ProcessID", rumbleTraceProcessID, "BusID", t.busID, "DeviceID", t.deviceID, "TraceSessionID", t.sessionID}
 	t.logger.Info("xbox360 rumble trace", append(base, attrs...)...)
 }

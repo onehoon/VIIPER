@@ -262,6 +262,7 @@ The trace context contains only diagnostic state needed for this investigation:
 
 ```text
 file-only logger
+ProcessID
 BusID
 DeviceID
 TraceSessionID
@@ -283,11 +284,17 @@ TraceSessionID=<uint64>
 
 when that trace context is created.
 
+Capture the current operating-system process ID once per process and include it
+as `ProcessID` in every trace record. The log is append-only and may be shared
+by overlapping or restarted CTW helper processes; `TraceSessionID` alone is not
+unique across those process instances.
+
 Requirements:
 
 - allocate from one process-wide atomic counter;
 - zero is reserved for "no trace session" and must never be emitted for an active session;
 - do not persist the counter across processes;
+- every record also carries the same nonzero `ProcessID` for its process instance;
 - do not derive it from handles, pointers, BusID, DeviceID, wall-clock time, or random values;
 - every Start/raw/parsed/dispatch/End/Abort record for that context must carry the same `TraceSessionID`;
 - `TraceSeq` starts from zero independently for each `TraceSessionID`.
@@ -297,12 +304,15 @@ This is diagnostic identity only. It must not participate in controller ownershi
 Use the full trace identity:
 
 ```text
+ProcessID
 BusID
 DeviceID
 TraceSessionID
 ```
 
-in every trace event. Do not use only `BusID/DeviceID` or only `TraceSeq` as identity.
+in every trace event. Do not use only `BusID/DeviceID`, only
+`BusID/DeviceID/TraceSessionID`, or only `TraceSeq` as identity across the
+append-only log.
 
 The hook is internal Go implementation detail only.
 
@@ -480,9 +490,9 @@ If the process terminates before a safe retirement is observed, the session is s
 
 ### Session identity on retry
 
-A later retry/new creation always gets a new `TraceSessionID`, even when it reuses the same `BusID/DeviceID`.
+A later retry/new creation always gets a new `TraceSessionID`, even when it reuses the same `BusID/DeviceID`. Across the append-only log, use `ProcessID/BusID/DeviceID/TraceSessionID` because the counter restarts with each process.
 
-No Start/End/Abort matching rule may group records solely by `BusID/DeviceID`.
+No Start/End/Abort matching rule may group records solely by `BusID/DeviceID` or by `BusID/DeviceID/TraceSessionID` across process instances.
 
 ---
 
@@ -495,11 +505,12 @@ The counter is diagnostic-only.
 Every rumble trace event must also include:
 
 ```text
+ProcessID=<current process ID>
 BusID=<canonical bus id>
 DeviceID=<canonical logical device id>
 ```
 
-because multiple Xbox360 typed devices — including a new incarnation reusing the same `BusID/DeviceID` while an older one drains — may write to the same `libVIIPER.log`. `TraceSessionID + TraceSeq` is the session-local correlation key.
+because multiple Xbox360 typed devices — including a new incarnation reusing the same `BusID/DeviceID` while an older one drains — and overlapping helper processes may write to the same `libVIIPER.log`. `ProcessID/BusID/DeviceID/TraceSessionID` identifies a session in that file; `TraceSeq` is local to the identified session.
 
 ## 7.1 Raw EP1 OUT arrival
 
@@ -709,7 +720,7 @@ Prove:
 
 - each has a distinct `TraceSessionID`;
 - each has its own per-session `TraceSeq`;
-- every record contains the correct `BusID`, `DeviceID`, and `TraceSessionID`;
+- every record contains the correct nonzero `ProcessID`, `BusID`, `DeviceID`, and `TraceSessionID`;
 - equal sequence values from different devices cannot be mistaken for one stream.
 
 ### BusID/DeviceID reuse while the prior session drains
@@ -725,7 +736,7 @@ Use deterministic test seams to:
 
 Prove:
 
-- A and B have the same `BusID/DeviceID` but different `TraceSessionID`;
+- A and B have the same `ProcessID/BusID/DeviceID` but different `TraceSessionID`;
 - A's late drain-window event remains attributed to A;
 - B's events remain attributed to B;
 - A's `TraceEnd` occurs after A's final drain-window event;
@@ -784,7 +795,7 @@ Collect:
 For one target trace session identified by the exact tuple:
 
 ```text
-BusID / DeviceID / TraceSessionID
+ProcessID / BusID / DeviceID / TraceSessionID
 ```
 
 a run is **trace-complete enough for absence-based reasoning** only when all of the following hold:
@@ -794,13 +805,13 @@ a run is **trace-complete enough for absence-based reasoning** only when all of 
 3. there is **no** `X360RumbleTraceAbort` for that tuple;
 4. `TraceEnd.LastTraceSeq = N`;
 5. the raw-event set contains **exactly one** `X360RumbleRaw` for every integer `TraceSeq` in the closed range `1..N`, with no gaps, duplicates, zero, or values greater than `N`;
-6. for every raw event `TraceSeq=n`, there is **exactly one** `X360RumbleParsed` event with the same `BusID/DeviceID/TraceSessionID/TraceSeq`;
+6. for every raw event `TraceSeq=n`, there is **exactly one** `X360RumbleParsed` event with the same `ProcessID/BusID/DeviceID/TraceSessionID/TraceSeq`;
 7. for every parsed event:
    - `Recognized=false` -> there must be no dispatch event for that sequence;
    - `Recognized=true CallbackPresent=false` -> there must be no dispatch event for that sequence;
-   - `Recognized=true CallbackPresent=true` -> there must be exactly one `X360RumbleCallbackDispatch` event for that same tuple/sequence with the same Left/Right values;
+   - `Recognized=true CallbackPresent=true` -> there must be exactly one `X360RumbleCallbackDispatch` event for that same full identity/sequence with the same Left/Right values;
 8. there are no raw/parsed/dispatch events for the target tuple after `X360RumbleTraceEnd`;
-9. other sessions that reuse the same `BusID/DeviceID` are ignored unless their `TraceSessionID` also matches;
+9. records from another process or any other full identity tuple are excluded, even if `BusID`, `DeviceID`, or `TraceSessionID` values happen to match;
 10. there is no `libVIIPER logging backlog droppedLogRecords=...` marker in the relevant trace interval;
 11. successful logical retirement reached the existing transport-drain completion fence before TraceEnd;
 12. the existing bounded libVIIPER file flush path was given its normal opportunity to run.
@@ -901,7 +912,7 @@ The PR description must state:
 - exact activation variable;
 - trace records use the file-only async sink and never invoke `VIIPERLogCallback`;
 - trace lifetime is independent of callback registration and remains retained through successful logical-handle finalization until the existing transport drain completes;
-- exact trace event names and `BusID/DeviceID/TraceSessionID` identity fields;
+- exact trace event names and `ProcessID/BusID/DeviceID/TraceSessionID` identity fields;
 - known creation rollback is closed with `X360RumbleTraceAbort`, while unsafe/unknown retained ownership is not prematurely aborted;
 - TraceEnd is emitted only after the existing transport-drain fence for every successful Xbox360 retirement path;
 - the exact raw/parsed/dispatch sequence-continuity rules used by the trace-completeness gate;
