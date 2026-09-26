@@ -20,8 +20,9 @@ architectural source of truth for the fork.
   attachment lifecycle for typed device handles on Windows.
 - The tracked native ABI is pinned to usbip-win2 `v0.9.8.0`
   (`83bd1f781d57ed6efdf15530c55710cf5d4482bc`). Windows localhost attach
-  always selects the low-latency receive path; older and later package versions
-  are not claimed compatible by this fork.
+  always uses usbip-win2 zero-copy receive mode for native IOCTL and command
+  paths; older and later package versions are not claimed compatible by this
+  fork.
 - Non-Windows builds remain ABI-compatible, but tracked localhost attachment
   is unsupported and fails safely without recording ownership.
 - `clib/` remains a compatibility flat API. New integrations must not use it

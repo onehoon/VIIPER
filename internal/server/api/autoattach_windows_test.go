@@ -108,7 +108,7 @@ func TestAttachViaIOCTLUsesIPv4LoopbackEndpoint(t *testing.T) {
 	}
 }
 
-func TestAttachViaIOCTLBuildsV0980LowLatencyRequest(t *testing.T) {
+func TestAttachViaIOCTLBuildsV0980ZeroCopyRequest(t *testing.T) {
 	meta := &usbip.ExportMeta{BusID: 9, DevID: 12}
 	var captured attachIOCTL
 	ops := nativeAttachOps{
@@ -127,7 +127,7 @@ func TestAttachViaIOCTLBuildsV0980LowLatencyRequest(t *testing.T) {
 	if captured.Size != 1120 || string(captured.BusID[:4]) != "9-12" || string(captured.Service[:4]) != "3241" || string(captured.Host[:9]) != "127.0.0.1" {
 		t.Fatalf("unexpected request contents: %+v", captured)
 	}
-	if captured.ImportedDeviceLocationPadding != [3]byte{} || captured.Serial != [serialBufSize]byte{} || !captured.WskEvents {
+	if captured.ImportedDeviceLocationPadding != [3]byte{} || captured.Serial != [serialBufSize]byte{} || captured.WskEvents {
 		t.Fatalf("serial/WSK policy = serial=%v wskEvents=%v", captured.Serial, captured.WskEvents)
 	}
 }
@@ -162,8 +162,8 @@ func TestAttachViaIOCTLLogsDeviceIoControlError(t *testing.T) {
 	t.Fatal("native DeviceIoControl error log record was not emitted")
 }
 
-func TestUSBIPLegacyAttachCommandSelectsLowLatency(t *testing.T) {
-	want := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", "--receive-mode=low-latency"}
+func TestUSBIPLegacyAttachCommandSelectsZeroCopy(t *testing.T) {
+	want := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", "--receive-mode=zero-copy"}
 	if got := usbipLegacyAttachCommandArgs(3241, "9-12"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("legacy attach arguments = %#v, want %#v", got, want)
 	}
