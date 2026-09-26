@@ -65,11 +65,12 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 		busCleanupTimeout = 5 * time.Second
 	}
 
-	// libVIIPER owns its diagnostic log: openRealEmbeddedLogFileHandler is libVIIPER.log beside
-	// the loaded shared library, whose sink is attempted independently of logCallback (module-path
-	// resolution or the file open can still fail, in which case there is simply no file handler --
-	// see embeddedlog.go). logCallback, when supplied, is an additional observer -- never a
-	// replacement for the file sink, and never a reason to write a record into the file twice.
+	// libVIIPER owns its diagnostic log: openRealEmbeddedLogFileHandler uses the configured
+	// diagnostic directory or defaults to libVIIPER.log beside the loaded shared library. The sink
+	// is attempted independently of logCallback (path resolution or the file open can still fail,
+	// in which case there is simply no file handler -- see embeddedlog.go). logCallback, when
+	// supplied, is an additional observer -- never a replacement for the file sink, and never a
+	// reason to write a record into the file twice.
 	// This never calls slog.SetDefault: the embedding process's own global default logger is left
 	// alone.
 	var callbackHandler slog.Handler

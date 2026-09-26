@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	vlog "github.com/Alia5/VIIPER/internal/log"
 )
@@ -14,6 +15,39 @@ import (
 // received (Enabled has never filtered levels for the callback path) so the file sink does not
 // silently see less than a callback consumer already does.
 const embeddedLogLevel = slog.LevelDebug
+
+const embeddedLogFileName = "libVIIPER.log"
+
+type diagnosticLogDirectoryConfig struct {
+	mu        sync.Mutex
+	directory string
+	frozen    bool
+}
+
+func (c *diagnosticLogDirectoryConfig) set(directory string) bool {
+	if directory == "" || !utf8.ValidString(directory) {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.frozen {
+		return false
+	}
+	c.directory = directory
+	return true
+}
+
+// freeze closes configuration when the singleton sink initialization starts. sync.Once also
+// caches resolution/open failures, so allowing a later setter after a failed attempt would claim
+// success without any possible way to make that path take effect.
+func (c *diagnosticLogDirectoryConfig) freeze() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.frozen = true
+	return c.directory
+}
+
+var embeddedDiagnosticLogDirectory diagnosticLogDirectoryConfig
 
 // buildEmbeddedLogger composes libVIIPER's own diagnostic sink with an optional observer.
 // fileHandler is nil when no file sink is available (module-path resolution or file-open
@@ -98,9 +132,10 @@ func openEmbeddedLogFileHandler(
 }
 
 var (
-	embeddedLogFileHandlerOnce  sync.Once
-	embeddedLogFileHandlerCache slog.Handler
-	embeddedLogWriterCache      *asyncLogWriter
+	embeddedLogFileHandlerOnce     sync.Once
+	embeddedLogFileHandlerCache    slog.Handler
+	embeddedLogWriterCache         *asyncLogWriter
+	x360RumbleDiagnosticMarkerOnce sync.Once
 )
 
 // osFileDailyLogWriter adapts a real *os.File to dailyLogWriter: Reset truncates it back to
@@ -123,14 +158,16 @@ func realStatModTime(path string) (time.Time, bool, error) {
 	return info.ModTime(), true, nil
 }
 
-// openRealEmbeddedLogFileHandler opens (once per process) the real libVIIPER.log beside the
-// loaded shared library in append mode, so multiple NewUSBServer calls in the same process share
-// one file, one daily-rollover state, and one async writer goroutine.
-// resolveEmbeddedLogPath is platform-specific (embeddedlog_windows.go / embeddedlog_other.go).
+// openRealEmbeddedLogFileHandler opens (once per process) the owned libVIIPER.log in append mode,
+// using the configured directory or, when unset, the loaded shared-library directory. Multiple
+// NewUSBServer calls in the same process share one file, one daily-rollover state, and one async
+// writer goroutine. The path override is frozen before the platform-specific fallback resolver is
+// called.
 func openRealEmbeddedLogFileHandler() slog.Handler {
 	embeddedLogFileHandlerOnce.Do(func() {
+		directory := embeddedDiagnosticLogDirectory.freeze()
 		embeddedLogFileHandlerCache, embeddedLogWriterCache = openEmbeddedLogFileHandler(
-			resolveEmbeddedLogPath,
+			func() (string, bool) { return resolveEmbeddedLogPath(directory) },
 			realStatModTime,
 			func(path string) (dailyLogWriter, error) {
 				f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
@@ -149,7 +186,15 @@ func openRealEmbeddedLogFileHandler() slog.Handler {
 // shared owned async file sink without attaching the synchronous callback
 // observer used by the ordinary server logger.
 func buildEmbeddedRumbleTraceLogger() *slog.Logger {
-	return buildEmbeddedLogger(openRealEmbeddedLogFileHandler(), nil)
+	logger := buildEmbeddedLogger(openRealEmbeddedLogFileHandler(), nil)
+	logXbox360RumbleDiagnosticBuildMarker(&x360RumbleDiagnosticMarkerOnce, logger)
+	return logger
+}
+
+func logXbox360RumbleDiagnosticBuildMarker(once *sync.Once, logger *slog.Logger) {
+	once.Do(func() {
+		logger.Info("Xbox360 rumble diagnostic build", "Event", "X360RumbleDiagnosticBuild", "Mode", "forced-on")
+	})
 }
 
 // flushEmbeddedLogBestEffort requests a bounded, best-effort drain of the process-wide owned-log

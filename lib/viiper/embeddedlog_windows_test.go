@@ -15,7 +15,7 @@ import (
 // resolver feeds into (openEmbeddedLogFileHandler) is covered independently in
 // embeddedlog_test.go via injected fakes, which is the actual required test seam.
 func TestResolveEmbeddedLogPathSmoke(t *testing.T) {
-	path, ok := resolveEmbeddedLogPath()
+	path, ok := resolveEmbeddedLogPath("")
 	if !ok {
 		t.Fatal("resolveEmbeddedLogPath failed inside a loaded PE module; module handle resolution should always succeed here")
 	}
