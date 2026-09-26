@@ -101,10 +101,18 @@ func TestParseUSBIPTerseAttachPort(t *testing.T) {
 }
 
 func TestUSBIPCommandArgumentsTargetOneExactPort(t *testing.T) {
-	attach := usbipAttachCommandArgs(3241, "9-12")
-	wantAttach := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", "--receive-mode=low-latency", "--terse"}
-	if !reflect.DeepEqual(attach, wantAttach) {
-		t.Fatalf("attach arguments = %#v, want %#v", attach, wantAttach)
+	for _, tc := range []struct {
+		mode USBIPReceiveMode
+		arg  string
+	}{
+		{mode: USBIPReceiveZeroCopy, arg: "--receive-mode=zero-copy"},
+		{mode: USBIPReceiveLowLatency, arg: "--receive-mode=low-latency"},
+	} {
+		attach := usbipAttachCommandArgs(3241, "9-12", tc.mode)
+		wantAttach := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", tc.arg, "--terse"}
+		if !reflect.DeepEqual(attach, wantAttach) {
+			t.Fatalf("attach arguments for %s = %#v, want %#v", tc.mode, attach, wantAttach)
+		}
 	}
 
 	for _, port := range []int32{1, 217} {

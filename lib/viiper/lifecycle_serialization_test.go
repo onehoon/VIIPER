@@ -59,7 +59,7 @@ func installBlockingAttach(t *testing.T, hw *usbServerHandleWrapper, result atta
 	t.Helper()
 	started, release = make(chan struct{}), make(chan struct{})
 	count := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		count++
 		close(started)
 		<-release
@@ -189,7 +189,7 @@ func TestQueuedRemoveAfterExplicitDetachDoesNotDoubleDetach(t *testing.T) {
 		t.Run(family.name, func(t *testing.T) {
 			hw, bus := newLifecycleTestServer(t, uint32(9840+i))
 			attachCalls, detachCalls := 0, 0
-			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 				attachCalls++
 				return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: int32(4200 + i)}, nil
 			}
@@ -232,7 +232,7 @@ func TestUnknownDetachAndQueuedRemoveStayFailClosed(t *testing.T) {
 		t.Run(family.name, func(t *testing.T) {
 			hw, _ := newLifecycleTestServer(t, uint32(9860+i))
 			calls := 0
-			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 				return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(4300 + i)}, nil
 			}
 			started, release := make(chan struct{}), make(chan struct{})
@@ -351,7 +351,7 @@ func TestPublicCloseRetriesKnownTransportFailure(t *testing.T) {
 
 func TestPublicCloseFailsClosedAfterUnknownAttach(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9883)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 	}
 	serverHandle := publicServerHandleForTest(t, hw)
@@ -367,7 +367,7 @@ func TestPublicCloseFailsClosedAfterUnknownAttach(t *testing.T) {
 func TestDeckAndXboxCoexistOnCallerOwnedBus(t *testing.T) {
 	hw, bus := newLifecycleTestServer(t, 9890)
 	attachCalls, detachCalls := 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(4500 + attachCalls)}, nil
 	}
@@ -420,7 +420,7 @@ func queryDeviceAttachmentStateValue(t *testing.T, handle uintptr) deviceAttachm
 
 func TestServerCloseFailedIsServerWideForDeckAndXbox(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9891)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 4600}, nil
 	}
 	detachCalls := 0
@@ -453,13 +453,13 @@ func TestServerCloseFailedIsServerWideForDeckAndXbox(t *testing.T) {
 func TestIndependentServersRemainIsolatedWithDistinctVirtualBusIDs(t *testing.T) {
 	hwA, _ := newLifecycleTestServer(t, 9900)
 	hwB, _ := newLifecycleTestServer(t, 9901)
-	hwA.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hwA.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 4700}, nil
 	}
 	hwA.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
 		return api.ErrDetachmentOutcomeUnknown
 	}
-	hwB.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hwB.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 4701}, nil
 	}
 	hwB.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }

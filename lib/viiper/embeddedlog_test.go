@@ -208,7 +208,7 @@ func TestAttachmentTimingFieldsSurviveIntoOwnedFile(t *testing.T) {
 	var buf bytes.Buffer
 	hw, _ := newLifecycleTestServer(t, 9601)
 	hw.logger = buildEmbeddedLogger(embeddedFileHandler(&buf), nil)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 211}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
@@ -359,7 +359,7 @@ func TestAttachDetachReturnPromptlyDespiteStuckBackingWriter(t *testing.T) {
 
 	hw, _ := newLifecycleTestServer(t, 9603)
 	hw.logger = buildEmbeddedLogger(embeddedFileHandler(writer), nil)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 212}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
@@ -453,7 +453,7 @@ func TestCloseUSBServerFinalLogAndFlushRunAfterLockRelease(t *testing.T) {
 func TestLoggingFailureDoesNotChangeLifecycleResultSemantics(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9600)
 	hw.logger = buildEmbeddedLogger(nil, nil) // Simulates total logging failure: no file, no callback.
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 210}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }

@@ -18,7 +18,7 @@ func TestConcurrentXbox360AttachUsesOneBackendInitiator(t *testing.T) {
 	release := make(chan struct{})
 	var calls int
 	var callsMu sync.Mutex
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		callsMu.Lock()
 		calls++
 		call := calls
@@ -103,7 +103,7 @@ func serverHandleForTest(t *testing.T, hw *usbServerHandleWrapper) uintptr {
 func TestXbox360AutoAttachCompletesBeforeCreateReturns(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9601)
 	attachCalls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 302}, nil
 	}
@@ -124,11 +124,31 @@ func TestXbox360AutoAttachCompletesBeforeCreateReturns(t *testing.T) {
 	}
 }
 
+func TestAttachUsesServerSelectedReceiveMode(t *testing.T) {
+	hw, _ := newLifecycleTestServer(t, 11001)
+	hw.receiveMode = api.USBIPReceiveLowLatency
+	var got api.USBIPReceiveMode
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, mode api.USBIPReceiveMode, _ *slog.Logger) (api.LocalhostAttachment, error) {
+		got = mode
+		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 305}, nil
+	}
+	var h deviceHandle
+	if !createXbox360Device(serverHandleForTest(t, hw), &h, 11001, false, 0, 0, 0) {
+		t.Fatal("Xbox360 creation failed")
+	}
+	if result := attachUSBDeviceResult(uintptr(h)); result != deviceAttachSuccess {
+		t.Fatalf("attach result = %d, want success", result)
+	}
+	if got != api.USBIPReceiveLowLatency {
+		t.Fatalf("attach receive mode = %s, want low-latency selected by server", got)
+	}
+}
+
 func TestDetachedReadyTypedConsumerContracts(t *testing.T) {
 	t.Run("Xbox360", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9602)
 		attachCalls, detachCalls := 0, 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			attachCalls++
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 303}, nil
 		}
@@ -174,7 +194,7 @@ func TestDetachedReadyTypedConsumerContracts(t *testing.T) {
 	t.Run("Steam Deck", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9603)
 		attachCalls, detachCalls := 0, 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			attachCalls++
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 304}, nil
 		}

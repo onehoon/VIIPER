@@ -20,7 +20,7 @@ import (
 
 func TestGetUSBDeviceAttachmentStateBasicTransitions(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9400)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 91}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
@@ -54,7 +54,7 @@ func TestGetUSBDeviceAttachmentStateBasicTransitions(t *testing.T) {
 func TestGetUSBDeviceAttachmentStatePreservedAcrossClassifiedFailures(t *testing.T) {
 	t.Run("known attach failure -> DETACHED", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9401)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{}, errors.New("known transport failure")
 		}
 		hw.lifecycleMu.Lock()
@@ -73,7 +73,7 @@ func TestGetUSBDeviceAttachmentStatePreservedAcrossClassifiedFailures(t *testing
 
 	t.Run("known detach failure -> ATTACHED with the exact token unchanged", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9402)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 92}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -99,7 +99,7 @@ func TestGetUSBDeviceAttachmentStatePreservedAcrossClassifiedFailures(t *testing
 
 	t.Run("unknown attach outcome -> OUTCOME_UNKNOWN, query still succeeds under close-failed", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9403)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 		}
 		hw.lifecycleMu.Lock()
@@ -121,7 +121,7 @@ func TestGetUSBDeviceAttachmentStatePreservedAcrossClassifiedFailures(t *testing
 
 	t.Run("unknown detach outcome -> OUTCOME_UNKNOWN, query still succeeds under close-failed", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9404)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 93}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -162,7 +162,7 @@ func TestGetUSBDeviceAttachmentStateDiagnosticLifecycle(t *testing.T) {
 
 	t.Run("known ATTACHED survives an unrelated close-failed server", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9406)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 94}, nil
 		}
 		hw.lifecycleMu.Lock()
@@ -182,7 +182,7 @@ func TestGetUSBDeviceAttachmentStateDiagnosticLifecycle(t *testing.T) {
 	t.Run("serverClosing rejects the query with no backend call and no mutation", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9407)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			calls++
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 95}, nil
 		}
@@ -238,7 +238,7 @@ func TestGetUSBDeviceAttachmentStateInvalidQueries(t *testing.T) {
 func TestGetUSBDeviceAttachmentStateRepeatedQueriesNeverInvokeBackend(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9409)
 	attachCalls, detachCalls := 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 96}, nil
 	}
@@ -291,7 +291,7 @@ func TestGetUSBDeviceAttachmentStatePublicPathMapsToCEnum(t *testing.T) {
 
 	t.Run("valid attached", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9413)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 98}, nil
 		}
 		hw.lifecycleMu.Lock()
@@ -311,7 +311,7 @@ func TestGetUSBDeviceAttachmentStatePublicPathMapsToCEnum(t *testing.T) {
 
 	t.Run("outcome unknown", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9414)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 		}
 		hw.lifecycleMu.Lock()
@@ -405,7 +405,7 @@ func TestGetUSBDeviceAttachmentStateAcceptsTypedFamilies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			busID := uint32(9410 + i)
 			hw, _ := newLifecycleTestServer(t, busID)
-			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 				return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 97}, nil
 			}
 			hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }

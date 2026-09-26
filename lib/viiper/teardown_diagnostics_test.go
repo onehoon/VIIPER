@@ -71,7 +71,7 @@ func TestTypedRemoveDiagnosticsClassifyEveryTeardownPhase(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			hw, hlog := newTeardownTestServer(t, uint32(10000+i))
 			if tc.attached {
-				hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+				hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 					return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5000}, nil
 				}
 			}
@@ -111,7 +111,7 @@ func TestTypedRemoveDiagnosticsClassifyEveryTeardownPhase(t *testing.T) {
 func TestTypedRemoveDiagnosticsWrongFamilyDoesNotClaimDetachBackend(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10005)
 	h := addTestMouse(t, hw, 10005)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5050}, nil
 	}
 	detachCalls := 0
@@ -197,7 +197,7 @@ func TestRemoveUSBBusDiagnosticsAndLockSafety(t *testing.T) {
 func TestCloseDiagnosticsUnknownRepresentativeAndTransportRetry(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10030)
 	serverHandle := diagnosticServerHandle(t, hw)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 	}
 	h1 := addTestMouse(t, hw, 10030)
@@ -228,7 +228,7 @@ func TestRemoveUSBBusDiagnosticsIdentifyActualFailingDevice(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10040)
 	serverHandle := diagnosticServerHandle(t, hw)
 	attachCalls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(5100 + attachCalls)}, nil
 	}
@@ -259,7 +259,7 @@ func TestRemoveUSBBusDiagnosticsIdentifyUnknownPreflightDevice(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10041)
 	serverHandle := diagnosticServerHandle(t, hw)
 	attachCalls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		if attachCalls == 2 {
 			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
@@ -285,7 +285,7 @@ func TestRemoveUSBBusDiagnosticsIdentifyUnknownPreflightDevice(t *testing.T) {
 func TestRemoveUSBBusDiagnosticsIdentifyUnknownDetachTransition(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10043)
 	serverHandle := diagnosticServerHandle(t, hw)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5301}, nil
 	}
 	detachCalls := 0
@@ -408,7 +408,7 @@ func TestCloseDiagnosticsSuccessRetryAndDeterministicUnknownRepresentative(t *te
 		hw, hlog := newTeardownTestServer(t, 10050)
 		addTestBus(t, hw, 10040)
 		h := diagnosticServerHandle(t, hw)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 		}
 		addTestMouse(t, hw, 10050)

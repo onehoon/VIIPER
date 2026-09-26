@@ -334,7 +334,7 @@ func TestSteamDeckClassifiedRemovalUsesTypeGuard(t *testing.T) {
 
 func TestSteamDeckSharedIdentityAndAttachDetach(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9236)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 68}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -418,7 +418,7 @@ func TestSteamDeckOutputCallbackWrapperContracts(t *testing.T) {
 
 func TestSteamDeckRemovalClearsCallbackBeforeDetachFailure(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9242)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 68}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {

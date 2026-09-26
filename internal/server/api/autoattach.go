@@ -8,6 +8,30 @@ import (
 	"github.com/Alia5/VIIPER/usbip"
 )
 
+// USBIPReceiveMode selects how the Windows usbip-win2 client receives data.
+// The zero value intentionally preserves the historical zero-copy behavior.
+type USBIPReceiveMode uint32
+
+const (
+	USBIPReceiveZeroCopy USBIPReceiveMode = iota
+	USBIPReceiveLowLatency
+)
+
+func (m USBIPReceiveMode) String() string {
+	switch m {
+	case USBIPReceiveZeroCopy:
+		return "zero-copy"
+	case USBIPReceiveLowLatency:
+		return "low-latency"
+	default:
+		return "invalid"
+	}
+}
+
+func (m USBIPReceiveMode) Valid() bool {
+	return m == USBIPReceiveZeroCopy || m == USBIPReceiveLowLatency
+}
+
 // LocalhostAttachmentBackend identifies the Windows mechanism that created an
 // imported USB/IP device. A later detach must use the same proven mechanism.
 type LocalhostAttachmentBackend uint8
@@ -44,8 +68,8 @@ func AttachLocalhostClient(ctx context.Context, deviceExportMeta *usbip.ExportMe
 // AttachLocalhostClientTracked returns the exact Windows USB/IP attachment
 // token required for a later ownership-specific detach. libVIIPER owns the
 // public typed-device lifecycle that uses this backend primitive.
-func AttachLocalhostClientTracked(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) (LocalhostAttachment, error) {
-	return attachLocalhostClientTrackedImpl(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger)
+func AttachLocalhostClientTracked(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, receiveMode USBIPReceiveMode, logger *slog.Logger) (LocalhostAttachment, error) {
+	return attachLocalhostClientTrackedImpl(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, receiveMode, logger)
 }
 
 // DetachLocalhostClient detaches exactly the port recorded by a successful

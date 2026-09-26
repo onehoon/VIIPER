@@ -19,10 +19,41 @@ matching header under `dist/libVIIPER/`.
 | Caller-owned bus lifetime | Supported | Same canonical lifecycle contract |
 
 The tracked Windows attachment ABI is pinned to usbip-win2 `v0.9.8.0`, commit
-`83bd1f781d57ed6efdf15530c55710cf5d4482bc`. Windows localhost attach always
-uses the low-latency receive path. The fork does not claim compatibility with
-older or later package versions until their ABI and runtime behavior are
-explicitly validated.
+`83bd1f781d57ed6efdf15530c55710cf5d4482bc`. The receive path is selected by the
+owning server's `USBServerConfig` and is applied consistently to native IOCTL
+and command attach. The fork does not claim compatibility with older or later
+package versions until their ABI and runtime behavior are explicitly validated.
+
+## USB transport policy
+
+Transport policy is scoped to one `USBServerConfig`; it is not process-global.
+The zero-initialized defaults intentionally restore the historically stable,
+simple CTW transport envelope:
+
+```text
+usbip_receive_mode = VIIPER_USBIP_RECEIVE_ZERO_COPY (0)
+non_ep0_in_mode    = VIIPER_NON_EP0_IN_SEQUENTIAL (0)
+```
+
+For an explicit optimized opt-in, set both fields to
+`VIIPER_USBIP_RECEIVE_LOW_LATENCY` and `VIIPER_NON_EP0_IN_ASYNC`. Async mode
+preserves the current endpoint-interval timeout, retry, and last-response cache
+semantics; sequential mode processes each non-EP0 IN inline exactly once, with
+no interval retry or cached-response replay. A nil sequential response is a
+successful zero-length `RET_SUBMIT`. Unknown enum values make
+`NewUSBServer` fail before server creation.
+
+`write_batch_flush_interval_ms` is independent of both policy fields. Its zero
+value keeps batching disabled and writes immediate; consumers may select a
+batch interval explicitly. Transport selection does not change typed-device
+ownership, attachment tracking, teardown, or Xbox360/SteamDeck behavior.
+
+These fields extend `USBServerConfig` and change its binary layout. A consumer
+must update its managed/native mirror, enum constants, ABI size/offset tests,
+and exact DLL/header pin together in one consumer change. Do not replace the
+DLL alone or pass an older, smaller config struct to this version. CTW and
+SteamAddon adoption are separate from this VIIPER change and must each preserve
+that atomic mirror-and-artifact gate.
 
 Non-Windows builds remain compile-compatible, but they must fail safely for
 tracked localhost attachment. They must not record a fake attachment token or

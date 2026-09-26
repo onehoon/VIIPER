@@ -66,7 +66,7 @@ func TestXbox360ClassifiedRemovalKnownFailureIsRetryable(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9401)
 	detachCalls, callbackClears := 0, 0
 	hw.onCallbackCleared = func(*deviceHandleWrapper) { callbackClears++ }
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 91}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -132,7 +132,7 @@ func TestXbox360ClassifiedRemovalUnknownIsStickyAndClearsCallback(t *testing.T) 
 	hw, _ := newLifecycleTestServer(t, 9403)
 	detachCalls, callbackClears := 0, 0
 	hw.onCallbackCleared = func(*deviceHandleWrapper) { callbackClears++ }
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 92}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -180,7 +180,7 @@ func TestXbox360LegacyRemoveProjectsClassifiedSuccess(t *testing.T) {
 func TestXbox360LegacyRemoveProjectsFailureResults(t *testing.T) {
 	t.Run("retryable failure", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9405)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 95}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -203,7 +203,7 @@ func TestXbox360LegacyRemoveProjectsFailureResults(t *testing.T) {
 
 	t.Run("unsafe outcome unknown", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9406)
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 96}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {

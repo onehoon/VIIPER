@@ -42,7 +42,7 @@ const (
 )
 
 type serverOperations struct {
-	attachLocalhostTracked func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error)
+	attachLocalhostTracked func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error)
 	detachLocalhost        func(context.Context, api.LocalhostAttachment, *slog.Logger) error
 	rollbackDevice         func(*virtualbus.VirtualBus, viiperusb.Device) error
 	removeDevice           func(*usb.Server, uint32, string) error
@@ -67,6 +67,7 @@ func defaultServerOperations() serverOperations {
 
 type usbServerHandleWrapper struct {
 	s                          *usb.Server
+	receiveMode                api.USBIPReceiveMode
 	lifecycleMu                sync.Mutex
 	mtx                        sync.Mutex // Legacy wrapper synchronization; lifecycleMu gates mutations.
 	state                      serverLifecycleState
@@ -450,7 +451,7 @@ func (hw *usbServerHandleWrapper) attachDeviceLockedResult(dhw *deviceHandleWrap
 		return deviceAttachUnsafeOutcomeUnknown
 	}
 	backendStart := time.Now()
-	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.backendLoggerLocked())
+	attachment, err := hw.ops.attachLocalhostTracked(context.Background(), dhw.exportMeta, hw.s.GetListenPort(), true, hw.receiveMode, hw.backendLoggerLocked())
 	if timing != nil {
 		timing.backendUs = time.Since(backendStart).Microseconds()
 		timing.backendCalled = true

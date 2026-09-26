@@ -105,8 +105,14 @@ func attachLocalhostClientImpl(ctx context.Context, deviceExportMeta *usbip.Expo
 	return attachViaCommandLegacy(ctx, deviceExportMeta, usbipServerPort, logger)
 }
 
-func attachLocalhostClientTrackedImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) (LocalhostAttachment, error) {
-	return attachLocalhostClientWithFallback(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger, attachViaIOCTL, attachViaCommand)
+func attachLocalhostClientTrackedImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, receiveMode USBIPReceiveMode, logger *slog.Logger) (LocalhostAttachment, error) {
+	native := func(ctx context.Context, meta *usbip.ExportMeta, port uint16, logger *slog.Logger) (LocalhostAttachment, error) {
+		return attachViaIOCTLWithMode(ctx, meta, port, receiveMode, logger)
+	}
+	command := func(ctx context.Context, meta *usbip.ExportMeta, port uint16, logger *slog.Logger) (LocalhostAttachment, error) {
+		return attachViaCommandWithMode(ctx, meta, port, receiveMode, logger)
+	}
+	return attachLocalhostClientWithFallback(ctx, deviceExportMeta, usbipServerPort, useNativeIOCTL, logger, native, command)
 }
 
 // nativeAttachOps is the fake seam for attachViaIOCTLWithOps. Production code always uses
@@ -230,11 +236,19 @@ func logCommandBackendTiming(logger *slog.Logger, operation string, err error, b
 	)
 }
 
-func attachViaIOCTL(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
-	return attachViaIOCTLWithOps(deviceExportMeta, usbipServerPort, logger, realNativeAttachOps())
+func attachViaIOCTL(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
+	return attachViaIOCTLWithMode(ctx, deviceExportMeta, usbipServerPort, USBIPReceiveZeroCopy, logger)
 }
 
 func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger, ops nativeAttachOps) (result LocalhostAttachment, err error) {
+	return attachViaIOCTLWithModeAndOps(deviceExportMeta, usbipServerPort, USBIPReceiveZeroCopy, logger, ops)
+}
+
+func attachViaIOCTLWithMode(_ context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, receiveMode USBIPReceiveMode, logger *slog.Logger) (LocalhostAttachment, error) {
+	return attachViaIOCTLWithModeAndOps(deviceExportMeta, usbipServerPort, receiveMode, logger, realNativeAttachOps())
+}
+
+func attachViaIOCTLWithModeAndOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, receiveMode USBIPReceiveMode, logger *slog.Logger, ops nativeAttachOps) (result LocalhostAttachment, err error) {
 	nativeStart := time.Now()
 	var discoveryUs, openUs, ioctlUs, validationUs int64
 	var reachedIOCTL bool
@@ -248,6 +262,10 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 
 	if usbipServerPort == 0 {
 		err = fmt.Errorf("argumentValidation: invalid TCP port number (0)")
+		return
+	}
+	if !receiveMode.Valid() {
+		err = fmt.Errorf("argumentValidation: invalid USB/IP receive mode %d", receiveMode)
 		return
 	}
 
@@ -278,7 +296,7 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 	}
 	copy(ioctlData.Service[:], service)
 	copy(ioctlData.Host[:], "127.0.0.1")
-	ioctlData.WskEvents = true
+	ioctlData.WskEvents = receiveMode == USBIPReceiveLowLatency
 
 	openStart := time.Now()
 	handle, openErr := ops.openDevice(devicePath)
@@ -332,6 +350,17 @@ func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, u
 }
 
 func attachViaCommandWithRunner(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger, run commandRunner) (result LocalhostAttachment, err error) {
+	return attachViaCommandWithModeRunner(ctx, deviceExportMeta, usbipServerPort, USBIPReceiveZeroCopy, logger, run)
+}
+
+func attachViaCommandWithMode(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, receiveMode USBIPReceiveMode, logger *slog.Logger) (LocalhostAttachment, error) {
+	return attachViaCommandWithModeRunner(ctx, deviceExportMeta, usbipServerPort, receiveMode, logger, realCommandRunner)
+}
+
+func attachViaCommandWithModeRunner(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, receiveMode USBIPReceiveMode, logger *slog.Logger, run commandRunner) (result LocalhostAttachment, err error) {
+	if !receiveMode.Valid() {
+		return LocalhostAttachment{}, fmt.Errorf("argumentValidation: invalid USB/IP receive mode %d", receiveMode)
+	}
 	commandStart := time.Now()
 	var processUs, classificationUs int64
 	defer func() {
@@ -340,7 +369,7 @@ func attachViaCommandWithRunner(ctx context.Context, deviceExportMeta *usbip.Exp
 
 	logger.Info("Auto-attaching localhost client", "busID", deviceExportMeta.BusID, "deviceID", deviceExportMeta.DevID)
 
-	args := usbipAttachCommandArgs(usbipServerPort, fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID))
+	args := usbipAttachCommandArgs(usbipServerPort, fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID), receiveMode)
 	processStart := time.Now()
 	output, cmdErr := run(ctx, "usbip", args...)
 	processUs = time.Since(processStart).Microseconds()
@@ -390,7 +419,7 @@ func usbipLegacyAttachCommandArgs(usbipServerPort uint16, busID string) []string
 	return []string{
 		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),
 		"attach", "-r", "127.0.0.1", "-b", busID,
-		"--receive-mode=low-latency",
+		"--receive-mode=zero-copy",
 	}
 }
 

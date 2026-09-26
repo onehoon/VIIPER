@@ -100,7 +100,7 @@ func TestClassifiedRemovalParityUnsafeAndLegacyFailureProjection(t *testing.T) {
 			busID := uint32(9720 + i)
 			hw, _ := newLifecycleTestServer(t, busID)
 			detachCalls := 0
-			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 				return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(400 + i)}, nil
 			}
 			hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {

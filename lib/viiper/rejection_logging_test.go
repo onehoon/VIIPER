@@ -75,7 +75,7 @@ func TestRejectedTypedCreateLoggingIsLockSafeAndDeduplicated(t *testing.T) {
 func TestRollbackFailureLoggingIsLockSafe(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10065)
 	serverHandle := diagnosticServerHandle(t, hw)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{}, errors.New("injected attach failure")
 	}
 	hw.ops.rollbackDevice = func(*virtualbus.VirtualBus, viiperusb.Device) error {
@@ -117,7 +117,7 @@ func TestRejectedCreateUSBBusLoggingIsLockSafe(t *testing.T) {
 func TestRejectedAttachDetachLoggingIsLockSafe(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10063)
 	h := addTestMouse(t, hw, 10063)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5300}, nil
 	}
 	if attachUSBDeviceResult(uintptr(h)) != deviceAttachSuccess {

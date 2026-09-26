@@ -298,7 +298,7 @@ func TestSteamControllerWrapperClearsOutputCallback(t *testing.T) {
 
 func TestSteamControllerRemovalClearsCallbackBeforeDetachFailure(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9133)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 68}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {

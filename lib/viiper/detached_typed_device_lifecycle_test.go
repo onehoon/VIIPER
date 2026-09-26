@@ -21,7 +21,7 @@ import (
 func TestSteamDeckDetachedReadyLifecycle(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9260)
 	attachCalls, detachCalls := 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(90 + attachCalls)}, nil
 	}
@@ -106,7 +106,7 @@ func TestSteamDeckDetachedReadyLifecycle(t *testing.T) {
 func TestXbox360DetachedReadyLifecycle(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9262)
 	attachCalls, detachCalls := 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: int32(110 + attachCalls)}, nil
 	}
@@ -213,7 +213,7 @@ func TestTypedDeviceRepeatedAttachDetachSameHandle(t *testing.T) {
 
 	hw, _ := newLifecycleTestServer(t, 9264)
 	attachCalls, detachCalls := 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(120 + attachCalls)}, nil
 	}

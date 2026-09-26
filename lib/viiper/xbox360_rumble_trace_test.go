@@ -191,7 +191,7 @@ func TestCanonicalXbox360TraceStartsBeforeAutoAttachAndUsesFileOnlySink(t *testi
 	hw, _ := newLifecycleTestServer(t, 10211)
 	hw.logger = slog.New(callbackSink)
 	attachCalled := false
-	hw.ops.attachLocalhostTracked = func(_ context.Context, meta *usbip.ExportMeta, _ uint16, _ bool, _ *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(_ context.Context, meta *usbip.ExportMeta, _ uint16, _ bool, _ api.USBIPReceiveMode, _ *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalled = true
 		events := xbox360TraceEvents(traceSink)
 		if len(events) != 1 || events[0]["Event"] != "X360RumbleTraceStart" || fmt.Sprint(events[0]["BusID"]) != "10211" || fmt.Sprint(events[0]["DeviceID"]) != fmt.Sprint(meta.DevID) {
@@ -263,7 +263,7 @@ func TestCanonicalXbox360TraceKnownRollbackAbortsAndReusedIDGetsNewSession(t *te
 	hw, bus := newLifecycleTestServer(t, 10212)
 	attachCalls := 0
 	startWasPresentBeforeAttach := false
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		events := xbox360TraceEvents(traceSink)
 		startWasPresentBeforeAttach = len(events) > 0 && events[0]["Event"] == "X360RumbleTraceStart"
@@ -367,7 +367,7 @@ func TestCanonicalXbox360TraceRollbackAbortWaitsForExposedTransportDrain(t *test
 	importedCh := make(chan *testusbip.ImportResult, 1)
 	attachErrCh := make(chan error, 1)
 	submitDone := make(chan error, 1)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		client := testusbip.NewUsbIpClient(t, hw.s.Addr())
 		imported, err := client.AttachDevice(fmt.Sprintf("%d-1", busID))
 		attachErrCh <- err
@@ -447,7 +447,7 @@ func TestCanonicalXbox360TraceDoesNotAbortUnknownRetainedCreation(t *testing.T) 
 	traceSink := &xbox360TraceCapture{}
 	setRumbleTraceSinkForTest(t, traceSink)
 	hw, _ := newLifecycleTestServer(t, 10213)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 	}
 	serverHandle := diagnosticServerHandle(t, hw)

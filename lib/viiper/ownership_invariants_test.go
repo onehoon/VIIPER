@@ -67,7 +67,7 @@ func TestTypedCreateNilOutputsRejectBeforeMutationOnValidServer(t *testing.T) {
 		serverHandle.Delete()
 	})
 	attachCalls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{}, errors.New("attach must not be reached")
 	}
@@ -275,7 +275,7 @@ func TestKnownAttachRollbackFailureRetainsRegisteredOwnership(t *testing.T) {
 
 func TestCreateKnownAttachRollbackFailureRetainsRegisteredOwnership(t *testing.T) {
 	hw, bus := newLifecycleTestServer(t, 9209)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{}, errors.New("injected known attach failure")
 	}
 	hw.ops.rollbackDevice = func(*virtualbus.VirtualBus, viiperusb.Device) error {

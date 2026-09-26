@@ -129,11 +129,12 @@ func classifyNativeDetachResult(err error) error {
 	return fmt.Errorf("%w: PLUGOUT_HARDWARE DeviceIoControl failed: %v", ErrDetachmentOutcomeUnknown, err)
 }
 
-func usbipAttachCommandArgs(usbipServerPort uint16, busID string) []string {
+func usbipAttachCommandArgs(usbipServerPort uint16, busID string, receiveMode USBIPReceiveMode) []string {
+	receiveModeArg := "--receive-mode=" + receiveMode.String()
 	return []string{
 		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),
 		"attach", "-r", "127.0.0.1", "-b", busID,
-		"--receive-mode=low-latency", "--terse",
+		receiveModeArg, "--terse",
 	}
 }
 

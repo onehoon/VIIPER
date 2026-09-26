@@ -14,7 +14,7 @@ import (
 func TestAttachmentLifecycleKeepsSameLogicalHandle(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9140)
 	attachCalls, detachCalls := 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: int32(70 + attachCalls)}, nil
 	}
@@ -50,7 +50,7 @@ func TestAttachmentLifecycleKeepsSameLogicalHandle(t *testing.T) {
 func TestDrainedTransportCannotBeReactivatedAfterLogicalRemoveFailure(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9146)
 	attachCalls, detachCalls, removeCalls := 0, 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 77}, nil
 	}
@@ -91,7 +91,7 @@ func TestDrainedTransportCannotBeReactivatedAfterLogicalRemoveFailure(t *testing
 func TestAttachmentUnknownFailsClosedWithoutDestroyingLogicalDevice(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9141)
 	calls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		calls++
 		return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 	}
@@ -124,7 +124,7 @@ func TestMalformedAttachmentTokenFailsClosed(t *testing.T) {
 	} {
 		t.Run("invalid token", func(t *testing.T) {
 			hw, _ := newLifecycleTestServer(t, 9144)
-			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 				return attachment, nil
 			}
 			hw.lifecycleMu.Lock()
@@ -144,7 +144,7 @@ func TestMalformedAttachmentTokenFailsClosed(t *testing.T) {
 func TestKnownDetachFailureRetainsTokenButUnknownFailsClosed(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9142)
 	detachCalls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 88}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -178,7 +178,7 @@ func TestKnownDetachFailureRetainsTokenButUnknownFailsClosed(t *testing.T) {
 func TestRemoveBusDetachesDevicesInRegistrationOrderAndRetriesOnlySurvivors(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9143)
 	ports := int32(100)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		ports++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: ports}, nil
 	}
@@ -236,7 +236,7 @@ func TestTypedRemovalHonorsDetachFailureAndDoesNotFinalize(t *testing.T) {
 	} {
 		t.Run(detachErr.name, func(t *testing.T) {
 			hw, _ := newLifecycleTestServer(t, 9145)
-			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 				return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 61}, nil
 			}
 			hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return detachErr.err }
@@ -259,7 +259,7 @@ func TestClassifiedGordonRemovalDistinguishesKnownAndUnknownFailures(t *testing.
 	t.Run("known detach failure is retryable", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9149)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 65}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -286,7 +286,7 @@ func TestClassifiedGordonRemovalDistinguishesKnownAndUnknownFailures(t *testing.
 	t.Run("unknown detach outcome is unsafe and never retried", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9152)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 66}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -310,7 +310,7 @@ func TestClassifiedGordonRemovalDistinguishesKnownAndUnknownFailures(t *testing.
 	t.Run("logical removal failure is retryable after detach", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9155)
 		hw.ops.removeDevice = func(*serverusb.Server, uint32, string) error { return errors.New("logical remove failure") }
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 67}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
@@ -333,7 +333,7 @@ func TestClassifiedGordonRemovalDistinguishesKnownAndUnknownFailures(t *testing.
 func TestLogicalRemoveFailureDoesNotRepeatSuccessfulDetach(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9146)
 	detachCalls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: 62}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { detachCalls++; return nil }
@@ -358,7 +358,7 @@ func TestCloseDetachFailureRetriesOnlyWhenOutcomeIsKnown(t *testing.T) {
 	t.Run("known failure retries", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9147)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 63}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -381,7 +381,7 @@ func TestCloseDetachFailureRetriesOnlyWhenOutcomeIsKnown(t *testing.T) {
 	t.Run("unknown failure is never retried", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9148)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: 64}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -404,7 +404,7 @@ func TestAttachmentMutationsSerializeWithCloseAndRemoval(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9149)
 		attachStarted := make(chan struct{})
 		releaseAttach := make(chan struct{})
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			close(attachStarted)
 			<-releaseAttach
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: 65}, nil
@@ -436,7 +436,7 @@ func TestAttachmentMutationsSerializeWithCloseAndRemoval(t *testing.T) {
 		detachStarted := make(chan struct{})
 		releaseDetach := make(chan struct{})
 		detachCalls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 66}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -470,7 +470,7 @@ func TestAttachmentMutationsSerializeWithCloseAndRemoval(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9151)
 		attachStarted := make(chan struct{})
 		releaseAttach := make(chan struct{})
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			close(attachStarted)
 			<-releaseAttach
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendNativeIOCTL, Port: 67}, nil

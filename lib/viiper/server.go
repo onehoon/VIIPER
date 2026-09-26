@@ -4,11 +4,23 @@ package main
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef enum {
+    VIIPER_USBIP_RECEIVE_ZERO_COPY = 0,
+    VIIPER_USBIP_RECEIVE_LOW_LATENCY = 1,
+} VIIPERUSBIPReceiveMode;
+
+typedef enum {
+    VIIPER_NON_EP0_IN_SEQUENTIAL = 0,
+    VIIPER_NON_EP0_IN_ASYNC = 1,
+} VIIPERNonEp0InMode;
+
 typedef struct {
 	char* addr; // default "0.0.0.0:3241"
 	uint64_t connection_timeout_ms; // default 30000 (30s)
 	uint64_t device_handler_connect_timeout_ms; // default 5000 (5s)
-	uint32_t write_batch_flush_interval_ms; // default 1 (1ms)
+	uint32_t write_batch_flush_interval_ms; // default 0 (disabled / immediate writes)
+	uint32_t usbip_receive_mode; // VIIPERUSBIPReceiveMode; zero defaults to zero-copy
+	uint32_t non_ep0_in_mode; // VIIPERNonEp0InMode; zero defaults to sequential
 } USBServerConfig;
 
 typedef uintptr_t USBServerHandle;
@@ -36,8 +48,67 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/Alia5/VIIPER/internal/server/api"
 	"github.com/Alia5/VIIPER/internal/server/usb"
 )
+
+type usbServerTransportPolicy struct {
+	receiveMode   api.USBIPReceiveMode
+	asyncNonEp0IN bool
+}
+
+func parseUSBServerTransportPolicy(receiveMode, nonEp0InMode uint32) (usbServerTransportPolicy, bool) {
+	policy := usbServerTransportPolicy{receiveMode: api.USBIPReceiveMode(receiveMode)}
+	if !policy.receiveMode.Valid() {
+		return usbServerTransportPolicy{}, false
+	}
+	switch nonEp0InMode {
+	case uint32(C.VIIPER_NON_EP0_IN_SEQUENTIAL):
+	case uint32(C.VIIPER_NON_EP0_IN_ASYNC):
+		policy.asyncNonEp0IN = true
+	default:
+		return usbServerTransportPolicy{}, false
+	}
+	return policy, true
+}
+
+func (p usbServerTransportPolicy) nonEp0InModeName() string {
+	if p.asyncNonEp0IN {
+		return "async"
+	}
+	return "sequential"
+}
+
+type usbServerConfigLayout struct {
+	size                    uintptr
+	addr                    uintptr
+	connectionTimeout       uintptr
+	deviceHandlerTimeout    uintptr
+	writeBatchFlushInterval uintptr
+	usbipReceiveMode        uintptr
+	nonEp0InMode            uintptr
+	receiveZeroCopy         uintptr
+	receiveLowLatency       uintptr
+	nonEp0Sequential        uintptr
+	nonEp0Async             uintptr
+}
+
+func currentUSBServerConfigLayout() usbServerConfigLayout {
+	var config C.USBServerConfig
+	return usbServerConfigLayout{
+		size:                    unsafe.Sizeof(config),
+		addr:                    unsafe.Offsetof(config.addr),
+		connectionTimeout:       unsafe.Offsetof(config.connection_timeout_ms),
+		deviceHandlerTimeout:    unsafe.Offsetof(config.device_handler_connect_timeout_ms),
+		writeBatchFlushInterval: unsafe.Offsetof(config.write_batch_flush_interval_ms),
+		usbipReceiveMode:        unsafe.Offsetof(config.usbip_receive_mode),
+		nonEp0InMode:            unsafe.Offsetof(config.non_ep0_in_mode),
+		receiveZeroCopy:         uintptr(C.VIIPER_USBIP_RECEIVE_ZERO_COPY),
+		receiveLowLatency:       uintptr(C.VIIPER_USBIP_RECEIVE_LOW_LATENCY),
+		nonEp0Sequential:        uintptr(C.VIIPER_NON_EP0_IN_SEQUENTIAL),
+		nonEp0Async:             uintptr(C.VIIPER_NON_EP0_IN_ASYNC),
+	}
+}
 
 // NewUSBServer creates a new USB server with the given configuration and returns a handle to it.
 // The server will run in the background and can be stopped by calling CloseUSBServer with the returned handle.
@@ -48,6 +119,10 @@ import (
 //export NewUSBServer
 func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCallback C.VIIPERLogCallback) bool {
 	if !hasRequiredUSBServerPointers(unsafe.Pointer(config), unsafe.Pointer(outHandle)) {
+		return false
+	}
+	policy, ok := parseUSBServerTransportPolicy(uint32(config.usbip_receive_mode), uint32(config.non_ep0_in_mode))
+	if !ok {
 		return false
 	}
 	addr := C.GoString(config.addr)
@@ -93,6 +168,7 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 		ConnectionTimeout:         connectionTimeout,
 		BusCleanupTimeout:         busCleanupTimeout,
 		WriteBatchFlushInterval:   writeBatchFlushInterval,
+		AsyncNonEp0IN:             policy.asyncNonEp0IN,
 		DisableAutoBusCleanup:     true,
 		ManagedTransportLifecycle: true,
 	}, logger, nil)
@@ -108,6 +184,7 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 	case <-readyChan:
 		hw := &usbServerHandleWrapper{
 			s:                   s,
+			receiveMode:         policy.receiveMode,
 			state:               serverActive,
 			deviceHandles:       make(map[uint32][]deviceHandle),
 			deviceHandleRecords: make(map[deviceHandle]*deviceHandleWrapper),
@@ -119,6 +196,11 @@ func NewUSBServer(config *C.USBServerConfig, outHandle *C.USBServerHandle, logCa
 		*outHandle = C.USBServerHandle(h)
 		serverHandleRecords.Store(uintptr(h), hw)
 		logger.Info("USB server started", "operation", "NewUSBServer", "serverState", serverActive.String())
+		logger.Info("USB transport policy",
+			"receiveMode", policy.receiveMode.String(),
+			"nonEp0InMode", policy.nonEp0InModeName(),
+			"writeBatchFlushIntervalMs", config.write_batch_flush_interval_ms,
+		)
 		return true
 	case err := <-errChan:
 		logger.Error("NewUSBServer: ListenAndServe failed", "error", err)

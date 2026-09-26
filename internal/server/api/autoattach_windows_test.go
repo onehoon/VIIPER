@@ -90,11 +90,13 @@ func TestNativeAttachResponseRequiresExactOwnershipToken(t *testing.T) {
 func TestAttachViaIOCTLUsesIPv4LoopbackEndpoint(t *testing.T) {
 	meta := &usbip.ExportMeta{BusID: 1, DevID: 2}
 	var host [niMaxHost]byte
+	var captured attachIOCTL
 	ops := nativeAttachOps{
 		discoverDevicePath: func() (string, error) { return "fake-device-path", nil },
 		openDevice:         func(string) (windows.Handle, error) { return windows.Handle(1), nil },
 		closeDevice:        func(windows.Handle) error { return nil },
 		pluginHardware: func(_ windows.Handle, data *attachIOCTL) (uint32, error) {
+			captured = *data
 			copy(host[:], data.Host[:])
 			data.PortOutput = 55
 			return attachPortOutputLength, nil
@@ -106,29 +108,73 @@ func TestAttachViaIOCTLUsesIPv4LoopbackEndpoint(t *testing.T) {
 	if got := string(host[:len("127.0.0.1")]); got != "127.0.0.1" {
 		t.Fatalf("native host = %q, want 127.0.0.1", got)
 	}
+	if captured.WskEvents {
+		t.Fatal("legacy native attach enabled WskEvents; want historical zero-copy default")
+	}
 }
 
-func TestAttachViaIOCTLBuildsV0980LowLatencyRequest(t *testing.T) {
+func TestCommandAttachPassesSelectedReceiveModeToUSBIP(t *testing.T) {
 	meta := &usbip.ExportMeta{BusID: 9, DevID: 12}
-	var captured attachIOCTL
-	ops := nativeAttachOps{
-		discoverDevicePath: func() (string, error) { return "fake-device-path", nil },
-		openDevice:         func(string) (windows.Handle, error) { return windows.Handle(1), nil },
-		closeDevice:        func(windows.Handle) error { return nil },
-		pluginHardware: func(_ windows.Handle, data *attachIOCTL) (uint32, error) {
-			captured = *data
-			data.PortOutput = 55
-			return attachPortOutputLength, nil
-		},
+	for _, mode := range []struct {
+		name string
+		mode USBIPReceiveMode
+		arg  string
+	}{
+		{name: "zero-copy", mode: USBIPReceiveZeroCopy, arg: "--receive-mode=zero-copy"},
+		{name: "low-latency", mode: USBIPReceiveLowLatency, arg: "--receive-mode=low-latency"},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			calls := 0
+			attachment, err := attachViaCommandWithModeRunner(context.Background(), meta, 3241, mode.mode, slog.Default(), func(_ context.Context, name string, args ...string) ([]byte, error) {
+				calls++
+				want := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", mode.arg, "--terse"}
+				if name != "usbip" || !reflect.DeepEqual(args, want) {
+					t.Fatalf("command = %q %#v, want usbip %#v", name, args, want)
+				}
+				return []byte("55\n"), nil
+			})
+			if err != nil || attachment.Backend != LocalhostAttachmentBackendCommand || attachment.Port != 55 {
+				t.Fatalf("attachment = %+v, err = %v", attachment, err)
+			}
+			if calls != 1 {
+				t.Fatalf("usbip attach calls = %d, want exactly 1", calls)
+			}
+		})
 	}
-	if _, err := attachViaIOCTLWithOps(meta, 3241, slog.Default(), ops); err != nil {
-		t.Fatalf("native attach failed: %v", err)
-	}
-	if captured.Size != 1120 || string(captured.BusID[:4]) != "9-12" || string(captured.Service[:4]) != "3241" || string(captured.Host[:9]) != "127.0.0.1" {
-		t.Fatalf("unexpected request contents: %+v", captured)
-	}
-	if captured.ImportedDeviceLocationPadding != [3]byte{} || captured.Serial != [serialBufSize]byte{} || !captured.WskEvents {
-		t.Fatalf("serial/WSK policy = serial=%v wskEvents=%v", captured.Serial, captured.WskEvents)
+}
+
+func TestAttachViaIOCTLReceiveModeControlsV0980Request(t *testing.T) {
+	meta := &usbip.ExportMeta{BusID: 9, DevID: 12}
+	for _, mode := range []struct {
+		name    string
+		receive USBIPReceiveMode
+		wantWsk bool
+	}{
+		{name: "zero-copy", receive: USBIPReceiveZeroCopy, wantWsk: false},
+		{name: "low-latency", receive: USBIPReceiveLowLatency, wantWsk: true},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			var captured attachIOCTL
+			ops := nativeAttachOps{
+				discoverDevicePath: func() (string, error) { return "fake-device-path", nil },
+				openDevice:         func(string) (windows.Handle, error) { return windows.Handle(1), nil },
+				closeDevice:        func(windows.Handle) error { return nil },
+				pluginHardware: func(_ windows.Handle, data *attachIOCTL) (uint32, error) {
+					captured = *data
+					data.PortOutput = 55
+					return attachPortOutputLength, nil
+				},
+			}
+			if _, err := attachViaIOCTLWithModeAndOps(meta, 3241, mode.receive, slog.Default(), ops); err != nil {
+				t.Fatalf("native attach failed: %v", err)
+			}
+			if captured.Size != 1120 || string(captured.BusID[:4]) != "9-12" || string(captured.Service[:4]) != "3241" || string(captured.Host[:9]) != "127.0.0.1" {
+				t.Fatalf("unexpected request contents: %+v", captured)
+			}
+			if captured.ImportedDeviceLocationPadding != [3]byte{} || captured.Serial != [serialBufSize]byte{} || captured.WskEvents != mode.wantWsk {
+				t.Fatalf("serial/WSK policy = serial=%v wskEvents=%v, want %v", captured.Serial, captured.WskEvents, mode.wantWsk)
+			}
+		})
 	}
 }
 
@@ -162,8 +208,8 @@ func TestAttachViaIOCTLLogsDeviceIoControlError(t *testing.T) {
 	t.Fatal("native DeviceIoControl error log record was not emitted")
 }
 
-func TestUSBIPLegacyAttachCommandSelectsLowLatency(t *testing.T) {
-	want := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", "--receive-mode=low-latency"}
+func TestUSBIPLegacyAttachCommandSelectsHistoricalZeroCopy(t *testing.T) {
+	want := []string{"--tcp-port", "3241", "attach", "-r", "127.0.0.1", "-b", "9-12", "--receive-mode=zero-copy"}
 	if got := usbipLegacyAttachCommandArgs(3241, "9-12"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("legacy attach arguments = %#v, want %#v", got, want)
 	}

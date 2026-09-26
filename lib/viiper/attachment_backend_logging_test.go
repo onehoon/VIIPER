@@ -146,7 +146,7 @@ func TestAttachmentBackendLogsReplayAfterUnlock(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10070)
 	h := addTestMouse(t, hw, 10070)
 	var attached api.LocalhostAttachment
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return func() api.LocalhostAttachment {
 			attached = api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5370}
 			return attached
@@ -160,7 +160,7 @@ func TestAttachmentBackendLogsReplayAfterUnlock(t *testing.T) {
 		return nil
 	}
 	// The attach callback must receive the capture logger, not the real handler.
-	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, logger *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ api.USBIPReceiveMode, logger *slog.Logger) (api.LocalhostAttachment, error) {
 		logger.Info("backend-probe-attach", "port", 5370)
 		attached = api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5370}
 		return attached, nil
@@ -191,7 +191,7 @@ func TestAttachmentBackendFailureLogsReplayAfterUnlock(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			hw, hlog := newTeardownTestServer(t, 10071)
 			h := addTestMouse(t, hw, 10071)
-			hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, logger *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ api.USBIPReceiveMode, logger *slog.Logger) (api.LocalhostAttachment, error) {
 				logger.Warn("backend-probe-failure", "kind", tc.name)
 				return api.LocalhostAttachment{}, tc.err
 			}
@@ -219,7 +219,7 @@ func TestExplicitDetachFailureAndUnknownReplayAfterUnlock(t *testing.T) {
 			hw, hlog := newTeardownTestServer(t, 10074)
 			h := addTestMouse(t, hw, 10074)
 			token := api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5374}
-			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 				return token, nil
 			}
 			detachCalls := 0
@@ -264,7 +264,7 @@ func TestAttachmentBackendRecordsPrecedeCanonicalSummaries(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10075)
 	h := addTestMouse(t, hw, 10075)
 	token := api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5375}
-	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, logger *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ api.USBIPReceiveMode, logger *slog.Logger) (api.LocalhostAttachment, error) {
 		logger.Info("backend-probe-attach-order")
 		return token, nil
 	}
@@ -303,7 +303,7 @@ func TestTypedRemoveBackendRecordPrecedesTeardown(t *testing.T) {
 	hw, hlog := newTeardownTestServer(t, 10076)
 	h := addTestMouse(t, hw, 10076)
 	token := api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5376}
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return token, nil
 	}
 	hw.ops.detachLocalhost = func(_ context.Context, _ api.LocalhostAttachment, logger *slog.Logger) error {
@@ -336,7 +336,7 @@ func TestRemoveUSBBusPreservesDeferredDetachOrder(t *testing.T) {
 	second := addTestMouse(t, hw, 10077)
 	// Use registration order explicitly: each attach receives its own token.
 	attachCount := 0
-	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ api.USBIPReceiveMode, _ *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCount++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: int32(5377 + attachCount - 1)}, nil
 	}
@@ -372,7 +372,7 @@ func TestAttachmentTimingSnapshotsBeforeReplay(t *testing.T) {
 	hw.onAttachmentTimingSnapshot = func(totalUs int64) {
 		snapshot = totalUs
 	}
-	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, logger *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ api.USBIPReceiveMode, logger *slog.Logger) (api.LocalhostAttachment, error) {
 		logger.Info("backend-probe-timing")
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5378}, nil
 	}
@@ -424,7 +424,7 @@ func TestBackendLogReplayAcrossCreateRemoveBusAndClose(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			hw, hlog := newTeardownTestServer(t, 10072)
-			hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, logger *slog.Logger) (api.LocalhostAttachment, error) {
+			hw.ops.attachLocalhostTracked = func(_ context.Context, _ *usbip.ExportMeta, _ uint16, _ bool, _ api.USBIPReceiveMode, logger *slog.Logger) (api.LocalhostAttachment, error) {
 				logger.Info("backend-probe-attach", "kind", tc.kind)
 				return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5372}, nil
 			}

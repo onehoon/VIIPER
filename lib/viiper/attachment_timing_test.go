@@ -85,7 +85,7 @@ func requireNonNegativeInt64(t *testing.T, attrs map[string]any, key string) {
 func TestCanonicalAttachTimingIsBehaviorNeutral(t *testing.T) {
 	hw, handler := newTimingTestServer(t, 9500)
 	attachCalls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 200}, nil
 	}
@@ -156,7 +156,7 @@ func TestCanonicalAttachTimingIsBehaviorNeutral(t *testing.T) {
 func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 	hw, handler := newTimingTestServer(t, 9501)
 	calls := 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		calls++
 		return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 	}
@@ -205,7 +205,7 @@ func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 
 func TestCanonicalAttachTimingKnownFailureRetainsDetachedState(t *testing.T) {
 	hw, handler := newTimingTestServer(t, 9504)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{}, errors.New("known attach failure")
 	}
 	hw.lifecycleMu.Lock()
@@ -230,7 +230,7 @@ func TestCanonicalAttachTimingKnownFailureRetainsDetachedState(t *testing.T) {
 func TestCanonicalDetachTimingPreservesTokenAndClassification(t *testing.T) {
 	hw, handler := newTimingTestServer(t, 9502)
 	attachCalls, detachCalls := 0, 0
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		attachCalls++
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 201}, nil
 	}
@@ -338,7 +338,7 @@ func TestCanonicalAttachDetachTimingLogsAfterLockRelease(t *testing.T) {
 	hw, _ := newLifecycleTestServer(t, 9503)
 	checker := &lockCheckingHandler{hw: hw}
 	hw.logger = slog.New(checker)
-	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+	hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 202}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }

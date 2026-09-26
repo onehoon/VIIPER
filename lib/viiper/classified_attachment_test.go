@@ -20,7 +20,7 @@ func TestAttachUSBDeviceExClassification(t *testing.T) {
 	t.Run("valid detached succeeds", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9300)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			calls++
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 80}, nil
 		}
@@ -44,7 +44,7 @@ func TestAttachUSBDeviceExClassification(t *testing.T) {
 	t.Run("already attached succeeds without a second backend attach", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9301)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			calls++
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 81}, nil
 		}
@@ -65,7 +65,7 @@ func TestAttachUSBDeviceExClassification(t *testing.T) {
 	t.Run("known attach failure is retryable", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9302)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			calls++
 			return api.LocalhostAttachment{}, errors.New("known transport failure")
 		}
@@ -98,7 +98,7 @@ func TestAttachUSBDeviceExClassification(t *testing.T) {
 	t.Run("unknown attach outcome is unsafe and never retried", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9303)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			calls++
 			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 		}
@@ -145,7 +145,7 @@ func TestDetachUSBDeviceExClassification(t *testing.T) {
 	t.Run("valid attached succeeds", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9310)
 		attachCalls, detachCalls := 0, 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			attachCalls++
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 82}, nil
 		}
@@ -176,7 +176,7 @@ func TestDetachUSBDeviceExClassification(t *testing.T) {
 	t.Run("known detach failure retains the exact token and is retryable", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9311)
 		detachCalls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 83}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -214,7 +214,7 @@ func TestDetachUSBDeviceExClassification(t *testing.T) {
 	t.Run("unknown detach outcome is unsafe and never retried destructively", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9312)
 		detachCalls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 84}, nil
 		}
 		hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error {
@@ -269,7 +269,7 @@ func TestKnownOwnershipVsUnknownOwnershipUnderNonActiveServer(t *testing.T) {
 	t.Run("known ownership, non-active server -> INVALID", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9320)
 		attachCalls, detachCalls := 0, 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			attachCalls++
 			return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 90}, nil
 		}
@@ -306,7 +306,7 @@ func TestKnownOwnershipVsUnknownOwnershipUnderNonActiveServer(t *testing.T) {
 	t.Run("unknown ownership, close-failed server -> UNSAFE_OUTCOME_UNKNOWN not INVALID", func(t *testing.T) {
 		hw, _ := newLifecycleTestServer(t, 9321)
 		calls := 0
-		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, *slog.Logger) (api.LocalhostAttachment, error) {
+		hw.ops.attachLocalhostTracked = func(context.Context, *usbip.ExportMeta, uint16, bool, api.USBIPReceiveMode, *slog.Logger) (api.LocalhostAttachment, error) {
 			calls++
 			return api.LocalhostAttachment{}, api.ErrAttachmentOutcomeUnknown
 		}

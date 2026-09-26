@@ -20,8 +20,15 @@ architectural source of truth for the fork.
   attachment lifecycle for typed device handles on Windows.
 - The tracked native ABI is pinned to usbip-win2 `v0.9.8.0`
   (`83bd1f781d57ed6efdf15530c55710cf5d4482bc`). Windows localhost attach
-  always selects the low-latency receive path; older and later package versions
-  are not claimed compatible by this fork.
+  follows the owning server's receive-mode policy; a zero-initialized
+  `USBServerConfig` selects the historical zero-copy path. Older and later
+  usbip-win2 package versions are not claimed compatible by this fork.
+- Transport policy is server-scoped. The zero/default configuration selects
+  zero-copy receive and inline sequential non-EP0 IN; consumers may explicitly
+  select low-latency receive and async non-EP0 IN. Async retains its interval,
+  timeout, retry, and cached-response behavior. Write batching is independent;
+  zero remains disabled/immediate. Attachment ownership and device semantics do
+  not vary with these transport choices.
 - Non-Windows builds remain ABI-compatible, but tracked localhost attachment
   is unsupported and fails safely without recording ownership.
 - `clib/` remains a compatibility flat API. New integrations must not use it

@@ -1106,7 +1106,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			}
 		}
 
-		if dir == usbip.DirIn && ep != 0 {
+		if dir == usbip.DirIn && ep != 0 && s.config.AsyncNonEp0IN {
 			urbCtx, urbCancel := context.WithCancel(ctx)
 			pendingMu.Lock()
 			pending[seq] = urbCancel
@@ -1166,7 +1166,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			continue
 		}
 
-		// EP0 and OUT transfers never block and are handled in order.
+		// EP0, OUT, and sequential non-EP0 IN transfers are handled inline in order.
 		respData := s.processSubmit(ctx, dev, ep, dir, setup, outPayload)
 		actualLen := uint32(len(respData))
 		if dir == usbip.DirOut {
