@@ -2301,9 +2301,9 @@ matching header under <code>dist/libVIIPER/</code>.</p>
 </table>
 <p>The tracked Windows attachment ABI is pinned to usbip-win2 <code>v0.9.8.0</code>, commit
 <code>83bd1f781d57ed6efdf15530c55710cf5d4482bc</code>. Windows localhost attach always
-uses the low-latency receive path. The fork does not claim compatibility with
-older or later package versions until their ABI and runtime behavior are
-explicitly validated.</p>
+uses usbip-win2 zero-copy receive mode for native IOCTL and command attach
+paths. The fork does not claim compatibility with older or later package
+versions until their ABI and runtime behavior are explicitly validated.</p>
 <p>Non-Windows builds remain compile-compatible, but they must fail safely for
 tracked localhost attachment. They must not record a fake attachment token or
 claim that a device is attached.</p>
