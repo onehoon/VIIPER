@@ -1821,11 +1821,12 @@
 <p>Do not restructure attachment ownership or duplicate the auto-attach implementation merely for tracing.</p>
 <p>The trace context contains only diagnostic state needed for this investigation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>file-only logger
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>BusID
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>DeviceID
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>TraceSessionID
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>per-session TraceSeq
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>enabled / sealed state
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>ProcessID
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>BusID
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>DeviceID
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>TraceSessionID
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>per-session TraceSeq
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>enabled / sealed state
 </code></pre></div>
 <h2 id="621-tracesessionid-distinguishes-logical-device-incarnations">6.2.1 TraceSessionID distinguishes logical-device incarnations</h2>
 <p><code>BusID/DeviceID</code> is not a sufficient session key.</p>
@@ -1834,22 +1835,30 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>TraceSessionID=&lt;uint64&gt;
 </code></pre></div>
 <p>when that trace context is created.</p>
+<p>Capture the current operating-system process ID once per process and include it
+as <code>ProcessID</code> in every trace record. The log is append-only and may be shared
+by overlapping or restarted CTW helper processes; <code>TraceSessionID</code> alone is not
+unique across those process instances.</p>
 <p>Requirements:</p>
 <ul>
 <li>allocate from one process-wide atomic counter;</li>
 <li>zero is reserved for "no trace session" and must never be emitted for an active session;</li>
 <li>do not persist the counter across processes;</li>
+<li>every record also carries the same nonzero <code>ProcessID</code> for its process instance;</li>
 <li>do not derive it from handles, pointers, BusID, DeviceID, wall-clock time, or random values;</li>
 <li>every Start/raw/parsed/dispatch/End/Abort record for that context must carry the same <code>TraceSessionID</code>;</li>
 <li><code>TraceSeq</code> starts from zero independently for each <code>TraceSessionID</code>.</li>
 </ul>
 <p>This is diagnostic identity only. It must not participate in controller ownership, attachment, callback, or teardown decisions.</p>
 <p>Use the full trace identity:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>BusID
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>DeviceID
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>TraceSessionID
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>ProcessID
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>BusID
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>DeviceID
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>TraceSessionID
 </code></pre></div>
-<p>in every trace event. Do not use only <code>BusID/DeviceID</code> or only <code>TraceSeq</code> as identity.</p>
+<p>in every trace event. Do not use only <code>BusID/DeviceID</code>, only
+<code>BusID/DeviceID/TraceSessionID</code>, or only <code>TraceSeq</code> as identity across the
+append-only log.</p>
 <p>The hook is internal Go implementation detail only.</p>
 <p>Do not expose it through <code>libVIIPER.h</code>.</p>
 <h2 id="63-callback-lifetime-stays-independent">6.3 Callback lifetime stays independent</h2>
@@ -1962,17 +1971,18 @@
 <p>The trace remains attached to that retained logical device until the existing fail-closed lifecycle eventually retires it successfully. That later successful retirement gets the normal drain-fenced <code>TraceEnd</code>.</p>
 <p>If the process terminates before a safe retirement is observed, the session is simply incomplete and cannot support absence-based conclusions.</p>
 <h3 id="session-identity-on-retry">Session identity on retry</h3>
-<p>A later retry/new creation always gets a new <code>TraceSessionID</code>, even when it reuses the same <code>BusID/DeviceID</code>.</p>
-<p>No Start/End/Abort matching rule may group records solely by <code>BusID/DeviceID</code>.</p>
+<p>A later retry/new creation always gets a new <code>TraceSessionID</code>, even when it reuses the same <code>BusID/DeviceID</code>. Across the append-only log, use <code>ProcessID/BusID/DeviceID/TraceSessionID</code> because the counter restarts with each process.</p>
+<p>No Start/End/Abort matching rule may group records solely by <code>BusID/DeviceID</code> or by <code>BusID/DeviceID/TraceSessionID</code> across process instances.</p>
 <hr />
 <h1 id="7-required-trace-points">7. Required trace points</h1>
 <p>Use a per-Xbox360-device monotonic diagnostic sequence number so lines from one host OUT transfer can be correlated.</p>
 <p>The counter is diagnostic-only.</p>
 <p>Every rumble trace event must also include:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>BusID=&lt;canonical bus id&gt;
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>DeviceID=&lt;canonical logical device id&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>ProcessID=&lt;current process ID&gt;
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>BusID=&lt;canonical bus id&gt;
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>DeviceID=&lt;canonical logical device id&gt;
 </code></pre></div>
-<p>because multiple Xbox360 typed devices — including a new incarnation reusing the same <code>BusID/DeviceID</code> while an older one drains — may write to the same <code>libVIIPER.log</code>. <code>TraceSessionID + TraceSeq</code> is the session-local correlation key.</p>
+<p>because multiple Xbox360 typed devices — including a new incarnation reusing the same <code>BusID/DeviceID</code> while an older one drains — and overlapping helper processes may write to the same <code>libVIIPER.log</code>. <code>ProcessID/BusID/DeviceID/TraceSessionID</code> identifies a session in that file; <code>TraceSeq</code> is local to the identified session.</p>
 <h2 id="71-raw-ep1-out-arrival">7.1 Raw EP1 OUT arrival</h2>
 <p>Inside <code>Xbox360.HandleTransfer</code>, for every:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>dir == usbip.DirOut
@@ -2119,7 +2129,7 @@
 <ul>
 <li>each has a distinct <code>TraceSessionID</code>;</li>
 <li>each has its own per-session <code>TraceSeq</code>;</li>
-<li>every record contains the correct <code>BusID</code>, <code>DeviceID</code>, and <code>TraceSessionID</code>;</li>
+<li>every record contains the correct nonzero <code>ProcessID</code>, <code>BusID</code>, <code>DeviceID</code>, and <code>TraceSessionID</code>;</li>
 <li>equal sequence values from different devices cannot be mistaken for one stream.</li>
 </ul>
 <h3 id="busiddeviceid-reuse-while-the-prior-session-drains">BusID/DeviceID reuse while the prior session drains</h3>
@@ -2134,7 +2144,7 @@
 </ol>
 <p>Prove:</p>
 <ul>
-<li>A and B have the same <code>BusID/DeviceID</code> but different <code>TraceSessionID</code>;</li>
+<li>A and B have the same <code>ProcessID/BusID/DeviceID</code> but different <code>TraceSessionID</code>;</li>
 <li>A's late drain-window event remains attributed to A;</li>
 <li>B's events remain attributed to B;</li>
 <li>A's <code>TraceEnd</code> occurs after A's final drain-window event;</li>
@@ -2176,7 +2186,7 @@
 <li>SteamInputAddonforClaw Runtime log, or CTW measuring-build log</li>
 </ul>
 <p>For one target trace session identified by the exact tuple:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>BusID / DeviceID / TraceSessionID
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>ProcessID / BusID / DeviceID / TraceSessionID
 </code></pre></div>
 <p>a run is <strong>trace-complete enough for absence-based reasoning</strong> only when all of the following hold:</p>
 <ol>
@@ -2185,13 +2195,13 @@
 <li>there is <strong>no</strong> <code>X360RumbleTraceAbort</code> for that tuple;</li>
 <li><code>TraceEnd.LastTraceSeq = N</code>;</li>
 <li>the raw-event set contains <strong>exactly one</strong> <code>X360RumbleRaw</code> for every integer <code>TraceSeq</code> in the closed range <code>1..N</code>, with no gaps, duplicates, zero, or values greater than <code>N</code>;</li>
-<li>for every raw event <code>TraceSeq=n</code>, there is <strong>exactly one</strong> <code>X360RumbleParsed</code> event with the same <code>BusID/DeviceID/TraceSessionID/TraceSeq</code>;</li>
+<li>for every raw event <code>TraceSeq=n</code>, there is <strong>exactly one</strong> <code>X360RumbleParsed</code> event with the same <code>ProcessID/BusID/DeviceID/TraceSessionID/TraceSeq</code>;</li>
 <li>for every parsed event:</li>
 <li><code>Recognized=false</code> -&gt; there must be no dispatch event for that sequence;</li>
 <li><code>Recognized=true CallbackPresent=false</code> -&gt; there must be no dispatch event for that sequence;</li>
-<li><code>Recognized=true CallbackPresent=true</code> -&gt; there must be exactly one <code>X360RumbleCallbackDispatch</code> event for that same tuple/sequence with the same Left/Right values;</li>
+<li><code>Recognized=true CallbackPresent=true</code> -&gt; there must be exactly one <code>X360RumbleCallbackDispatch</code> event for that same full identity/sequence with the same Left/Right values;</li>
 <li>there are no raw/parsed/dispatch events for the target tuple after <code>X360RumbleTraceEnd</code>;</li>
-<li>other sessions that reuse the same <code>BusID/DeviceID</code> are ignored unless their <code>TraceSessionID</code> also matches;</li>
+<li>records from another process or any other full identity tuple are excluded, even if <code>BusID</code>, <code>DeviceID</code>, or <code>TraceSessionID</code> values happen to match;</li>
 <li>there is no <code>libVIIPER logging backlog droppedLogRecords=...</code> marker in the relevant trace interval;</li>
 <li>successful logical retirement reached the existing transport-drain completion fence before TraceEnd;</li>
 <li>the existing bounded libVIIPER file flush path was given its normal opportunity to run.</li>
@@ -2257,7 +2267,7 @@
 <li>exact activation variable;</li>
 <li>trace records use the file-only async sink and never invoke <code>VIIPERLogCallback</code>;</li>
 <li>trace lifetime is independent of callback registration and remains retained through successful logical-handle finalization until the existing transport drain completes;</li>
-<li>exact trace event names and <code>BusID/DeviceID/TraceSessionID</code> identity fields;</li>
+<li>exact trace event names and <code>ProcessID/BusID/DeviceID/TraceSessionID</code> identity fields;</li>
 <li>known creation rollback is closed with <code>X360RumbleTraceAbort</code>, while unsafe/unknown retained ownership is not prematurely aborted;</li>
 <li>TraceEnd is emitted only after the existing transport-drain fence for every successful Xbox360 retirement path;</li>
 <li>the exact raw/parsed/dispatch sequence-continuity rules used by the trace-completeness gate;</li>
