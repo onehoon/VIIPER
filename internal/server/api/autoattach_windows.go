@@ -278,7 +278,7 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 	}
 	copy(ioctlData.Service[:], service)
 	copy(ioctlData.Host[:], "127.0.0.1")
-	ioctlData.WskEvents = true
+	ioctlData.WskEvents = false
 
 	openStart := time.Now()
 	handle, openErr := ops.openDevice(devicePath)
@@ -390,7 +390,7 @@ func usbipLegacyAttachCommandArgs(usbipServerPort uint16, busID string) []string
 	return []string{
 		"--tcp-port", strconv.FormatUint(uint64(usbipServerPort), 10),
 		"attach", "-r", "127.0.0.1", "-b", busID,
-		"--receive-mode=low-latency",
+		"--receive-mode=zero-copy",
 	}
 }
 
