@@ -54,9 +54,9 @@ callback
 CTW
 ```
 
-During a latch reproduction, the existing PR #48 trace did **not** contain the expected terminal Xbox360 `0 / 0` packet at `Xbox360.HandleTransfer`.
+During a latch reproduction, the existing PR #48 trace did **not** show the expected terminal Xbox360 `0 / 0` packet at `Xbox360.HandleTransfer`.
 
-That proves the stop was not observed at the current Xbox360 raw trace point, but it does **not** yet distinguish:
+Treat that absence as evidence only if that capture passes the existing PR #48 trace-completeness gate in section 10. If completeness was not established for the prior capture, its absence result is **inconclusive**. The additional boundary trace is intended to distinguish, in a complete future capture:
 
 ```text
 A. the USB/IP CMD_SUBMIT OUT never reached VIIPER's TCP receive path
@@ -131,6 +131,8 @@ The trace must occur:
 - before `processSubmit`;
 - before `dev.HandleTransfer`;
 - before the RET_SUBMIT is written.
+
+For an EP1 OUT with `xferLen == 0`, the declared payload is the successfully received empty payload; emit the boundary event with `Length=0` and an empty `Payload` at the same point. No `ReadExactly` call is needed for a zero-length payload.
 
 Do not log partial payloads after a failed `ReadExactly` as a successful submit.
 
@@ -223,6 +225,8 @@ Use the same bounded payload policy as the existing `X360RumbleRaw` event:
 maximum first 32 bytes
 ```
 
+`handleUrbStream` reuses its OUT-payload scratch buffer. The hook must not mutate or retain the supplied slice; it must synchronously encode/copy the bounded prefix into an owned hex string before returning, so later transfers cannot change an enqueued record.
+
 Do not reinterpret or parse the payload at this boundary.
 
 In particular, the USB server trace must record a valid terminal packet exactly as bytes:
@@ -257,7 +261,9 @@ on `X360RumbleUSBIPSubmitOut`.
 
 Do not introduce a pending-correlation queue or state machine merely to copy `USBIPSeq` into `X360RumbleRaw`.
 
-For this field diagnostic, ordered timestamps + payload bytes + USBIPSeq at the receive boundary are sufficient to answer whether the terminal packet reached that boundary.
+USB/IP `seqnum` is incremented **per connection**, not globally across a device trace session ([USB/IP protocol specification](https://www.kernel.org/doc/html/v6.15/usb/usbip_protocol.html)). Treat `USBIPSeq` as connection-local diagnostic context, not as a globally unique event ID or a sole cross-event join key.
+
+For this field diagnostic, ordered timestamps and exact payload bytes are the primary evidence; `USBIPSeq` adds context within its connection. If concurrent imports or a reconnect/sequence reset makes boundary-to-raw packet matching ambiguous, classify that per-submit comparison as **inconclusive**. Do not add a connection registry, pending-correlation queue, or state machine to force a match. Session-wide absence conclusions in Case C still require the completeness gate in section 10.
 
 ---
 
@@ -327,6 +333,8 @@ prove the boundary hook receives and records exactly those bytes and the actual 
 
 Also test one non-zero packet.
 
+For a zero-length EP1 OUT, prove the hook records `Length=0` and an empty `Payload`, and the device receives the original empty payload unchanged.
+
 ## 8.3 Bounded payload
 
 Provide an OUT payload longer than 32 bytes.
@@ -335,6 +343,7 @@ Prove:
 
 - device behavior receives the original full payload unchanged;
 - diagnostic payload text is bounded to the first 32 bytes.
+- the hook does not mutate or retain the scratch-backed payload; after a later transfer reuses that buffer, the first recorded hex payload remains unchanged.
 
 ## 8.4 Non-Xbox360 devices unchanged
 
@@ -386,7 +395,7 @@ X360RumbleUSBIPSubmitOut Payload=0008000000000000
 X360RumbleRaw            Payload=0008000000000000
 ```
 
-The terminal request reached both VIIPER transport and Xbox360 device handling.
+At least one terminal request was observed at both VIIPER transport and Xbox360 device handling. Claim an exact per-submit pairing only when the correspondence is unambiguous under section 6.
 
 Continue with existing parser/dispatch/managed-callback decision rules.
 
@@ -397,7 +406,7 @@ X360RumbleUSBIPSubmitOut Payload=0008000000000000
 (no corresponding X360RumbleRaw)
 ```
 
-After applying the normal PR #48 trace-completeness checks:
+After applying the normal PR #48 trace-completeness checks and only when the boundary event can be matched to the device-handler trace unambiguously under section 6:
 
 ```text
 the complete OUT payload was read by VIIPER's USB/IP server
@@ -407,6 +416,8 @@ but was not observed at Xbox360.HandleTransfer
 This is a VIIPER internal transport-to-device-dispatch defect candidate.
 
 Do not immediately redesign transport; inspect the exact direct code path first.
+
+If concurrent imports or a reconnect/sequence reset makes the packet correspondence ambiguous, this case is **inconclusive**, not a dispatch-defect finding.
 
 ## Case C — terminal 0/0 absent from both
 
@@ -519,11 +530,14 @@ After implementation, update the existing PR #48 description with a short additi
 ```text
 - Added X360RumbleUSBIPSubmitOut at the USB/IP server receive boundary,
   after the full EP1 OUT payload is read and before device dispatch.
+- Zero-length EP1 OUT is recorded as an empty, successfully received payload;
+  USBIPSeq is connection-local, and ambiguous per-submit matches are inconclusive.
 - The event is file-only and behavior-neutral.
 - It carries the existing ProcessID/BusID/DeviceID/TraceSessionID identity,
   USBIPSeq, endpoint, length, and bounded raw payload.
 - This distinguishes "not received by VIIPER TCP USB/IP" from
-  "received by VIIPER but not observed by Xbox360.HandleTransfer".
+  "received by VIIPER but not observed by Xbox360.HandleTransfer" only when
+  the existing completeness gate passes and packet correspondence is unambiguous.
 ```
 
 Keep PR #48 Draft and unmerged for CTW nightly field measurement.
@@ -545,3 +559,5 @@ The work is complete when all of the following are true:
 9. Tests prove boundary-before-HandleTransfer ordering and exact STOP payload preservation.
 10. Full tests/build/export verification pass.
 11. PR #48 remains a temporary diagnostic revision, not a product behavior fix.
+12. Zero-length EP1 OUT is recorded as an empty payload, and the hook does not mutate or retain the reusable payload buffer.
+13. `USBIPSeq` is treated as connection-local; ambiguous boundary-to-raw packet correspondence is inconclusive.
