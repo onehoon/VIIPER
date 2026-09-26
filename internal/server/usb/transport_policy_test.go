@@ -85,17 +85,18 @@ func policyTestDescriptor() rootusb.Descriptor {
 	}
 }
 
-func writePolicyTestSubmit(conn net.Conn, seq, dir, ep, transferLen uint32, payload []byte) (int, error) {
+func writePolicyTestSubmit(conn net.Conn, seq, dir, transferLen uint32, payload []byte) error {
 	var request bytes.Buffer
 	cmd := usbip.CmdSubmit{
-		Basic:             usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: dir, Ep: ep},
+		Basic:             usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: dir, Ep: 1},
 		TransferBufferLen: transferLen,
 	}
 	if err := cmd.Write(&request); err != nil {
-		return 0, err
+		return err
 	}
 	_, _ = request.Write(payload)
-	return conn.Write(request.Bytes())
+	_, err := conn.Write(request.Bytes())
+	return err
 }
 
 func readPolicyTestRet(conn net.Conn, payloadLen uint32) (uint32, int32, uint32, []byte, error) {
@@ -138,7 +139,7 @@ func TestSequentialNonEp0INBlocksLaterRequestUntilCompletion(t *testing.T) {
 	}
 	conn, done, result := startTransportPolicyStream(t, false, dev)
 	t.Cleanup(func() { releaseOnce.Do(func() { close(inRelease) }) })
-	if _, err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 1, 8, nil); err != nil {
+	if err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 8, nil); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -179,7 +180,7 @@ func TestSequentialNonEp0INBlocksLaterRequestUntilCompletion(t *testing.T) {
 		t.Fatalf("first RET_SUBMIT = seq %d status %d actualLen %d payload %x err %v", seq, status, actualLen, payload, err)
 	}
 	_ = conn.SetWriteDeadline(time.Time{})
-	if _, err := writePolicyTestSubmit(conn, 2, usbip.DirOut, 1, 1, []byte{0x7F}); err != nil {
+	if err := writePolicyTestSubmit(conn, 2, usbip.DirOut, 1, []byte{0x7F}); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -221,7 +222,7 @@ func TestAsyncNonEp0INAllowsLaterRequestBeforeCompletion(t *testing.T) {
 	}
 	conn, done, result := startTransportPolicyStream(t, true, dev)
 	t.Cleanup(func() { releaseOnce.Do(func() { close(inRelease) }) })
-	if _, err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 1, 8, nil); err != nil {
+	if err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 8, nil); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -229,7 +230,7 @@ func TestAsyncNonEp0INAllowsLaterRequestBeforeCompletion(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("async IN worker did not start")
 	}
-	if _, err := writePolicyTestSubmit(conn, 2, usbip.DirOut, 1, 1, []byte{0x7F}); err != nil {
+	if err := writePolicyTestSubmit(conn, 2, usbip.DirOut, 1, []byte{0x7F}); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -276,14 +277,14 @@ func TestSequentialNonEp0INIsOneShotAndNilIsEmptySuccess(t *testing.T) {
 		return nil
 	}
 	conn, _, _ := startTransportPolicyStream(t, false, dev)
-	if _, err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 1, 8, nil); err != nil {
+	if err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 8, nil); err != nil {
 		t.Fatal(err)
 	}
 	seq, status, actualLen, payload, err := readPolicyTestRet(conn, 1)
 	if err != nil || seq != 1 || status != 0 || actualLen != 1 || !bytes.Equal(payload, []byte{0xC3}) {
 		t.Fatalf("first sequential response = seq %d status %d actualLen %d payload %x err %v", seq, status, actualLen, payload, err)
 	}
-	if _, err := writePolicyTestSubmit(conn, 2, usbip.DirIn, 1, 8, nil); err != nil {
+	if err := writePolicyTestSubmit(conn, 2, usbip.DirIn, 8, nil); err != nil {
 		t.Fatal(err)
 	}
 	seq, status, actualLen, payload, err = readPolicyTestRet(conn, 0)
@@ -319,14 +320,14 @@ func TestAsyncNonEp0INRetainsIntervalRetryAndCachedReplay(t *testing.T) {
 		return []byte{0xD4}
 	}
 	conn, _, _ := startTransportPolicyStream(t, true, dev)
-	if _, err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 1, 8, nil); err != nil {
+	if err := writePolicyTestSubmit(conn, 1, usbip.DirIn, 8, nil); err != nil {
 		t.Fatal(err)
 	}
 	seq, status, actualLen, payload, err := readPolicyTestRet(conn, 1)
 	if err != nil || seq != 1 || status != 0 || actualLen != 1 || !bytes.Equal(payload, []byte{0xD4}) {
 		t.Fatalf("retried async response = seq %d status %d actualLen %d payload %x err %v", seq, status, actualLen, payload, err)
 	}
-	if _, err := writePolicyTestSubmit(conn, 2, usbip.DirIn, 1, 8, nil); err != nil {
+	if err := writePolicyTestSubmit(conn, 2, usbip.DirIn, 8, nil); err != nil {
 		t.Fatal(err)
 	}
 	seq, status, actualLen, payload, err = readPolicyTestRet(conn, 1)

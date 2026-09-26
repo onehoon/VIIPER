@@ -345,10 +345,6 @@ func nativeAttachIOCTLLengths() (input uint32, output uint32) {
 	return attachInputLength, attachPortOutputLength
 }
 
-func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
-	return attachViaCommandWithRunner(ctx, deviceExportMeta, usbipServerPort, logger, realCommandRunner)
-}
-
 func attachViaCommandWithRunner(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger, run commandRunner) (result LocalhostAttachment, err error) {
 	return attachViaCommandWithModeRunner(ctx, deviceExportMeta, usbipServerPort, USBIPReceiveZeroCopy, logger, run)
 }
