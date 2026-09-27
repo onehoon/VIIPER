@@ -1,0 +1,2597 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — Xbox360 USB/IP OUT Receive-Boundary Diagnostic Trace - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-xbox360-usbip-out-receive-boundary-diagnostic-trace" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — Xbox360 USB/IP OUT Receive-Boundary Diagnostic Trace
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#target" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-read-before-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Read before implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-exact-behavior-to-instrument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Exact behavior to instrument
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Exact behavior to instrument">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-ingress-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Ingress event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-completion-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Completion event
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-keep-the-generic-usb-server-generic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Keep the generic USB server generic
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-reuse-the-existing-rumble-trace-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Reuse the existing rumble trace session
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-logging-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Logging safety
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-explicitly-preserve-current-transport-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Explicitly preserve current transport behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-required-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Required tests
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Required tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-ingress-ordering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Ingress ordering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-exact-terminal-stop-payload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Exact terminal STOP payload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-non-zero-rumble-payload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Non-zero rumble payload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#94-completion-ordering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 Completion ordering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#95-failed-ret_submit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.5 Failed RET_SUBMIT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#96-scratch-buffer-reuse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.6 Scratch-buffer reuse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#97-bounded-payload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.7 Bounded payload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#98-zero-length-ep1-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.8 Zero-length EP1 OUT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#99-non-xbox360-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.9 Non-Xbox360 device
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#910-no-active-trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.10 No active trace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#911-file-only-sink" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.11 File-only sink
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#912-existing-trace-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.12 Existing trace tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-field-interpretation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Field interpretation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Field interpretation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#case-a-stop-visible-at-ingress-and-device-trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case A — STOP visible at ingress and device trace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#case-b-stop-visible-at-ingress-but-absent-at-device-trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case B — STOP visible at ingress but absent at device trace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#case-c-stop-absent-from-ingress-and-device-trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case C — STOP absent from ingress and device trace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#case-d-ingress-exists-handler-exists-completion-missing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case D — ingress exists, handler exists, completion missing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#case-e-stop-like-non-canonical-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Case E — stop-like non-canonical bytes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-trace-completeness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Trace completeness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-relationship-to-the-fork-differential-research" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Relationship to the fork differential research
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-hardware-test-after-mergeadoption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Hardware test after merge/adoption
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16-acceptance-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Acceptance criteria
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-xbox360-usbip-out-receive-boundary-diagnostic-trace">Work Order — Xbox360 USB/IP OUT Receive-Boundary Diagnostic Trace</h1>
+<h2 id="target">Target</h2>
+<p>Repository: onehoon/VIIPER</p>
+<p>Implementation branch: create a fresh implementation branch from the latest main.</p>
+<p>Reviewed behavioral baseline:</p>
+<div class="highlight"><pre><span></span><code>main @ 6296af4cb3f488791c9fae55a6ebe58610c0c9b4
+PR #50 already merged: Windows localhost attach restored to zero-copy
+</code></pre></div>
+<p>Implement from the latest main at execution time. Do not undo later main changes.</p>
+<p>This is a diagnostic-only PR. It must not change controller behavior, USB/IP scheduling, attachment policy, callback behavior, or the public ABI.</p>
+<hr />
+<h2 id="1-context">1. Context</h2>
+<p>The current Xbox360 rumble investigation has already established several useful facts.</p>
+<p>The existing native rumble trace records the device-side path:</p>
+<div class="highlight"><pre><span></span><code>Xbox360.HandleTransfer
+  -&gt; X360RumbleRaw
+  -&gt; parser
+  -&gt; X360RumbleParsed
+  -&gt; X360RumbleCallbackDispatch
+</code></pre></div>
+<p>A real MSI Claw / Lies of P reproduction after restoring Windows localhost attach to zero-copy still showed the same class of stuck-rumble event.</p>
+<p>During reproduced latch intervals:</p>
+<ul>
+<li>a non-zero rumble sequence reached the Xbox360 device handler;</li>
+<li>the expected terminal zero/zero STOP was absent from the existing Xbox360 device-level trace;</li>
+<li>packets that did reach Xbox360.HandleTransfer were parsed and dispatched correctly;</li>
+<li>zero/zero is not filtered by the parser;</li>
+<li>no parser/callback fix is currently justified;</li>
+<li>the existing CTW five-second physical STOP safety is older safety behavior and is not the root-cause change under investigation.</li>
+</ul>
+<p>Current source also shows:</p>
+<div class="highlight"><pre><span></span><code>USB/IP receive loop
+  -&gt; read CMD_SUBMIT header
+  -&gt; read complete OUT payload
+  -&gt; processSubmit
+  -&gt; Xbox360.HandleTransfer
+  -&gt; write RET_SUBMIT
+</code></pre></div>
+<p>Non-EP0 IN traffic is asynchronous, but OUT remains on the receive loop and is dispatched inline.</p>
+<p>Therefore the next missing evidence is one boundary earlier than the current rumble trace:</p>
+<div class="highlight"><pre><span></span><code>Did VIIPER's USB/IP server receive the complete terminal Xbox360 EP1 OUT payload?
+</code></pre></div>
+<p>This PR exists only to measure that boundary.</p>
+<hr />
+<h2 id="2-read-before-implementation">2. Read before implementation</h2>
+<p>Read the current versions of:</p>
+<ul>
+<li>FORK_ARCHITECTURE.md</li>
+<li>docs/libviiper/fork-api.md</li>
+<li>docs/work-order/XBOX360_RUMBLE_NATIVE_BOUNDARY_DIAGNOSTIC_WORK_ORDER_2026-09-24.md</li>
+<li>docs/work-order/PR48_XBOX360_USBIP_SUBMIT_BOUNDARY_TRACE_ADDENDUM_2026-09-26.md</li>
+<li>device/xbox360/device.go</li>
+<li>device/xbox360/rumble_trace.go</li>
+<li>internal/server/usb/server.go</li>
+<li>lib/viiper/xbox360.go</li>
+<li>lib/viiper/server.go</li>
+<li>lib/viiper/embeddedlog.go</li>
+</ul>
+<p>The older PR48 boundary-trace addendum was design work only. Current main does not contain X360RumbleUSBIPSubmitOut / TraceUSBIPOutBoundary implementation. This work order turns that missing diagnostic boundary into a standalone implementation PR against current main.</p>
+<hr />
+<h2 id="3-goal">3. Goal</h2>
+<p>Add structured, file-only diagnostic events around Xbox360 EP1 USB/IP OUT processing so one physical reproduction can distinguish:</p>
+<div class="highlight"><pre><span></span><code>Case A
+terminal STOP never appears at VIIPER receive boundary
+</code></pre></div>
+<p>from:</p>
+<div class="highlight"><pre><span></span><code>Case B
+terminal STOP is fully received by VIIPER
+but does not reach Xbox360.HandleTransfer
+</code></pre></div>
+<p>and also show whether an accepted Xbox360 OUT request completes normally back to the USB/IP client.</p>
+<p>Required server-side boundaries:</p>
+<div class="highlight"><pre><span></span><code>CMD_SUBMIT header accepted
+  -&gt; full OUT payload successfully read
+  -&gt; X360 USB/IP OUT ingress trace
+  -&gt; processSubmit
+  -&gt; existing Xbox360.HandleTransfer / rumble trace
+  -&gt; RET_SUBMIT successfully written
+  -&gt; X360 USB/IP OUT completion trace
+</code></pre></div>
+<p>The primary diagnostic is the ingress event.</p>
+<p>The completion event is supporting evidence for server-side response/backpressure analysis. It must not become a new lifecycle contract.</p>
+<hr />
+<h2 id="4-exact-behavior-to-instrument">4. Exact behavior to instrument</h2>
+<p>Relevant current code is in internal/server/usb/server.go inside handleUrbStream.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>read USB/IP header
+
+if OUT and transfer length &gt; 0:
+    ReadExactly(conn, outPayload)
+
+if non-EP0 IN:
+    async worker path
+    continue
+
+respData = processSubmit(...)
+actualLen = ...
+writeRet(...)
+</code></pre></div>
+<p>For Xbox360 EP1 OUT only, add:</p>
+<h3 id="41-ingress-event">4.1 Ingress event</h3>
+<p>Emit immediately after the complete declared OUT payload has been read successfully and before processSubmit is called.</p>
+<p>For a zero-length EP1 OUT, emit at the equivalent point after the header has been accepted.</p>
+<p>Suggested event:</p>
+<div class="highlight"><pre><span></span><code>Event=X360USBIPOutIngress
+</code></pre></div>
+<p>Required fields:</p>
+<div class="highlight"><pre><span></span><code>ProcessID
+BusID
+DeviceID
+TraceSessionID
+USBIPSeq
+Endpoint
+DeclaredLength
+Payload
+</code></pre></div>
+<p>Payload requirements:</p>
+<ul>
+<li>preserve exact bytes;</li>
+<li>encode at most the first 32 bytes as hex;</li>
+<li>do not parse motor values at this boundary;</li>
+<li>do not mutate the source slice;</li>
+<li>do not retain the scratch-backed slice after the hook returns.</li>
+</ul>
+<p>For a normal terminal Xbox360 STOP, ingress must preserve:</p>
+<div class="highlight"><pre><span></span><code>00 08 00 00 00 00 00 00
+</code></pre></div>
+<p>exactly.</p>
+<h3 id="42-completion-event">4.2 Completion event</h3>
+<p>After processSubmit has returned and the corresponding RET_SUBMIT has been written successfully, emit:</p>
+<div class="highlight"><pre><span></span><code>Event=X360USBIPOutCompletion
+</code></pre></div>
+<p>Required fields:</p>
+<div class="highlight"><pre><span></span><code>ProcessID
+BusID
+DeviceID
+TraceSessionID
+USBIPSeq
+Endpoint
+ActualLength
+</code></pre></div>
+<p>Do not emit a successful completion event if writeRet failed.</p>
+<p>Do not alter RET_SUBMIT status, payload, flush policy, or ordering for the sake of diagnostics.</p>
+<p>The existing logger timestamps are sufficient for initial correlation. Do not add a timer/state registry solely to calculate latency.</p>
+<hr />
+<h2 id="5-keep-the-generic-usb-server-generic">5. Keep the generic USB server generic</h2>
+<p>Do not import device/xbox360 into internal/server/usb.</p>
+<p>Do not parse Xbox360 packet contents in internal/server/usb.</p>
+<p>Do not add Xbox360-specific fields to usb.Device.</p>
+<p>Use a tiny optional internal interface implemented by Xbox360.</p>
+<p>A suitable shape is conceptually:</p>
+<div class="highlight"><pre><span></span><code>type usbipOutBoundaryTracer interface {
+    TraceUSBIPOutIngress(seq uint32, ep uint32, declaredLength uint32, payload []byte)
+    TraceUSBIPOutCompletion(seq uint32, ep uint32, actualLength uint32)
+}
+</code></pre></div>
+<p>The exact naming may differ if a simpler implementation fits the existing code better.</p>
+<p>Constraints:</p>
+<ul>
+<li>the interface remains internal to the Go implementation;</li>
+<li>it must not be added to the required usb.Device interface;</li>
+<li>no public C export;</li>
+<li>no generated libVIIPER.h change;</li>
+<li>no ABI change;</li>
+<li>no generic diagnostics manager;</li>
+<li>no registry keyed by device identity;</li>
+<li>no correlation state machine.</li>
+</ul>
+<p>Because the optional interface is asserted across packages, exported Go methods on Xbox360 are acceptable if required by Go method identity. They are internal implementation methods, not public libVIIPER ABI.</p>
+<hr />
+<h2 id="6-reuse-the-existing-rumble-trace-session">6. Reuse the existing rumble trace session</h2>
+<p>Do not create a second logging subsystem.</p>
+<p>The new events must reuse the existing Xbox360 RumbleTrace session and the same file-only asynchronous trace sink already used by:</p>
+<div class="highlight"><pre><span></span><code>X360RumbleTraceStart
+X360RumbleRaw
+X360RumbleParsed
+X360RumbleCallbackDispatch
+X360RumbleTraceEnd
+X360RumbleTraceAbort
+</code></pre></div>
+<p>Use the same identity:</p>
+<div class="highlight"><pre><span></span><code>ProcessID / BusID / DeviceID / TraceSessionID
+</code></pre></div>
+<p>The USB/IP protocol sequence number is additional connection-local context:</p>
+<div class="highlight"><pre><span></span><code>USBIPSeq
+</code></pre></div>
+<p>Do not reuse or increment the existing device trace TraceSeq for ingress/completion events.</p>
+<p>TraceSeq remains owned by the device-handler packet trace.</p>
+<p>Do not create a mapping table to force USBIPSeq into X360RumbleRaw.</p>
+<p>Ordered timestamps, exact payload bytes, session identity, and USBIPSeq are sufficient for this field diagnostic.</p>
+<p>If reconnects or concurrent imports make a particular packet pairing ambiguous, classify that comparison as inconclusive instead of adding synchronization/state machinery.</p>
+<hr />
+<h2 id="7-logging-safety">7. Logging safety</h2>
+<p>This instrumentation must not become part of the bug.</p>
+<p>The EP1 OUT receive path is latency-sensitive.</p>
+<p>Required rules:</p>
+<ul>
+<li>no synchronous file I/O from handleUrbStream;</li>
+<li>no new worker dedicated to OUT tracing;</li>
+<li>no new queue;</li>
+<li>no sleeps;</li>
+<li>no debounce;</li>
+<li>no retry;</li>
+<li>no callback into the embedding application;</li>
+<li>no log fan-out through the synchronous VIIPERLogCallback;</li>
+<li>no unbounded payload logging;</li>
+<li>no packet cloning beyond the bounded data needed to create an owned trace record;</li>
+<li>logging failure must never fail a USB/IP request.</li>
+</ul>
+<p>Reuse the existing file-only asynchronous trace logger.</p>
+<p>The new trace hook must copy/hex-encode the bounded payload before returning because handleUrbStream reuses outPayloadScratch.</p>
+<p>A later USB/IP request must not mutate a previously queued diagnostic record.</p>
+<hr />
+<h2 id="8-explicitly-preserve-current-transport-behavior">8. Explicitly preserve current transport behavior</h2>
+<p>Do not change any of the following in this PR:</p>
+<ul>
+<li>Windows receive mode;</li>
+<li>zero-copy policy;</li>
+<li>WskEvents;</li>
+<li>usbip-win2 0.9.8.0 pin;</li>
+<li>WriteBatchFlushInterval;</li>
+<li>batching writer behavior;</li>
+<li>async non-EP0 IN implementation;</li>
+<li>inputCh;</li>
+<li>lastInResp cache;</li>
+<li>endpoint deadlines;</li>
+<li>pending-IN map;</li>
+<li>UNLINK semantics;</li>
+<li>writer locking;</li>
+<li>RET_SUBMIT flush behavior;</li>
+<li>connection deadlines;</li>
+<li>server lifecycle;</li>
+<li>managed transport drain;</li>
+<li>bus ownership;</li>
+<li>attachment ownership;</li>
+<li>attach/detach classification;</li>
+<li>Xbox360 parser;</li>
+<li>Xbox360 callback synchronization;</li>
+<li>callback ABI;</li>
+<li>Steam Deck behavior;</li>
+<li>legacy clib behavior.</li>
+</ul>
+<p>Do not add a runtime mode switch.</p>
+<p>This PR must answer a diagnostic question, not attempt to fix the suspected regression.</p>
+<hr />
+<h2 id="9-required-tests">9. Required tests</h2>
+<p>Add focused deterministic tests only.</p>
+<p>Do not add scheduler torture tests or artificial race tests.</p>
+<h3 id="91-ingress-ordering">9.1 Ingress ordering</h3>
+<p>For one Xbox360 EP1 OUT CMD_SUBMIT, prove:</p>
+<div class="highlight"><pre><span></span><code>complete payload read
+  -&gt; ingress hook
+  -&gt; device HandleTransfer
+</code></pre></div>
+<p>The ingress event must happen before the device handler sees the payload.</p>
+<p>No wall-clock timing assertion is required.</p>
+<h3 id="92-exact-terminal-stop-payload">9.2 Exact terminal STOP payload</h3>
+<p>Use:</p>
+<div class="highlight"><pre><span></span><code>00 08 00 00 00 00 00 00
+</code></pre></div>
+<p>Verify ingress records:</p>
+<ul>
+<li>the actual USBIP sequence number;</li>
+<li>endpoint 1;</li>
+<li>declared length 8;</li>
+<li>exact payload bytes.</li>
+</ul>
+<p>Verify the device still receives the same full payload unchanged.</p>
+<h3 id="93-non-zero-rumble-payload">9.3 Non-zero rumble payload</h3>
+<p>Use a representative non-zero Xbox360 output packet and prove identical preservation.</p>
+<h3 id="94-completion-ordering">9.4 Completion ordering</h3>
+<p>For a successful EP1 OUT submit, prove:</p>
+<div class="highlight"><pre><span></span><code>ingress
+  -&gt; HandleTransfer
+  -&gt; successful RET_SUBMIT write
+  -&gt; completion event
+</code></pre></div>
+<p>Do not require a specific elapsed time.</p>
+<h3 id="95-failed-ret_submit">9.5 Failed RET_SUBMIT</h3>
+<p>If the test seam makes writeRet fail, prove no successful X360USBIPOutCompletion event is emitted.</p>
+<p>The existing failure behavior must be unchanged.</p>
+<h3 id="96-scratch-buffer-reuse">9.6 Scratch-buffer reuse</h3>
+<p>Issue two OUT requests that reuse the server scratch buffer.</p>
+<p>Prove the first recorded ingress payload remains the first packet after the second request arrives.</p>
+<p>This protects diagnostic integrity without introducing a new production buffer owner.</p>
+<h3 id="97-bounded-payload">9.7 Bounded payload</h3>
+<p>For an OUT payload longer than 32 bytes:</p>
+<ul>
+<li>device receives the complete original payload;</li>
+<li>diagnostic payload contains only the first 32 bytes;</li>
+<li>DeclaredLength still records the full declared length.</li>
+</ul>
+<h3 id="98-zero-length-ep1-out">9.8 Zero-length EP1 OUT</h3>
+<p>Verify:</p>
+<div class="highlight"><pre><span></span><code>DeclaredLength=0
+Payload=""
+</code></pre></div>
+<p>and unchanged device handling.</p>
+<h3 id="99-non-xbox360-device">9.9 Non-Xbox360 device</h3>
+<p>A device without the optional tracer behaves exactly as before.</p>
+<p>No new required method may be added to usb.Device.</p>
+<h3 id="910-no-active-trace">9.10 No active trace</h3>
+<p>If the Xbox360 logical device has no active RumbleTrace, both optional hooks are no-ops.</p>
+<p>No panic and no behavior change.</p>
+<h3 id="911-file-only-sink">9.11 File-only sink</h3>
+<p>Verify ingress/completion events use the existing file-only rumble diagnostic sink and do not invoke the embedding application's synchronous VIIPERLogCallback.</p>
+<h3 id="912-existing-trace-tests">9.12 Existing trace tests</h3>
+<p>All existing tests for:</p>
+<div class="highlight"><pre><span></span><code>X360RumbleTraceStart
+X360RumbleRaw
+X360RumbleParsed
+X360RumbleCallbackDispatch
+X360RumbleTraceEnd
+X360RumbleTraceAbort
+</code></pre></div>
+<p>must continue to pass.</p>
+<hr />
+<h2 id="10-field-interpretation">10. Field interpretation</h2>
+<p>For one complete trace session, correlate:</p>
+<div class="highlight"><pre><span></span><code>X360USBIPOutIngress
+X360RumbleRaw
+X360RumbleParsed
+X360RumbleCallbackDispatch
+X360USBIPOutCompletion
+</code></pre></div>
+<h3 id="case-a-stop-visible-at-ingress-and-device-trace">Case A — STOP visible at ingress and device trace</h3>
+<div class="highlight"><pre><span></span><code>X360USBIPOutIngress Payload=0008000000000000
+X360RumbleRaw        Payload=0008000000000000
+</code></pre></div>
+<p>VIIPER received and dispatched at least one terminal STOP request.</p>
+<p>Continue downstream correlation.</p>
+<p>Do not modify the parser.</p>
+<h3 id="case-b-stop-visible-at-ingress-but-absent-at-device-trace">Case B — STOP visible at ingress but absent at device trace</h3>
+<div class="highlight"><pre><span></span><code>X360USBIPOutIngress Payload=0008000000000000
+no corresponding X360RumbleRaw
+</code></pre></div>
+<p>If the session is complete and pairing is unambiguous, this is a concrete VIIPER transport-to-device-dispatch defect candidate.</p>
+<p>Inspect the direct code path before proposing any architecture change.</p>
+<h3 id="case-c-stop-absent-from-ingress-and-device-trace">Case C — STOP absent from ingress and device trace</h3>
+<div class="highlight"><pre><span></span><code>no terminal X360USBIPOutIngress
+no terminal X360RumbleRaw
+</code></pre></div>
+<p>If the trace session is complete:</p>
+<div class="highlight"><pre><span></span><code>VIIPER did not observe the terminal STOP at its server receive boundary.
+</code></pre></div>
+<p>That moves investigation upstream of this server boundary.</p>
+<p>Possible later targets include:</p>
+<div class="highlight"><pre><span></span><code>Windows XUSB / USB stack
+usbip-win2 client submission
+game / Steam input-output source
+</code></pre></div>
+<p>This case does not prove which upstream component omitted or lost the request.</p>
+<p>A later usbip-win2 client-side capture may be required to prove whether the client emitted the STOP.</p>
+<h3 id="case-d-ingress-exists-handler-exists-completion-missing">Case D — ingress exists, handler exists, completion missing</h3>
+<p>If ingress and device trace are present but the successful completion event is absent:</p>
+<ul>
+<li>inspect existing writeRet failure/disconnect evidence;</li>
+<li>inspect writer contention/backpressure only if supported by timestamps/logs;</li>
+<li>do not redesign async IN from this fact alone.</li>
+</ul>
+<h3 id="case-e-stop-like-non-canonical-bytes">Case E — stop-like non-canonical bytes</h3>
+<p>Record the exact bytes.</p>
+<p>Do not change parser behavior in this PR.</p>
+<hr />
+<h2 id="11-trace-completeness">11. Trace completeness</h2>
+<p>Absence claims are valid only for a complete trace session.</p>
+<p>Preserve the current completeness rules:</p>
+<ul>
+<li>valid X360RumbleTraceStart;</li>
+<li>valid X360RumbleTraceEnd for a normally retired device;</li>
+<li>no applicable Abort;</li>
+<li>no relevant droppedLogRecords evidence;</li>
+<li>no truncated/malformed file;</li>
+<li>normal managed transport drain completed before End;</li>
+<li>normal async log flush opportunity occurred.</li>
+</ul>
+<p>If completeness is not established:</p>
+<div class="highlight"><pre><span></span><code>result = inconclusive
+</code></pre></div>
+<p>Do not turn diagnostic-log completeness into a controller lifecycle success condition.</p>
+<hr />
+<h2 id="12-relationship-to-the-fork-differential-research">12. Relationship to the fork differential research</h2>
+<p>Recent source comparison found:</p>
+<ul>
+<li>onehoon inherited Alia5's data-driven/per-URB async IN architecture before the onehoon/Valkirie fork split;</li>
+<li>Corando/Valkirie later changed X360 state/scheduling to value snapshot + InputGate + persistent endpoint workers/hardware pacing/idle policy;</li>
+<li>those changes are behavior-changing scheduling experiments, not source-proven fixes for the missing X360 STOP;</li>
+<li>onehoon's X360 parser accepts zero/zero and dispatches it;</li>
+<li>current OUT dispatch remains inline on the receive loop;</li>
+<li>async IN can at most remain an indirect timing/backpressure hypothesis until the missing packet boundary is located.</li>
+</ul>
+<p>Therefore this PR must NOT:</p>
+<ul>
+<li>port Corando persistent workers;</li>
+<li>port InputGate;</li>
+<li>enable hardware-paced completions;</li>
+<li>add X360 NAK-idle;</li>
+<li>revert to historical sequential snapshot;</li>
+<li>change inputCh;</li>
+<li>introduce an async/snapshot policy switch.</li>
+</ul>
+<p>Those are separate investigations only if boundary evidence justifies them.</p>
+<hr />
+<h2 id="13-validation">13. Validation</h2>
+<p>Run the repository's normal formatting, lint, unit tests, and libVIIPER build.</p>
+<p>At minimum:</p>
+<ul>
+<li>Go formatting/lint used by current CI;</li>
+<li>Xbox360 tests;</li>
+<li>USB server tests affected by the optional boundary hook;</li>
+<li>libVIIPER build;</li>
+<li>generated-header/export consistency verification.</li>
+</ul>
+<p>Expected ABI result:</p>
+<div class="highlight"><pre><span></span><code>no public export change
+no generated C ABI change
+</code></pre></div>
+<p>If generated libVIIPER.h or export lists change, stop and investigate because this PR should not require an ABI change.</p>
+<hr />
+<h2 id="14-hardware-test-after-mergeadoption">14. Hardware test after merge/adoption</h2>
+<p>After the new diagnostic DLL is adopted by the CTW test build:</p>
+<ol>
+<li>reboot normally;</li>
+<li>verify controller/VIIPER setup is otherwise unchanged;</li>
+<li>use zero-copy;</li>
+<li>retain current 1 ms CTW server batching configuration;</li>
+<li>reproduce Lies of P rumble normally;</li>
+<li>if a latch occurs, capture the complete libVIIPER log;</li>
+<li>identify the last non-zero sequence;</li>
+<li>search for terminal zero/zero at:</li>
+<li>X360USBIPOutIngress;</li>
+<li>X360RumbleRaw;</li>
+<li>X360RumbleParsed;</li>
+<li>X360RumbleCallbackDispatch;</li>
+<li>X360USBIPOutCompletion;</li>
+<li>preserve exact timestamps and USBIPSeq values;</li>
+<li>do not combine the test with another VIIPER behavior change.</li>
+</ol>
+<p>The purpose is a clean boundary measurement.</p>
+<hr />
+<h2 id="15-non-goals">15. Non-goals</h2>
+<p>Do not include:</p>
+<ul>
+<li>rumble guard changes;</li>
+<li>CTW five-second STOP changes;</li>
+<li>synthetic STOP generation;</li>
+<li>callback retries;</li>
+<li>packet buffering;</li>
+<li>low-latency mode;</li>
+<li>write-batching policy changes;</li>
+<li>async-IN redesign;</li>
+<li>Corando/HHC scheduling ports;</li>
+<li>Addon changes;</li>
+<li>CTW application code changes;</li>
+<li>Steam Deck changes;</li>
+<li>public ABI changes;</li>
+<li>new lifecycle authority;</li>
+<li>new manager/strategy abstraction;</li>
+<li>theoretical race hardening.</li>
+</ul>
+<hr />
+<h2 id="16-acceptance-criteria">16. Acceptance criteria</h2>
+<p>The PR is complete when:</p>
+<ol>
+<li>current behavior is unchanged with tracing inactive;</li>
+<li>complete Xbox360 EP1 OUT payload reception is observable before device dispatch;</li>
+<li>successful EP1 OUT RET_SUBMIT completion is observable;</li>
+<li>both events correlate with the existing RumbleTrace session and USBIPSeq;</li>
+<li>the canonical zero/zero STOP bytes are preserved exactly;</li>
+<li>diagnostic records cannot be corrupted by scratch-buffer reuse;</li>
+<li>no synchronous application log callback is added to the OUT hot path;</li>
+<li>no public ABI/header/export changes occur;</li>
+<li>all relevant tests/build checks pass;</li>
+<li>the resulting hardware log can distinguish:<ul>
+<li>STOP absent before VIIPER device dispatch,</li>
+<li>STOP present at VIIPER ingress but lost before handler,</li>
+<li>STOP handled but completion/problem occurs later.</li>
+</ul>
+</li>
+</ol>
+<p>Keep this PR strictly diagnostic. Do not fix the suspected transport regression until the trace identifies the first missing boundary.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
