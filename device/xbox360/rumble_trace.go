@@ -59,6 +59,34 @@ func (x *Xbox360) InstallRumbleTrace(logger *slog.Logger, busID, deviceID uint32
 // session so the owning lifecycle can retain it through transport drain.
 func (x *Xbox360) RumbleTraceSession() *RumbleTrace { return x.rumbleTrace.Load() }
 
+// TraceUSBIPOutIngress records the complete USB/IP OUT payload at the server
+// receive boundary. Only a bounded, owned hex string leaves this call; the
+// server may immediately reuse its payload buffer.
+func (x *Xbox360) TraceUSBIPOutIngress(seq uint32, ep uint32, declaredLength uint32, payload []byte) {
+	if ep != 1 {
+		return
+	}
+	trace := x.rumbleTrace.Load()
+	if trace == nil {
+		return
+	}
+	trace.recordUSBIPOutIngress(seq, ep, declaredLength, payload)
+}
+
+// TraceUSBIPOutWriterAccepted records only that writeRet returned success and
+// the current writer accepted the response. It does not imply a socket flush
+// or peer receipt.
+func (x *Xbox360) TraceUSBIPOutWriterAccepted(seq uint32, ep uint32, actualLength uint32) {
+	if ep != 1 {
+		return
+	}
+	trace := x.rumbleTrace.Load()
+	if trace == nil {
+		return
+	}
+	trace.recordUSBIPOutWriterAccepted(seq, ep, actualLength)
+}
+
 // ClearRumbleTrace releases the expected terminal session after its marker has
 // been queued. Callback clearing deliberately does not call this method.
 func (x *Xbox360) ClearRumbleTrace(expected *RumbleTrace) {
@@ -119,6 +147,29 @@ func (t *RumbleTrace) recordPacket(payload []byte, recognized, callbackPresent b
 		attrs = append(attrs, "DeclaredLength", payload[1])
 	}
 	t.log("X360RumbleParsed", attrs...)
+}
+
+func (t *RumbleTrace) recordUSBIPOutIngress(seq, ep, declaredLength uint32, payload []byte) {
+	bounded := payload
+	if len(bounded) > 32 {
+		bounded = bounded[:32]
+	}
+	encodedPayload := hex.EncodeToString(bounded)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.sealed {
+		return
+	}
+	t.log("X360USBIPOutIngress", "USBIPSeq", seq, "Endpoint", ep, "DeclaredLength", declaredLength, "Payload", encodedPayload)
+}
+
+func (t *RumbleTrace) recordUSBIPOutWriterAccepted(seq, ep, actualLength uint32) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.sealed {
+		return
+	}
+	t.log("X360USBIPOutWriterAccepted", "USBIPSeq", seq, "Endpoint", ep, "ActualLength", actualLength)
 }
 
 func (t *RumbleTrace) log(event string, attrs ...any) {

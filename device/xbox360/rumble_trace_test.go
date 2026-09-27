@@ -70,6 +70,8 @@ func TestRumbleTraceDisabledPreservesCallbackBehavior(t *testing.T) {
 	}
 	var callbacks []XRumbleState
 	pad.SetRumbleCallback(func(state XRumbleState) { callbacks = append(callbacks, state) })
+	pad.TraceUSBIPOutIngress(11, 1, 8, []byte{0, 8, 0, 3, 6, 0, 0, 0})
+	pad.TraceUSBIPOutWriterAccepted(11, 1, 8)
 	pad.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{0, 8, 0, 3, 6, 0, 0, 0})
 	if want := []XRumbleState{{LeftMotor: 3, RightMotor: 6}}; !reflect.DeepEqual(callbacks, want) {
 		t.Fatalf("callbacks = %#v, want %#v", callbacks, want)
@@ -221,6 +223,81 @@ func TestRumbleTraceBoundsRawPayloadTo32Bytes(t *testing.T) {
 	attrs := rumbleTraceRecordAttrs(records[1])
 	if fmt.Sprint(attrs["Length"]) != "40" || attrs["Payload"] != hex.EncodeToString(payload[:32]) {
 		t.Fatalf("bounded raw record = %+v", attrs)
+	}
+}
+
+func TestRumbleTraceRecordsUSBIPOutBoundariesWithoutChangingTraceSeq(t *testing.T) {
+	pad, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := &rumbleTraceTestHandler{}
+	trace := pad.InstallRumbleTrace(slog.New(handler), 76, 8)
+
+	payload := []byte{0, 8, 0, 3, 6, 0, 0, 0}
+	payload = append(payload, make([]byte, 32)...)
+	wantPayload := append([]byte(nil), payload...)
+	pad.TraceUSBIPOutIngress(303, 1, uint32(len(payload)), payload)
+	for i := range payload {
+		payload[i] = 0xff
+	}
+	pad.SetRumbleCallback(func(XRumbleState) {})
+	pad.HandleTransfer(context.Background(), 1, usbip.DirOut, wantPayload)
+	pad.TraceUSBIPOutWriterAccepted(303, 1, uint32(len(wantPayload)))
+	pad.TraceUSBIPOutIngress(304, 2, uint32(len(wantPayload)), wantPayload)
+	pad.TraceUSBIPOutWriterAccepted(304, 2, uint32(len(wantPayload)))
+
+	records := handler.snapshot()
+	assertRumbleTraceProcessIdentity(t, records)
+	if len(records) != 6 {
+		t.Fatalf("record count = %d, want Start + ingress + raw + parsed + dispatch + writer-accepted", len(records))
+	}
+	wantEvents := []string{
+		"X360RumbleTraceStart", "X360USBIPOutIngress", "X360RumbleRaw", "X360RumbleParsed",
+		"X360RumbleCallbackDispatch", "X360USBIPOutWriterAccepted",
+	}
+	for i, record := range records {
+		attrs := rumbleTraceRecordAttrs(record)
+		if attrs["Event"] != wantEvents[i] || fmt.Sprint(attrs["BusID"]) != "76" || fmt.Sprint(attrs["DeviceID"]) != "8" || fmt.Sprint(attrs["TraceSessionID"]) != fmt.Sprint(trace.sessionID) {
+			t.Fatalf("record %d identity/event = %+v, want %s for session %d", i, attrs, wantEvents[i], trace.sessionID)
+		}
+	}
+	ingress := rumbleTraceRecordAttrs(records[1])
+	if fmt.Sprint(ingress["USBIPSeq"]) != "303" || fmt.Sprint(ingress["Endpoint"]) != "1" || fmt.Sprint(ingress["DeclaredLength"]) != fmt.Sprint(len(wantPayload)) || ingress["Payload"] != hex.EncodeToString(wantPayload[:32]) {
+		t.Fatalf("ingress record = %+v", ingress)
+	}
+	if _, hasTraceSeq := ingress["TraceSeq"]; hasTraceSeq {
+		t.Fatalf("ingress unexpectedly consumed or exposed device TraceSeq: %+v", ingress)
+	}
+	raw := rumbleTraceRecordAttrs(records[2])
+	parsed := rumbleTraceRecordAttrs(records[3])
+	dispatch := rumbleTraceRecordAttrs(records[4])
+	for _, record := range []map[string]any{raw, parsed, dispatch} {
+		if record["TraceSeq"] != uint64(1) || fmt.Sprint(record["ProcessID"]) != fmt.Sprint(ingress["ProcessID"]) || fmt.Sprint(record["BusID"]) != fmt.Sprint(ingress["BusID"]) || fmt.Sprint(record["DeviceID"]) != fmt.Sprint(ingress["DeviceID"]) || fmt.Sprint(record["TraceSessionID"]) != fmt.Sprint(ingress["TraceSessionID"]) {
+			t.Fatalf("device packet identity/sequence diverged from its trace session: ingress=%+v record=%+v", ingress, record)
+		}
+	}
+	if fmt.Sprint(raw["Length"]) != fmt.Sprint(len(wantPayload)) || raw["Payload"] != hex.EncodeToString(wantPayload[:32]) {
+		t.Fatalf("raw record = %+v", raw)
+	}
+	accepted := rumbleTraceRecordAttrs(records[5])
+	if fmt.Sprint(accepted["USBIPSeq"]) != "303" || fmt.Sprint(accepted["Endpoint"]) != "1" || fmt.Sprint(accepted["ActualLength"]) != fmt.Sprint(len(wantPayload)) {
+		t.Fatalf("writer-accepted record = %+v", accepted)
+	}
+	if _, hasTraceSeq := accepted["TraceSeq"]; hasTraceSeq {
+		t.Fatalf("writer-accepted unexpectedly consumed or exposed device TraceSeq: %+v", accepted)
+	}
+}
+
+func TestRumbleTraceUSBIPBoundaryHooksAreNoopWithoutSession(t *testing.T) {
+	pad, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pad.TraceUSBIPOutIngress(1, 1, 3, []byte{1, 2, 3})
+	pad.TraceUSBIPOutWriterAccepted(1, 1, 3)
+	if pad.RumbleTraceSession() != nil {
+		t.Fatal("USB/IP boundary hooks installed a trace session implicitly")
 	}
 }
 
