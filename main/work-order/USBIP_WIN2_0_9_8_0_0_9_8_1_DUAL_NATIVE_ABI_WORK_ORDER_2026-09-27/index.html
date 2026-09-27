@@ -1917,10 +1917,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#69-existing-timing-semantics" class="md-nav__link">
+  <a href="#69-existing-timing-semantics-and-required-abi-evidence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.9 Existing timing semantics
+        6.9 Existing timing semantics and required ABI evidence
       
     </span>
   </a>
@@ -2237,54 +2237,68 @@
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>WindowsUsbIpWin2PackageProbe
 </code></pre></div>
 <p>Use the same official package evidence in VIIPER.</p>
+<p>Important lifecycle qualification:</p>
+<p>Both official 0.9.8.0 and 0.9.8.1 Inno Setup scripts declare:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>AlwaysRestart=yes
+</code></pre></div>
+<p><code>DisplayVersion</code> is the installed package record. It is the correct package-version authority for choosing the supported ABI, but it is not independent proof that a newly installed kernel driver is already the driver currently loaded by Windows if a required restart has not yet completed.</p>
+<p>Therefore:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>runtime ABI selection
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    -&gt; use official package DisplayVersion
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>hardware validation after installing/switching usbip-win2 versions
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    -&gt; complete the installer-required Windows restart first
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    -&gt; only then launch the canonical VIIPER validation build
+</code></pre></div>
+<p>Do not add a driver-hash inspector, loaded-driver version authority, INF parser, or trial IOCTL mechanism solely to defend against a deliberately deferred required restart. Treat completed restart after install/version transition as an explicit validation/adoption precondition.</p>
 <p>Do not create a second version authority based on driver hashes, timestamps, INF scraping, executable path guessing, or trial IOCTLs.</p>
 <hr />
 <h2 id="3-current-fork-behavior-that-must-be-preserved">3. Current fork behavior that must be preserved</h2>
 <p>Read current versions of:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>FORK_ARCHITECTURE.md
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>docs/libviiper/fork-api.md
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>internal/server/api/autoattach.go
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>internal/server/api/autoattach_contract.go
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>internal/server/api/autoattach_windows.go
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>internal/server/api/autoattach_windows_test.go
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>internal/server/api/config_windows.go
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
-<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>lib/viiper/attachment_test.go
-<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>lib/viiper/classified_attachment_test.go
-<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>lib/viiper/attach_invariants_test.go
-<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>lib/viiper/attachment_state_query_test.go
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>FORK_ARCHITECTURE.md
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>docs/libviiper/fork-api.md
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>internal/server/api/autoattach.go
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>internal/server/api/autoattach_contract.go
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>internal/server/api/autoattach_windows.go
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>internal/server/api/autoattach_windows_test.go
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>internal/server/api/config_windows.go
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>lib/viiper/attachment_test.go
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>lib/viiper/classified_attachment_test.go
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>lib/viiper/attach_invariants_test.go
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>lib/viiper/attachment_state_query_test.go
 </code></pre></div>
 <p>Also read the historical work orders for context only:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>docs/work-order/PR2_USBIP_WIN2_0_9_8_0_LOW_LATENCY_ATTACH_WORK_ORDER.md
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>docs/work-order/PR3_USBIP_WIN2_0_9_8_0_MSVC_ABI_PADDING_FIX_WORK_ORDER.md
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>docs/work-order/PR2_USBIP_WIN2_0_9_8_0_LOW_LATENCY_ATTACH_WORK_ORDER.md
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>docs/work-order/PR3_USBIP_WIN2_0_9_8_0_MSVC_ABI_PADDING_FIX_WORK_ORDER.md
 </code></pre></div>
 <p>Do not treat the old PR2 low-latency policy as current. Current main has intentionally restored Windows localhost attach to <strong>zero-copy</strong>.</p>
 <p>Current required transport policy remains:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>native WskEvents = false
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>command --receive-mode=zero-copy
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>native WskEvents = false
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>command --receive-mode=zero-copy
 </code></pre></div>
 <p>Do not change it in this PR.</p>
 <p>Current tracked attachment safety remains:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>native pre-submit failure
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    -&gt; known failure
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>    -&gt; existing command fallback may run
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>native DeviceIoControl submitted and returns error
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>    -&gt; ErrAttachmentOutcomeUnknown
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    -&gt; no command fallback
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>
-<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>unexpected native response length
-<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>    -&gt; ErrAttachmentOutcomeUnknown
-<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>    -&gt; no command fallback
-<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>
-<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>non-positive native import port
-<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>    -&gt; ErrAttachmentOutcomeUnknown
-<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a>    -&gt; no command fallback
-<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>
-<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>success
-<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>    -&gt; retain exact backend + exact positive import port
-<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a>    -&gt; detach that exact port only
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>native pre-submit failure
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>    -&gt; known failure
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>    -&gt; existing command fallback may run
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>native DeviceIoControl submitted and returns error
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>    -&gt; ErrAttachmentOutcomeUnknown
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>    -&gt; no command fallback
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>unexpected native response length
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a>    -&gt; ErrAttachmentOutcomeUnknown
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a>    -&gt; no command fallback
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a>
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a>non-positive native import port
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>    -&gt; ErrAttachmentOutcomeUnknown
+<a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a>    -&gt; no command fallback
+<a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a>
+<a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a>success
+<a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a>    -&gt; retain exact backend + exact positive import port
+<a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a>    -&gt; detach that exact port only
 </code></pre></div>
 <p>Preserve this contract exactly.</p>
 <hr />
@@ -2292,48 +2306,48 @@
 <h3 id="41-detect-abi-before-device-submission">4.1 Detect ABI before device submission</h3>
 <p>Add one small Windows-only installed-version reader.</p>
 <p>Preferred implementation uses the already-present <code>golang.org/x/sys</code> dependency:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">import</span><span class="w"> </span><span class="s">"golang.org/x/sys/windows/registry"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="kn">import</span><span class="w"> </span><span class="s">"golang.org/x/sys/windows/registry"</span>
 </code></pre></div>
 <p>Read:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>HKLM
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>{199505b0-b93d-4521-a8c7-897818e0205a}_is1
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>DisplayVersion
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>HKLM
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>{199505b0-b93d-4521-a8c7-897818e0205a}_is1
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>DisplayVersion
 </code></pre></div>
 <p>Use the 64-bit registry view matching the official x64 installer.</p>
 <p>Do not shell out to PowerShell, <code>reg.exe</code>, WMIC, or <code>usbip -V</code> for native ABI selection.</p>
 <p>A minimal internal enum is sufficient:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">usbipWin2NativeABI</span><span class="w"> </span><span class="kt">uint8</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">    </span><span class="nx">usbipWin2NativeABIUnknown</span><span class="w"> </span><span class="nx">usbipWin2NativeABI</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">iota</span>
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">    </span><span class="nx">usbipWin2NativeABI0980</span>
-<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">    </span><span class="nx">usbipWin2NativeABI0981</span>
-<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">usbipWin2NativeABI</span><span class="w"> </span><span class="kt">uint8</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="kd">const</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="w">    </span><span class="nx">usbipWin2NativeABIUnknown</span><span class="w"> </span><span class="nx">usbipWin2NativeABI</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">iota</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="w">    </span><span class="nx">usbipWin2NativeABI0980</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="w">    </span><span class="nx">usbipWin2NativeABI0981</span>
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="p">)</span>
 </code></pre></div>
 <p>Exact version mapping:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>"0.9.8.0" -&gt; usbipWin2NativeABI0980
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>"0.9.8.1" -&gt; usbipWin2NativeABI0981
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>anything else -&gt; unsupported
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>"0.9.8.0" -&gt; usbipWin2NativeABI0980
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>"0.9.8.1" -&gt; usbipWin2NativeABI0981
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>anything else -&gt; unsupported
 </code></pre></div>
 <p>Trimming surrounding whitespace is acceptable.</p>
 <p>Do not add semver libraries.</p>
 <p>Do not add a generalized package-version service or registry manager.</p>
 <h3 id="42-detection-must-happen-before-native-ownership-can-become-ambiguous">4.2 Detection must happen before native ownership can become ambiguous</h3>
 <p>The order should be:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>validate function arguments
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>-&gt; read installed package version
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>-&gt; choose exact native ABI
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>-&gt; build exact request
-<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>-&gt; discover VHCI interface
-<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>-&gt; open handle
-<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>-&gt; DeviceIoControl exactly once
-<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>-&gt; validate exact 8-byte response prefix and positive port
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>validate function arguments
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>-&gt; read installed package version
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>-&gt; choose exact native ABI
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>-&gt; build exact request
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>-&gt; discover VHCI interface
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>-&gt; open handle
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>-&gt; DeviceIoControl exactly once
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>-&gt; validate exact 8-byte response prefix and positive port
 </code></pre></div>
 <p>If registry access fails, <code>DisplayVersion</code> is missing/malformed, or the version is unsupported:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>DeviceIoControl must not run
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>backendCalled=false
-<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>return an ordinary known pre-submit error
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>DeviceIoControl must not run
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>backendCalled=false
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>return an ordinary known pre-submit error
 </code></pre></div>
 <p>Do not classify a failure that occurs before native IOCTL submission as <code>ErrAttachmentOutcomeUnknown</code>.</p>
 <p>The existing fallback layer may handle that known failure according to its current policy.</p>
@@ -2342,57 +2356,57 @@
 <p>Do not try to make one struct conditionally reinterpret both layouts.</p>
 <p>Use two clear Windows structs.</p>
 <p>Required conceptual shape:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL0980</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">    </span><span class="nx">Size</span><span class="w">                          </span><span class="kt">uint32</span>
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w">                    </span><span class="kt">int32</span>
-<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">                         </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="w">    </span><span class="nx">Service</span><span class="w">                       </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="w">    </span><span class="nx">Host</span><span class="w">                          </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="w">    </span><span class="nx">ImportedDeviceLocationPadding</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="w">    </span><span class="nx">Serial</span><span class="w">                        </span><span class="p">[</span><span class="nx">serialBufSize</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a><span class="w">    </span><span class="nx">WskEvents</span><span class="w">                     </span><span class="kt">bool</span>
-<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a><span class="p">}</span>
-<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>
-<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL0981</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a><span class="w">    </span><span class="nx">Size</span><span class="w">                          </span><span class="kt">uint32</span>
-<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w">                    </span><span class="kt">int32</span>
-<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a><span class="w">    </span><span class="nx">LocationHash</span><span class="w">                  </span><span class="kt">uint32</span>
-<a id="__codelineno-30-16" name="__codelineno-30-16" href="#__codelineno-30-16"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">                         </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-17" name="__codelineno-30-17" href="#__codelineno-30-17"></a><span class="w">    </span><span class="nx">Service</span><span class="w">                       </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-18" name="__codelineno-30-18" href="#__codelineno-30-18"></a><span class="w">    </span><span class="nx">Host</span><span class="w">                          </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-19" name="__codelineno-30-19" href="#__codelineno-30-19"></a><span class="w">    </span><span class="nx">ImportedDeviceLocationPadding</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-20" name="__codelineno-30-20" href="#__codelineno-30-20"></a><span class="w">    </span><span class="nx">Serial</span><span class="w">                        </span><span class="p">[</span><span class="nx">serialBufSize</span><span class="p">]</span><span class="kt">byte</span>
-<a id="__codelineno-30-21" name="__codelineno-30-21" href="#__codelineno-30-21"></a><span class="w">    </span><span class="nx">WskEvents</span><span class="w">                     </span><span class="kt">bool</span>
-<a id="__codelineno-30-22" name="__codelineno-30-22" href="#__codelineno-30-22"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL0980</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="w">    </span><span class="nx">Size</span><span class="w">                          </span><span class="kt">uint32</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w">                    </span><span class="kt">int32</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">                         </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="w">    </span><span class="nx">Service</span><span class="w">                       </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="w">    </span><span class="nx">Host</span><span class="w">                          </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a><span class="w">    </span><span class="nx">ImportedDeviceLocationPadding</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a><span class="w">    </span><span class="nx">Serial</span><span class="w">                        </span><span class="p">[</span><span class="nx">serialBufSize</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a><span class="w">    </span><span class="nx">WskEvents</span><span class="w">                     </span><span class="kt">bool</span>
+<a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a><span class="p">}</span>
+<a id="__codelineno-32-11" name="__codelineno-32-11" href="#__codelineno-32-11"></a>
+<a id="__codelineno-32-12" name="__codelineno-32-12" href="#__codelineno-32-12"></a><span class="kd">type</span><span class="w"> </span><span class="nx">attachIOCTL0981</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-32-13" name="__codelineno-32-13" href="#__codelineno-32-13"></a><span class="w">    </span><span class="nx">Size</span><span class="w">                          </span><span class="kt">uint32</span>
+<a id="__codelineno-32-14" name="__codelineno-32-14" href="#__codelineno-32-14"></a><span class="w">    </span><span class="nx">PortOutput</span><span class="w">                    </span><span class="kt">int32</span>
+<a id="__codelineno-32-15" name="__codelineno-32-15" href="#__codelineno-32-15"></a><span class="w">    </span><span class="nx">LocationHash</span><span class="w">                  </span><span class="kt">uint32</span>
+<a id="__codelineno-32-16" name="__codelineno-32-16" href="#__codelineno-32-16"></a><span class="w">    </span><span class="nx">BusID</span><span class="w">                         </span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-17" name="__codelineno-32-17" href="#__codelineno-32-17"></a><span class="w">    </span><span class="nx">Service</span><span class="w">                       </span><span class="p">[</span><span class="nx">niMaxServ</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-18" name="__codelineno-32-18" href="#__codelineno-32-18"></a><span class="w">    </span><span class="nx">Host</span><span class="w">                          </span><span class="p">[</span><span class="nx">niMaxHost</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-19" name="__codelineno-32-19" href="#__codelineno-32-19"></a><span class="w">    </span><span class="nx">ImportedDeviceLocationPadding</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-20" name="__codelineno-32-20" href="#__codelineno-32-20"></a><span class="w">    </span><span class="nx">Serial</span><span class="w">                        </span><span class="p">[</span><span class="nx">serialBufSize</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-32-21" name="__codelineno-32-21" href="#__codelineno-32-21"></a><span class="w">    </span><span class="nx">WskEvents</span><span class="w">                     </span><span class="kt">bool</span>
+<a id="__codelineno-32-22" name="__codelineno-32-22" href="#__codelineno-32-22"></a><span class="p">}</span>
 </code></pre></div>
 <p>Do not embed one ABI struct inside another.</p>
 <p>Do not use a packed byte serializer, reflection marshaller, CGo layout shim, generated ABI layer, or version-strategy class hierarchy.</p>
 <p>Two external ABIs are supported; two explicit structs are simpler and easier to audit.</p>
 <h3 id="44-request-construction">4.4 Request construction</h3>
 <p>For both versions preserve:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>Size      = exact sizeof(selected request)
-<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>Port      = initially zero / driver output
-<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>BusID     = exact exported "&lt;bus&gt;-&lt;device&gt;"
-<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>Service   = exact local VIIPER USB/IP listen port
-<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a>Host      = "127.0.0.1"
-<a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a>Serial    = zero-filled unless an existing authoritative source already exists
-<a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a>WskEvents = false
-<a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a>padding   = zero
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>Size      = exact sizeof(selected request)
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>Port      = initially zero / driver output
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>BusID     = exact exported "&lt;bus&gt;-&lt;device&gt;"
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>Service   = exact local VIIPER USB/IP listen port
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>Host      = "127.0.0.1"
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>Serial    = zero-filled unless an existing authoritative source already exists
+<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>WskEvents = false
+<a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a>padding   = zero
 </code></pre></div>
 <p>For 0.9.8.1 additionally preserve:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>LocationHash = 0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>LocationHash = 0
 </code></pre></div>
 <p>Do not make receive mode version-dependent.</p>
 <h3 id="45-keep-the-native-deviceiocontrol-seam-small">4.5 Keep the native DeviceIoControl seam small</h3>
 <p>Current <code>nativeAttachOps.pluginHardware</code> is typed to the single 0.9.8.0 <code>*attachIOCTL</code>.</p>
 <p>It must be adjusted so tests can submit either explicit layout without creating a generalized ABI framework.</p>
 <p>One acceptable minimal direction is a raw request seam:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="nx">pluginHardware</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span>
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">    </span><span class="nx">handle</span><span class="w"> </span><span class="nx">windows</span><span class="p">.</span><span class="nx">Handle</span><span class="p">,</span>
-<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="w">    </span><span class="nx">request</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span>
-<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">    </span><span class="nx">inputLength</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span>
-<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="w">    </span><span class="nx">outputLength</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span>
-<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">bytesReturned</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="nx">pluginHardware</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="w">    </span><span class="nx">handle</span><span class="w"> </span><span class="nx">windows</span><span class="p">.</span><span class="nx">Handle</span><span class="p">,</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="w">    </span><span class="nx">request</span><span class="w"> </span><span class="nx">unsafe</span><span class="p">.</span><span class="nx">Pointer</span><span class="p">,</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a><span class="w">    </span><span class="nx">inputLength</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span>
+<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a><span class="w">    </span><span class="nx">outputLength</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span>
+<a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">bytesReturned</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
 </code></pre></div>
 <p>The production implementation remains one thin <code>windows.DeviceIoControl</code> call.</p>
 <p>Tests may cast the request to <code>*attachIOCTL0980</code> or <code>*attachIOCTL0981</code> based on the already-selected ABI/input length.</p>
@@ -2408,24 +2422,24 @@
 </ul>
 <h3 id="46-output-prefix-remains-common">4.6 Output prefix remains common</h3>
 <p>The response required by VIIPER remains only:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>Size + PortOutput prefix = 8 bytes
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>Size + PortOutput prefix = 8 bytes
 </code></pre></div>
 <p>For both versions:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>outputLength = 8
-<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>bytesReturned must equal 8
-<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>PortOutput must be &gt; 0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>outputLength = 8
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>bytesReturned must equal 8
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>PortOutput must be &gt; 0
 </code></pre></div>
 <p>Do not read <code>location_hash</code> as part of successful ownership validation.</p>
 <p>The native driver may modify more of the METHOD_BUFFERED system buffer internally, but VIIPER's authoritative result remains the exact positive import port returned in the established output prefix.</p>
 <h3 id="47-detach-abi-does-not-change">4.7 Detach ABI does not change</h3>
 <p>Both releases retain:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">plugout_hardware</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">base</span>
-<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="p">{</span>
-<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">port</span><span class="p">;</span>
-<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="p">};</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">plugout_hardware</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">base</span>
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a><span class="p">{</span>
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a><span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">port</span><span class="p">;</span>
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a><span class="p">};</span>
 </code></pre></div>
 <p>Therefore:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>sizeof(plugout_hardware) = 8
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>sizeof(plugout_hardware) = 8
 </code></pre></div>
 <p>Do not add a version branch to native detach.</p>
 <p>Continue detaching only the exact positive port retained from the successful attach.</p>
@@ -2434,15 +2448,15 @@
 <p>Tests must never depend on the developer machine's real usbip-win2 installation.</p>
 <p>Add the smallest injectable seam to the existing Windows native test operations.</p>
 <p>For example, extending <code>nativeAttachOps</code> with a function such as:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="nx">readInstalledVersion</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="nx">readInstalledVersion</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
 </code></pre></div>
 <p>is acceptable.</p>
 <p>Production uses the real registry reader.</p>
 <p>Tests return deterministic values:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>0.9.8.0
-<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>0.9.8.1
-<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>unsupported
-<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a>missing/error
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>0.9.8.0
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>0.9.8.1
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>unsupported
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>missing/error
 </code></pre></div>
 <p>Do not add a mock framework.</p>
 <p>Do not mutate HKLM from tests.</p>
@@ -2451,148 +2465,181 @@
 <p>Update <code>internal/server/api/autoattach_windows_test.go</code>.</p>
 <h3 id="61-pin-the-0980-abi-independently">6.1 Pin the 0.9.8.0 ABI independently</h3>
 <p>Keep a dedicated numeric ABI test proving:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>Size offset       = 0
-<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>Port offset       = 4
-<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>BusID offset      = 8
-<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>Service offset    = 40
-<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>Host offset       = 72
-<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>Serial offset     = 1100
-<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a>WskEvents offset  = 1116
-<a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a>WskEvents size    = 1
-<a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a>request size      = 1120
-<a id="__codelineno-40-10" name="__codelineno-40-10" href="#__codelineno-40-10"></a>response size     = 8
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>Size offset       = 0
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>Port offset       = 4
+<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>BusID offset      = 8
+<a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a>Service offset    = 40
+<a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a>Host offset       = 72
+<a id="__codelineno-42-6" name="__codelineno-42-6" href="#__codelineno-42-6"></a>Serial offset     = 1100
+<a id="__codelineno-42-7" name="__codelineno-42-7" href="#__codelineno-42-7"></a>WskEvents offset  = 1116
+<a id="__codelineno-42-8" name="__codelineno-42-8" href="#__codelineno-42-8"></a>WskEvents size    = 1
+<a id="__codelineno-42-9" name="__codelineno-42-9" href="#__codelineno-42-9"></a>request size      = 1120
+<a id="__codelineno-42-10" name="__codelineno-42-10" href="#__codelineno-42-10"></a>response size     = 8
 </code></pre></div>
 <p>Do not weaken the existing 0.9.8.0 regression coverage.</p>
 <h3 id="62-add-a-dedicated-0981-abi-test">6.2 Add a dedicated 0.9.8.1 ABI test</h3>
 <p>Pin:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>Size offset          = 0
-<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>Port offset          = 4
-<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>LocationHash offset  = 8
-<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>BusID offset         = 12
-<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>Service offset       = 44
-<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a>Host offset          = 76
-<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a>Serial offset        = 1104
-<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a>WskEvents offset     = 1120
-<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a>WskEvents size       = 1
-<a id="__codelineno-41-10" name="__codelineno-41-10" href="#__codelineno-41-10"></a>request size         = 1124
-<a id="__codelineno-41-11" name="__codelineno-41-11" href="#__codelineno-41-11"></a>response size        = 8
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>Size offset          = 0
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>Port offset          = 4
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>LocationHash offset  = 8
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>BusID offset         = 12
+<a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>Service offset       = 44
+<a id="__codelineno-43-6" name="__codelineno-43-6" href="#__codelineno-43-6"></a>Host offset          = 76
+<a id="__codelineno-43-7" name="__codelineno-43-7" href="#__codelineno-43-7"></a>Serial offset        = 1104
+<a id="__codelineno-43-8" name="__codelineno-43-8" href="#__codelineno-43-8"></a>WskEvents offset     = 1120
+<a id="__codelineno-43-9" name="__codelineno-43-9" href="#__codelineno-43-9"></a>WskEvents size       = 1
+<a id="__codelineno-43-10" name="__codelineno-43-10" href="#__codelineno-43-10"></a>request size         = 1124
+<a id="__codelineno-43-11" name="__codelineno-43-11" href="#__codelineno-43-11"></a>response size        = 8
 </code></pre></div>
 <p>Also keep:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>BUS_ID_SIZE = 32
-<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>NI_MAXSERV  = 32
-<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>NI_MAXHOST  = 1025
-<a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a>SERIAL_BUFSZ = 16
-<a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a>plugout_hardware size = 8
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>BUS_ID_SIZE = 32
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>NI_MAXSERV  = 32
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>NI_MAXHOST  = 1025
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>SERIAL_BUFSZ = 16
+<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>plugout_hardware size = 8
 </code></pre></div>
 <h3 id="63-version-selection-tests">6.3 Version selection tests</h3>
 <p>Prove:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>DisplayVersion=0.9.8.0 -&gt; 0.9.8.0 request path only
-<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>DisplayVersion=0.9.8.1 -&gt; 0.9.8.1 request path only
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>DisplayVersion=0.9.8.0 -&gt; 0.9.8.0 request path only
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>DisplayVersion=0.9.8.1 -&gt; 0.9.8.1 request path only
 </code></pre></div>
 <p>For each, verify exactly one native submit.</p>
 <h3 id="64-0980-request-content">6.4 0.9.8.0 request content</h3>
 <p>Verify:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>Size = 1120
-<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>BusID correct
-<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>Service correct
-<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>Host = 127.0.0.1
-<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>padding = zero
-<a id="__codelineno-44-6" name="__codelineno-44-6" href="#__codelineno-44-6"></a>Serial = zero
-<a id="__codelineno-44-7" name="__codelineno-44-7" href="#__codelineno-44-7"></a>WskEvents = false
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>Size = 1120
+<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>BusID correct
+<a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>Service correct
+<a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a>Host = 127.0.0.1
+<a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>padding = zero
+<a id="__codelineno-46-6" name="__codelineno-46-6" href="#__codelineno-46-6"></a>Serial = zero
+<a id="__codelineno-46-7" name="__codelineno-46-7" href="#__codelineno-46-7"></a>WskEvents = false
 </code></pre></div>
 <h3 id="65-0981-request-content">6.5 0.9.8.1 request content</h3>
 <p>Verify:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>Size = 1124
-<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>LocationHash = 0
-<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a>BusID correct
-<a id="__codelineno-45-4" name="__codelineno-45-4" href="#__codelineno-45-4"></a>Service correct
-<a id="__codelineno-45-5" name="__codelineno-45-5" href="#__codelineno-45-5"></a>Host = 127.0.0.1
-<a id="__codelineno-45-6" name="__codelineno-45-6" href="#__codelineno-45-6"></a>padding = zero
-<a id="__codelineno-45-7" name="__codelineno-45-7" href="#__codelineno-45-7"></a>Serial = zero
-<a id="__codelineno-45-8" name="__codelineno-45-8" href="#__codelineno-45-8"></a>WskEvents = false
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>Size = 1124
+<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>LocationHash = 0
+<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>BusID correct
+<a id="__codelineno-47-4" name="__codelineno-47-4" href="#__codelineno-47-4"></a>Service correct
+<a id="__codelineno-47-5" name="__codelineno-47-5" href="#__codelineno-47-5"></a>Host = 127.0.0.1
+<a id="__codelineno-47-6" name="__codelineno-47-6" href="#__codelineno-47-6"></a>padding = zero
+<a id="__codelineno-47-7" name="__codelineno-47-7" href="#__codelineno-47-7"></a>Serial = zero
+<a id="__codelineno-47-8" name="__codelineno-47-8" href="#__codelineno-47-8"></a>WskEvents = false
 </code></pre></div>
 <h3 id="66-unsupported-missing-version-must-not-submit">6.6 Unsupported / missing version must not submit</h3>
 <p>For each of:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>DisplayVersion missing
-<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>registry read error
-<a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>DisplayVersion malformed
-<a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a>DisplayVersion = 0.9.7.8
-<a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>DisplayVersion = 0.9.8.2
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>DisplayVersion missing
+<a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>registry read error
+<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>DisplayVersion malformed
+<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>DisplayVersion = 0.9.7.8
+<a id="__codelineno-48-5" name="__codelineno-48-5" href="#__codelineno-48-5"></a>DisplayVersion = 0.9.8.2
 </code></pre></div>
 <p>prove:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>native DeviceIoControl call count = 0
-<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>error is a known pre-submit failure
-<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>error is NOT ErrAttachmentOutcomeUnknown
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>native DeviceIoControl call count = 0
+<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a>error is a known pre-submit failure
+<a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a>error is NOT ErrAttachmentOutcomeUnknown
 </code></pre></div>
 <p>Do not require support for those versions.</p>
 <h3 id="67-never-retry-another-abi-after-submission">6.7 Never retry another ABI after submission</h3>
 <p>For both supported versions, make the fake native <code>DeviceIoControl</code> return an error after it is called.</p>
 <p>Prove:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>native call count = 1
-<a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>result = ErrAttachmentOutcomeUnknown
-<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>no second ABI request is submitted
-<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>tracked command fallback is not invoked
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>native call count = 1
+<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>result = ErrAttachmentOutcomeUnknown
+<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>no second ABI request is submitted
+<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>tracked command fallback is not invoked
 </code></pre></div>
 <p>This is the critical safety regression test.</p>
 <p>A submitted 1120-byte request must never be followed by 1124, and a submitted 1124-byte request must never be followed by 1120.</p>
 <h3 id="68-response-validation-remains-identical">6.8 Response validation remains identical</h3>
-<p>For both selected ABIs verify:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>bytesReturned = 8 + positive port -&gt; success
-<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a>bytesReturned != 8 -&gt; unsafe outcome unknown
-<a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a>port &lt;= 0 -&gt; unsafe outcome unknown
+<p>For both selected ABIs verify the condition directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>bytesReturned == 8 &amp;&amp; PortOutput &gt; 0
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>    -&gt; success
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a>otherwise
+<a id="__codelineno-51-5" name="__codelineno-51-5" href="#__codelineno-51-5"></a>    -&gt; ErrAttachmentOutcomeUnknown
 </code></pre></div>
-<h3 id="69-existing-timing-semantics">6.9 Existing timing semantics</h3>
-<p>Preserve current timing diagnostics.</p>
-<p>At minimum:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>unsupported/missing version -&gt; backendCalled=false
-<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>DeviceIoControl submitted -&gt; backendCalled=true
-<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>submitted failure -&gt; result=unsafe-outcome-unknown
-<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>successful request -&gt; result=success
+<p>In particular:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>bytesReturned != 8 -&gt; ErrAttachmentOutcomeUnknown
+<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a>PortOutput &lt;= 0    -&gt; ErrAttachmentOutcomeUnknown
 </code></pre></div>
-<p>Do not build a new timing subsystem solely for ABI detection.</p>
-<p>Adding the detected package version / selected ABI to an existing low-volume attach diagnostic is acceptable if useful, but it must not change behavior.</p>
+<h3 id="69-existing-timing-semantics-and-required-abi-evidence">6.9 Existing timing semantics and required ABI evidence</h3>
+<p>Preserve the current low-volume <code>attachment-timing</code> diagnostics and extend the <strong>native attach</strong> timing record with mandatory ABI evidence.</p>
+<p>Every native attach timing record must include:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>installedVersion
+<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a>selectedABI
+<a id="__codelineno-53-3" name="__codelineno-53-3" href="#__codelineno-53-3"></a>inputLength
+</code></pre></div>
+<p>Required interpretation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>DisplayVersion = 0.9.8.0
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>    installedVersion = "0.9.8.0"
+<a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a>    selectedABI      = "0.9.8.0"
+<a id="__codelineno-54-4" name="__codelineno-54-4" href="#__codelineno-54-4"></a>    inputLength      = 1120
+<a id="__codelineno-54-5" name="__codelineno-54-5" href="#__codelineno-54-5"></a>
+<a id="__codelineno-54-6" name="__codelineno-54-6" href="#__codelineno-54-6"></a>DisplayVersion = 0.9.8.1
+<a id="__codelineno-54-7" name="__codelineno-54-7" href="#__codelineno-54-7"></a>    installedVersion = "0.9.8.1"
+<a id="__codelineno-54-8" name="__codelineno-54-8" href="#__codelineno-54-8"></a>    selectedABI      = "0.9.8.1"
+<a id="__codelineno-54-9" name="__codelineno-54-9" href="#__codelineno-54-9"></a>    inputLength      = 1124
+<a id="__codelineno-54-10" name="__codelineno-54-10" href="#__codelineno-54-10"></a>
+<a id="__codelineno-54-11" name="__codelineno-54-11" href="#__codelineno-54-11"></a>unsupported/malformed observed version
+<a id="__codelineno-54-12" name="__codelineno-54-12" href="#__codelineno-54-12"></a>    installedVersion = observed value when available
+<a id="__codelineno-54-13" name="__codelineno-54-13" href="#__codelineno-54-13"></a>    selectedABI      = "unsupported"
+<a id="__codelineno-54-14" name="__codelineno-54-14" href="#__codelineno-54-14"></a>    inputLength      = 0
+<a id="__codelineno-54-15" name="__codelineno-54-15" href="#__codelineno-54-15"></a>
+<a id="__codelineno-54-16" name="__codelineno-54-16" href="#__codelineno-54-16"></a>registry value unavailable/read failure
+<a id="__codelineno-54-17" name="__codelineno-54-17" href="#__codelineno-54-17"></a>    installedVersion = empty or one stable unavailable representation
+<a id="__codelineno-54-18" name="__codelineno-54-18" href="#__codelineno-54-18"></a>    selectedABI      = "unsupported"
+<a id="__codelineno-54-19" name="__codelineno-54-19" href="#__codelineno-54-19"></a>    inputLength      = 0
+</code></pre></div>
+<p>Keep the representation deterministic and cover it with focused tests. Do not log a guessed request size when no ABI was selected.</p>
+<p>Existing semantics must remain:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>unsupported/missing version -&gt; backendCalled=false
+<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>DeviceIoControl submitted   -&gt; backendCalled=true
+<a id="__codelineno-55-3" name="__codelineno-55-3" href="#__codelineno-55-3"></a>submitted failure           -&gt; result=unsafe-outcome-unknown
+<a id="__codelineno-55-4" name="__codelineno-55-4" href="#__codelineno-55-4"></a>successful request          -&gt; result=success
+</code></pre></div>
+<p>The mandatory fields are diagnostic evidence only. They must not influence fallback, ownership, retry, or teardown behavior.</p>
+<p>Do not build a new timing/logging subsystem solely for ABI detection. Reuse the existing <code>attachment-timing</code> record.</p>
 <hr />
 <h2 id="7-existing-tests-and-contracts-that-must-remain-passing">7. Existing tests and contracts that must remain passing</h2>
 <p>Preserve all current tests for:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>known native pre-submit failure -&gt; command fallback exactly once
-<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>unknown native outcome -&gt; no command fallback
-<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>command --terse exact positive-port parsing
-<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a>zero-copy command argument
-<a id="__codelineno-51-5" name="__codelineno-51-5" href="#__codelineno-51-5"></a>native exact positive-port ownership
-<a id="__codelineno-51-6" name="__codelineno-51-6" href="#__codelineno-51-6"></a>exact-port detach
-<a id="__codelineno-51-7" name="__codelineno-51-7" href="#__codelineno-51-7"></a>unknown detach -&gt; fail-close
-<a id="__codelineno-51-8" name="__codelineno-51-8" href="#__codelineno-51-8"></a>attachment-state query
-<a id="__codelineno-51-9" name="__codelineno-51-9" href="#__codelineno-51-9"></a>typed device removal
-<a id="__codelineno-51-10" name="__codelineno-51-10" href="#__codelineno-51-10"></a>server close-failed behavior
-<a id="__codelineno-51-11" name="__codelineno-51-11" href="#__codelineno-51-11"></a>managed transport drain
-<a id="__codelineno-51-12" name="__codelineno-51-12" href="#__codelineno-51-12"></a>X360 USB/IP OUT diagnostic tracing
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a>known native pre-submit failure -&gt; command fallback exactly once
+<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a>unknown native outcome -&gt; no command fallback
+<a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a>command --terse exact positive-port parsing
+<a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a>zero-copy command argument
+<a id="__codelineno-56-5" name="__codelineno-56-5" href="#__codelineno-56-5"></a>native exact positive-port ownership
+<a id="__codelineno-56-6" name="__codelineno-56-6" href="#__codelineno-56-6"></a>exact-port detach
+<a id="__codelineno-56-7" name="__codelineno-56-7" href="#__codelineno-56-7"></a>unknown detach -&gt; fail-close
+<a id="__codelineno-56-8" name="__codelineno-56-8" href="#__codelineno-56-8"></a>attachment-state query
+<a id="__codelineno-56-9" name="__codelineno-56-9" href="#__codelineno-56-9"></a>typed device removal
+<a id="__codelineno-56-10" name="__codelineno-56-10" href="#__codelineno-56-10"></a>server close-failed behavior
+<a id="__codelineno-56-11" name="__codelineno-56-11" href="#__codelineno-56-11"></a>managed transport drain
+<a id="__codelineno-56-12" name="__codelineno-56-12" href="#__codelineno-56-12"></a>X360 USB/IP OUT diagnostic tracing
 </code></pre></div>
 <p>Do not weaken an existing assertion just to accommodate the new ABI branch.</p>
 <hr />
 <h2 id="8-current-documentation-updates-required-in-implementation-pr">8. Current documentation updates required in implementation PR</h2>
 <p>Update current authoritative fork documentation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>FORK_ARCHITECTURE.md
-<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a>docs/libviiper/fork-api.md
+<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a>FORK_ARCHITECTURE.md
+<a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>docs/libviiper/fork-api.md
 </code></pre></div>
 <p>Replace the current single-version claim:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>tracked native ABI is pinned to usbip-win2 v0.9.8.0
-<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a>later versions are not claimed compatible
+<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a>tracked native ABI is pinned to usbip-win2 v0.9.8.0
+<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a>later versions are not claimed compatible
 </code></pre></div>
 <p>with the factual supported matrix:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>Windows tracked native attach supports:
-<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>- usbip-win2 0.9.8.0 native plugin_hardware ABI
-<a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a>- usbip-win2 0.9.8.1 native plugin_hardware ABI
-<a id="__codelineno-54-4" name="__codelineno-54-4" href="#__codelineno-54-4"></a>
-<a id="__codelineno-54-5" name="__codelineno-54-5" href="#__codelineno-54-5"></a>Selection is based on the official installed package DisplayVersion
-<a id="__codelineno-54-6" name="__codelineno-54-6" href="#__codelineno-54-6"></a>before native DeviceIoControl submission.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a>Windows tracked native attach supports:
+<a id="__codelineno-59-2" name="__codelineno-59-2" href="#__codelineno-59-2"></a>- usbip-win2 0.9.8.0 native plugin_hardware ABI
+<a id="__codelineno-59-3" name="__codelineno-59-3" href="#__codelineno-59-3"></a>- usbip-win2 0.9.8.1 native plugin_hardware ABI
+<a id="__codelineno-59-4" name="__codelineno-59-4" href="#__codelineno-59-4"></a>
+<a id="__codelineno-59-5" name="__codelineno-59-5" href="#__codelineno-59-5"></a>Selection is based on the official installed package DisplayVersion
+<a id="__codelineno-59-6" name="__codelineno-59-6" href="#__codelineno-59-6"></a>before native DeviceIoControl submission.
 </code></pre></div>
 <p>Document that:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>0.9.8.0 -&gt; 1120-byte request
-<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>0.9.8.1 -&gt; 1124-byte request with zero-initialized location_hash
-<a id="__codelineno-55-3" name="__codelineno-55-3" href="#__codelineno-55-3"></a>both -&gt; zero-copy
-<a id="__codelineno-55-4" name="__codelineno-55-4" href="#__codelineno-55-4"></a>both -&gt; exact positive imported-port ownership
-<a id="__codelineno-55-5" name="__codelineno-55-5" href="#__codelineno-55-5"></a>detach -&gt; common 8-byte plugout_hardware ABI
-<a id="__codelineno-55-6" name="__codelineno-55-6" href="#__codelineno-55-6"></a>unknown versions -&gt; no native ABI guess
+<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a>0.9.8.0 -&gt; 1120-byte request
+<a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a>0.9.8.1 -&gt; 1124-byte request with zero-initialized location_hash
+<a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>both -&gt; zero-copy
+<a id="__codelineno-60-4" name="__codelineno-60-4" href="#__codelineno-60-4"></a>both -&gt; exact positive imported-port ownership
+<a id="__codelineno-60-5" name="__codelineno-60-5" href="#__codelineno-60-5"></a>detach -&gt; common 8-byte plugout_hardware ABI
+<a id="__codelineno-60-6" name="__codelineno-60-6" href="#__codelineno-60-6"></a>unknown versions -&gt; no native ABI guess
 </code></pre></div>
 <p>Do not rewrite historical work orders PR2/PR3. They remain historical implementation records.</p>
 <p>If another current document still states that only 0.9.8.0 is supported, update that current statement only.</p>
@@ -2630,10 +2677,10 @@
 <hr />
 <h2 id="10-expected-implementation-scope">10. Expected implementation scope</h2>
 <p>Expected primary source files:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a>internal/server/api/autoattach_windows.go
-<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a>internal/server/api/autoattach_windows_test.go
-<a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a>FORK_ARCHITECTURE.md
-<a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a>docs/libviiper/fork-api.md
+<div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a>internal/server/api/autoattach_windows.go
+<a id="__codelineno-61-2" name="__codelineno-61-2" href="#__codelineno-61-2"></a>internal/server/api/autoattach_windows_test.go
+<a id="__codelineno-61-3" name="__codelineno-61-3" href="#__codelineno-61-3"></a>FORK_ARCHITECTURE.md
+<a id="__codelineno-61-4" name="__codelineno-61-4" href="#__codelineno-61-4"></a>docs/libviiper/fork-api.md
 </code></pre></div>
 <p>A very small Windows-only helper file is acceptable if it makes registry reading materially clearer, but do not create a package/service solely for one registry value.</p>
 <p><code>go.mod</code> should not require a new module dependency because <code>golang.org/x/sys</code> is already present.</p>
@@ -2642,53 +2689,68 @@
 <h2 id="11-required-verification">11. Required verification</h2>
 <p>Run the repository's normal checks from current main plus focused Windows coverage.</p>
 <p>At minimum:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a>go test -count=1 ./internal/server/api
-<a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>go test ./lib/viiper/...
-<a id="__codelineno-57-3" name="__codelineno-57-3" href="#__codelineno-57-3"></a>go test ./...
-<a id="__codelineno-57-4" name="__codelineno-57-4" href="#__codelineno-57-4"></a>go vet ./...
-<a id="__codelineno-57-5" name="__codelineno-57-5" href="#__codelineno-57-5"></a>git diff --check
-<a id="__codelineno-57-6" name="__codelineno-57-6" href="#__codelineno-57-6"></a>just build-libVIIPER Release
-<a id="__codelineno-57-7" name="__codelineno-57-7" href="#__codelineno-57-7"></a>go run ./lib/viiper/exportverify   -header dist/libVIIPER/libVIIPER.h   -def dist/libVIIPER/libVIIPER.def
+<div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a>go test -count=1 ./internal/server/api
+<a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a>go test ./lib/viiper/...
+<a id="__codelineno-62-3" name="__codelineno-62-3" href="#__codelineno-62-3"></a>go test ./...
+<a id="__codelineno-62-4" name="__codelineno-62-4" href="#__codelineno-62-4"></a>go vet ./...
+<a id="__codelineno-62-5" name="__codelineno-62-5" href="#__codelineno-62-5"></a>git diff --check
+<a id="__codelineno-62-6" name="__codelineno-62-6" href="#__codelineno-62-6"></a>just build-libVIIPER Release
+<a id="__codelineno-62-7" name="__codelineno-62-7" href="#__codelineno-62-7"></a>go run ./lib/viiper/exportverify   -header dist/libVIIPER/libVIIPER.h   -def dist/libVIIPER/libVIIPER.def
 </code></pre></div>
 <p>The Windows-only ABI and registry-selection tests must execute on a Windows CI runner.</p>
 <p>Expected public ABI result:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a>no new exported C function
-<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a>no generated libVIIPER.h semantic change
-<a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a>no export-list change
+<div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a>no new exported C function
+<a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a>no generated libVIIPER.h semantic change
+<a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a>no export-list change
 </code></pre></div>
 <p>If the public C ABI changes, stop and investigate.</p>
 <hr />
 <h2 id="12-hardware-validation-after-implementation">12. Hardware validation after implementation</h2>
 <p>Do not update SteamInputAddonforClaw's prerequisite pin yet.</p>
 <p>First produce a canonical VIIPER artifact and validate both package versions separately on real MSI Claw hardware.</p>
+<p>Because both official installers specify <code>AlwaysRestart=yes</code>, every install or version transition used for this validation has a hard preparation rule:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a>install/switch target usbip-win2 package
+<a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a>-&gt; complete the required Windows restart
+<a id="__codelineno-64-3" name="__codelineno-64-3" href="#__codelineno-64-3"></a>-&gt; sign back in
+<a id="__codelineno-64-4" name="__codelineno-64-4" href="#__codelineno-64-4"></a>-&gt; only then launch the canonical VIIPER validation build
+</code></pre></div>
+<p>Do not treat a newly written <code>DisplayVersion</code> value, before that restart, as proof that the currently loaded kernel driver matches the package record.</p>
 <h3 id="121-usbip-win2-0980-regression">12.1 usbip-win2 0.9.8.0 regression</h3>
 <p>With official 0.9.8.0 installed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a>1. Confirm registry DisplayVersion = 0.9.8.0.
-<a id="__codelineno-59-2" name="__codelineno-59-2" href="#__codelineno-59-2"></a>2. Start canonical VIIPER path.
-<a id="__codelineno-59-3" name="__codelineno-59-3" href="#__codelineno-59-3"></a>3. Confirm selected native ABI = 0.9.8.0 / 1120 bytes.
-<a id="__codelineno-59-4" name="__codelineno-59-4" href="#__codelineno-59-4"></a>4. Confirm native attach returns bytesReturned=8 and port&gt;0.
-<a id="__codelineno-59-5" name="__codelineno-59-5" href="#__codelineno-59-5"></a>5. Confirm Xbox360 presentation works.
-<a id="__codelineno-59-6" name="__codelineno-59-6" href="#__codelineno-59-6"></a>6. Confirm SteamDeck presentation transition works.
-<a id="__codelineno-59-7" name="__codelineno-59-7" href="#__codelineno-59-7"></a>7. Confirm exact-port detach and reattach work.
-<a id="__codelineno-59-8" name="__codelineno-59-8" href="#__codelineno-59-8"></a>8. Confirm Runtime restart recovery.
-<a id="__codelineno-59-9" name="__codelineno-59-9" href="#__codelineno-59-9"></a>9. Confirm one Sleep/Resume cycle.
-<a id="__codelineno-59-10" name="__codelineno-59-10" href="#__codelineno-59-10"></a>10. Confirm existing X360 output/rumble diagnostics remain operational.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a>1. Install/switch to official usbip-win2 0.9.8.0 and complete the required Windows restart.
+<a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a>2. After reboot, confirm registry DisplayVersion = 0.9.8.0.
+<a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a>3. Start canonical VIIPER path.
+<a id="__codelineno-65-4" name="__codelineno-65-4" href="#__codelineno-65-4"></a>4. Capture the native attachment-timing record and confirm:
+<a id="__codelineno-65-5" name="__codelineno-65-5" href="#__codelineno-65-5"></a>       installedVersion = 0.9.8.0
+<a id="__codelineno-65-6" name="__codelineno-65-6" href="#__codelineno-65-6"></a>       selectedABI = 0.9.8.0
+<a id="__codelineno-65-7" name="__codelineno-65-7" href="#__codelineno-65-7"></a>       inputLength = 1120
+<a id="__codelineno-65-8" name="__codelineno-65-8" href="#__codelineno-65-8"></a>5. Confirm native attach returns bytesReturned=8 and port&gt;0.
+<a id="__codelineno-65-9" name="__codelineno-65-9" href="#__codelineno-65-9"></a>6. Confirm Xbox360 presentation works.
+<a id="__codelineno-65-10" name="__codelineno-65-10" href="#__codelineno-65-10"></a>7. Confirm SteamDeck presentation transition works.
+<a id="__codelineno-65-11" name="__codelineno-65-11" href="#__codelineno-65-11"></a>8. Confirm exact-port detach and reattach work.
+<a id="__codelineno-65-12" name="__codelineno-65-12" href="#__codelineno-65-12"></a>9. Confirm Runtime restart recovery.
+<a id="__codelineno-65-13" name="__codelineno-65-13" href="#__codelineno-65-13"></a>10. Confirm one Sleep/Resume cycle.
+<a id="__codelineno-65-14" name="__codelineno-65-14" href="#__codelineno-65-14"></a>11. Confirm existing X360 output/rumble diagnostics remain operational.
 </code></pre></div>
 <p>This is the compatibility regression gate. 0.9.8.0 must not be broken by adding 0.9.8.1 support.</p>
 <h3 id="122-usbip-win2-0981-validation">12.2 usbip-win2 0.9.8.1 validation</h3>
 <p>With official 0.9.8.1 installed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a>1. Confirm registry DisplayVersion = 0.9.8.1.
-<a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a>2. Start canonical VIIPER path.
-<a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a>3. Confirm selected native ABI = 0.9.8.1 / 1124 bytes.
-<a id="__codelineno-60-4" name="__codelineno-60-4" href="#__codelineno-60-4"></a>4. Confirm LocationHash request field is zero before submission.
-<a id="__codelineno-60-5" name="__codelineno-60-5" href="#__codelineno-60-5"></a>5. Confirm native attach returns bytesReturned=8 and port&gt;0.
-<a id="__codelineno-60-6" name="__codelineno-60-6" href="#__codelineno-60-6"></a>6. Confirm Xbox360 presentation works.
-<a id="__codelineno-60-7" name="__codelineno-60-7" href="#__codelineno-60-7"></a>7. Confirm SteamDeck presentation transition works.
-<a id="__codelineno-60-8" name="__codelineno-60-8" href="#__codelineno-60-8"></a>8. Confirm exact-port detach and reattach work.
-<a id="__codelineno-60-9" name="__codelineno-60-9" href="#__codelineno-60-9"></a>9. Confirm Runtime restart recovery.
-<a id="__codelineno-60-10" name="__codelineno-60-10" href="#__codelineno-60-10"></a>10. Confirm one Sleep/Resume cycle.
-<a id="__codelineno-60-11" name="__codelineno-60-11" href="#__codelineno-60-11"></a>11. Re-run the existing Xbox360 rumble reproduction with the current boundary trace enabled.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a>1. Install/switch to official usbip-win2 0.9.8.1 and complete the required Windows restart.
+<a id="__codelineno-66-2" name="__codelineno-66-2" href="#__codelineno-66-2"></a>2. After reboot, confirm registry DisplayVersion = 0.9.8.1.
+<a id="__codelineno-66-3" name="__codelineno-66-3" href="#__codelineno-66-3"></a>3. Start canonical VIIPER path.
+<a id="__codelineno-66-4" name="__codelineno-66-4" href="#__codelineno-66-4"></a>4. Capture the native attachment-timing record and confirm:
+<a id="__codelineno-66-5" name="__codelineno-66-5" href="#__codelineno-66-5"></a>       installedVersion = 0.9.8.1
+<a id="__codelineno-66-6" name="__codelineno-66-6" href="#__codelineno-66-6"></a>       selectedABI = 0.9.8.1
+<a id="__codelineno-66-7" name="__codelineno-66-7" href="#__codelineno-66-7"></a>       inputLength = 1124
+<a id="__codelineno-66-8" name="__codelineno-66-8" href="#__codelineno-66-8"></a>5. Confirm native attach returns bytesReturned=8 and port&gt;0.
+<a id="__codelineno-66-9" name="__codelineno-66-9" href="#__codelineno-66-9"></a>6. Confirm Xbox360 presentation works.
+<a id="__codelineno-66-10" name="__codelineno-66-10" href="#__codelineno-66-10"></a>7. Confirm SteamDeck presentation transition works.
+<a id="__codelineno-66-11" name="__codelineno-66-11" href="#__codelineno-66-11"></a>8. Confirm exact-port detach and reattach work.
+<a id="__codelineno-66-12" name="__codelineno-66-12" href="#__codelineno-66-12"></a>9. Confirm Runtime restart recovery.
+<a id="__codelineno-66-13" name="__codelineno-66-13" href="#__codelineno-66-13"></a>10. Confirm one Sleep/Resume cycle.
+<a id="__codelineno-66-14" name="__codelineno-66-14" href="#__codelineno-66-14"></a>11. Re-run the existing Xbox360 rumble reproduction with the current boundary trace enabled.
 </code></pre></div>
+<p><code>LocationHash=0</code> is request-construction evidence and must be proven by the deterministic 0.9.8.1 unit test in section 6.5. Do not add hot-path logging or another runtime inspector solely to expose that field during hardware validation.</p>
 <p>The rumble comparison is observational at this stage. usbip-win2 0.9.8.1 contains upstream OUT-transfer fixes, but this PR must not assume those fixes resolve the existing latch investigation.</p>
 <p>Do not add VIIPER behavior changes based solely on the version upgrade without field evidence.</p>
 <hr />
@@ -2713,24 +2775,26 @@
 <li>No public libVIIPER C ABI changes occur.</li>
 <li>Current architecture/API docs state dual 0.9.8.0/0.9.8.1 native ABI support and preserve zero-copy/exact-port/fail-close semantics.</li>
 <li>SteamInputAddonforClaw remains unchanged until separate hardware validation and adoption work.</li>
+<li>Native attach <code>attachment-timing</code> records expose <code>installedVersion</code>, <code>selectedABI</code>, and <code>inputLength</code> so hardware ABI selection is auditable from captured logs.</li>
+<li>Hardware validation for each installed usbip-win2 version begins only after the installer-required Windows restart has completed.</li>
 </ol>
 <hr />
 <h2 id="14-implementation-guidance">14. Implementation guidance</h2>
 <p>Keep this PR small.</p>
 <p>The desired architecture is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a>official package DisplayVersion
-<a id="__codelineno-61-2" name="__codelineno-61-2" href="#__codelineno-61-2"></a>        |
-<a id="__codelineno-61-3" name="__codelineno-61-3" href="#__codelineno-61-3"></a>        v
-<a id="__codelineno-61-4" name="__codelineno-61-4" href="#__codelineno-61-4"></a>small exact version switch
-<a id="__codelineno-61-5" name="__codelineno-61-5" href="#__codelineno-61-5"></a>        |
-<a id="__codelineno-61-6" name="__codelineno-61-6" href="#__codelineno-61-6"></a>        +-- explicit 0980 struct
-<a id="__codelineno-61-7" name="__codelineno-61-7" href="#__codelineno-61-7"></a>        +-- explicit 0981 struct
-<a id="__codelineno-61-8" name="__codelineno-61-8" href="#__codelineno-61-8"></a>        |
-<a id="__codelineno-61-9" name="__codelineno-61-9" href="#__codelineno-61-9"></a>        v
-<a id="__codelineno-61-10" name="__codelineno-61-10" href="#__codelineno-61-10"></a>one DeviceIoControl submission
-<a id="__codelineno-61-11" name="__codelineno-61-11" href="#__codelineno-61-11"></a>        |
-<a id="__codelineno-61-12" name="__codelineno-61-12" href="#__codelineno-61-12"></a>        v
-<a id="__codelineno-61-13" name="__codelineno-61-13" href="#__codelineno-61-13"></a>existing exact-port ownership / fail-close
+<div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a>official package DisplayVersion
+<a id="__codelineno-67-2" name="__codelineno-67-2" href="#__codelineno-67-2"></a>        |
+<a id="__codelineno-67-3" name="__codelineno-67-3" href="#__codelineno-67-3"></a>        v
+<a id="__codelineno-67-4" name="__codelineno-67-4" href="#__codelineno-67-4"></a>small exact version switch
+<a id="__codelineno-67-5" name="__codelineno-67-5" href="#__codelineno-67-5"></a>        |
+<a id="__codelineno-67-6" name="__codelineno-67-6" href="#__codelineno-67-6"></a>        +-- explicit 0980 struct
+<a id="__codelineno-67-7" name="__codelineno-67-7" href="#__codelineno-67-7"></a>        +-- explicit 0981 struct
+<a id="__codelineno-67-8" name="__codelineno-67-8" href="#__codelineno-67-8"></a>        |
+<a id="__codelineno-67-9" name="__codelineno-67-9" href="#__codelineno-67-9"></a>        v
+<a id="__codelineno-67-10" name="__codelineno-67-10" href="#__codelineno-67-10"></a>one DeviceIoControl submission
+<a id="__codelineno-67-11" name="__codelineno-67-11" href="#__codelineno-67-11"></a>        |
+<a id="__codelineno-67-12" name="__codelineno-67-12" href="#__codelineno-67-12"></a>        v
+<a id="__codelineno-67-13" name="__codelineno-67-13" href="#__codelineno-67-13"></a>existing exact-port ownership / fail-close
 </code></pre></div>
 <p>The goal is not to future-proof every possible usbip-win2 ABI.</p>
 <p>The goal is to support the two concrete official ABIs we actually need while preserving one clear ownership authority and one safe attach/teardown path.</p>
