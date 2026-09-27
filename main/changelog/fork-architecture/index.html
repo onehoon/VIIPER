@@ -1723,10 +1723,13 @@ application must follow when consuming this fork.</p>
 <ul>
 <li>Added tracked localhost attach/detach with exact backend and positive import
   port ownership.</li>
-<li>The supported native baseline is usbip-win2 <code>v0.9.7.7</code>, commit
-  <code>7c219953101cc5d0ec9a0bcb3eb87259cf72bedd</code>.</li>
-<li>usbip-win2 <code>v0.9.7.8</code> and later versions are unsupported until explicitly
-  validated for ABI and runtime compatibility.</li>
+<li>Windows tracked native attachment supports usbip-win2 <code>v0.9.8.0</code> and
+  <code>v0.9.8.1</code>, selected by the official installed package <code>DisplayVersion</code>
+  before native <code>DeviceIoControl</code> submission. The corresponding request
+  sizes are 1120 and 1124 bytes; the latter zero-initializes <code>LocationHash</code>.</li>
+<li>Both versions preserve zero-copy receive mode, exact positive imported-port
+  ownership, and the common 8-byte detach ABI. Unknown versions do not trigger
+  a native ABI guess; submitted native failures remain fail-closed.</li>
 <li>Non-Windows builds remain compile-compatible but do not claim tracked
   localhost attachment support.</li>
 </ul>

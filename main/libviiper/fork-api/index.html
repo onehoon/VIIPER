@@ -2289,7 +2289,7 @@ matching header under <code>dist/libVIIPER/</code>.</p>
 </tr>
 <tr>
 <td>Tracked localhost <code>AttachUSBDevice</code> / <code>DetachUSBDevice</code></td>
-<td>Supported with usbip-win2 <code>v0.9.8.0</code></td>
+<td>Supported with usbip-win2 <code>v0.9.8.0</code> and <code>v0.9.8.1</code></td>
 <td>Not provided by this fork</td>
 </tr>
 <tr>
@@ -2299,11 +2299,18 @@ matching header under <code>dist/libVIIPER/</code>.</p>
 </tr>
 </tbody>
 </table>
-<p>The tracked Windows attachment ABI is pinned to usbip-win2 <code>v0.9.8.0</code>, commit
-<code>83bd1f781d57ed6efdf15530c55710cf5d4482bc</code>. Windows localhost attach always
-uses usbip-win2 zero-copy receive mode for native IOCTL and command attach
-paths. The fork does not claim compatibility with older or later package
-versions until their ABI and runtime behavior are explicitly validated.</p>
+<p>The tracked Windows native attachment path supports the usbip-win2
+<code>v0.9.8.0</code> and <code>v0.9.8.1</code> <code>plugin_hardware</code> ABIs. VIIPER selects the exact
+layout from the official installed package <code>DisplayVersion</code> before submitting
+native <code>DeviceIoControl</code>: v0.9.8.0 uses a 1120-byte request and v0.9.8.1 uses
+a 1124-byte request with zero-initialized <code>LocationHash</code>. Both versions use
+zero-copy receive mode (<code>WskEvents=false</code>), retain the exact positive imported
+port as attachment ownership, and share the 8-byte <code>plugout_hardware</code> detach
+ABI. Missing or unsupported versions never trigger a native ABI guess; a
+known pre-submit failure follows the existing fallback policy, while a
+failure after native submission remains fail-closed. Complete the
+installer-required Windows restart after installing or switching versions
+before hardware validation.</p>
 <p>Non-Windows builds remain compile-compatible, but they must fail safely for
 tracked localhost attachment. They must not record a fake attachment token or
 claim that a device is attached.</p>
