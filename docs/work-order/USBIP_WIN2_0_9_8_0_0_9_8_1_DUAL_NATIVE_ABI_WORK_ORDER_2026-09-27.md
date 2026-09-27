@@ -251,6 +251,29 @@ WindowsUsbIpWin2PackageProbe
 
 Use the same official package evidence in VIIPER.
 
+Important lifecycle qualification:
+
+Both official 0.9.8.0 and 0.9.8.1 Inno Setup scripts declare:
+
+```text
+AlwaysRestart=yes
+```
+
+`DisplayVersion` is the installed package record. It is the correct package-version authority for choosing the supported ABI, but it is not independent proof that a newly installed kernel driver is already the driver currently loaded by Windows if a required restart has not yet completed.
+
+Therefore:
+
+```text
+runtime ABI selection
+    -> use official package DisplayVersion
+
+hardware validation after installing/switching usbip-win2 versions
+    -> complete the installer-required Windows restart first
+    -> only then launch the canonical VIIPER validation build
+```
+
+Do not add a driver-hash inspector, loaded-driver version authority, INF parser, or trial IOCTL mechanism solely to defend against a deliberately deferred required restart. Treat completed restart after install/version transition as an explicit validation/adoption precondition.
+
 Do not create a second version authority based on driver hashes, timestamps, INF scraping, executable path guessing, or trial IOCTLs.
 
 ---
@@ -701,30 +724,73 @@ A submitted 1120-byte request must never be followed by 1124, and a submitted 11
 
 ### 6.8 Response validation remains identical
 
-For both selected ABIs verify:
+For both selected ABIs verify the condition directly:
 
 ```text
-bytesReturned = 8 + positive port -> success
-bytesReturned != 8 -> unsafe outcome unknown
-port <= 0 -> unsafe outcome unknown
+bytesReturned == 8 && PortOutput > 0
+    -> success
+
+otherwise
+    -> ErrAttachmentOutcomeUnknown
 ```
 
-### 6.9 Existing timing semantics
+In particular:
 
-Preserve current timing diagnostics.
+```text
+bytesReturned != 8 -> ErrAttachmentOutcomeUnknown
+PortOutput <= 0    -> ErrAttachmentOutcomeUnknown
+```
 
-At minimum:
+### 6.9 Existing timing semantics and required ABI evidence
+
+Preserve the current low-volume `attachment-timing` diagnostics and extend the **native attach** timing record with mandatory ABI evidence.
+
+Every native attach timing record must include:
+
+```text
+installedVersion
+selectedABI
+inputLength
+```
+
+Required interpretation:
+
+```text
+DisplayVersion = 0.9.8.0
+    installedVersion = "0.9.8.0"
+    selectedABI      = "0.9.8.0"
+    inputLength      = 1120
+
+DisplayVersion = 0.9.8.1
+    installedVersion = "0.9.8.1"
+    selectedABI      = "0.9.8.1"
+    inputLength      = 1124
+
+unsupported/malformed observed version
+    installedVersion = observed value when available
+    selectedABI      = "unsupported"
+    inputLength      = 0
+
+registry value unavailable/read failure
+    installedVersion = empty or one stable unavailable representation
+    selectedABI      = "unsupported"
+    inputLength      = 0
+```
+
+Keep the representation deterministic and cover it with focused tests. Do not log a guessed request size when no ABI was selected.
+
+Existing semantics must remain:
 
 ```text
 unsupported/missing version -> backendCalled=false
-DeviceIoControl submitted -> backendCalled=true
-submitted failure -> result=unsafe-outcome-unknown
-successful request -> result=success
+DeviceIoControl submitted   -> backendCalled=true
+submitted failure           -> result=unsafe-outcome-unknown
+successful request          -> result=success
 ```
 
-Do not build a new timing subsystem solely for ABI detection.
+The mandatory fields are diagnostic evidence only. They must not influence fallback, ownership, retry, or teardown behavior.
 
-Adding the detected package version / selected ABI to an existing low-volume attach diagnostic is acceptable if useful, but it must not change behavior.
+Do not build a new timing/logging subsystem solely for ABI detection. Reuse the existing `attachment-timing` record.
 
 ---
 
@@ -884,21 +950,36 @@ Do not update SteamInputAddonforClaw's prerequisite pin yet.
 
 First produce a canonical VIIPER artifact and validate both package versions separately on real MSI Claw hardware.
 
+Because both official installers specify `AlwaysRestart=yes`, every install or version transition used for this validation has a hard preparation rule:
+
+```text
+install/switch target usbip-win2 package
+-> complete the required Windows restart
+-> sign back in
+-> only then launch the canonical VIIPER validation build
+```
+
+Do not treat a newly written `DisplayVersion` value, before that restart, as proof that the currently loaded kernel driver matches the package record.
+
 ### 12.1 usbip-win2 0.9.8.0 regression
 
 With official 0.9.8.0 installed:
 
 ```text
-1. Confirm registry DisplayVersion = 0.9.8.0.
-2. Start canonical VIIPER path.
-3. Confirm selected native ABI = 0.9.8.0 / 1120 bytes.
-4. Confirm native attach returns bytesReturned=8 and port>0.
-5. Confirm Xbox360 presentation works.
-6. Confirm SteamDeck presentation transition works.
-7. Confirm exact-port detach and reattach work.
-8. Confirm Runtime restart recovery.
-9. Confirm one Sleep/Resume cycle.
-10. Confirm existing X360 output/rumble diagnostics remain operational.
+1. Install/switch to official usbip-win2 0.9.8.0 and complete the required Windows restart.
+2. After reboot, confirm registry DisplayVersion = 0.9.8.0.
+3. Start canonical VIIPER path.
+4. Capture the native attachment-timing record and confirm:
+       installedVersion = 0.9.8.0
+       selectedABI = 0.9.8.0
+       inputLength = 1120
+5. Confirm native attach returns bytesReturned=8 and port>0.
+6. Confirm Xbox360 presentation works.
+7. Confirm SteamDeck presentation transition works.
+8. Confirm exact-port detach and reattach work.
+9. Confirm Runtime restart recovery.
+10. Confirm one Sleep/Resume cycle.
+11. Confirm existing X360 output/rumble diagnostics remain operational.
 ```
 
 This is the compatibility regression gate. 0.9.8.0 must not be broken by adding 0.9.8.1 support.
@@ -908,10 +989,13 @@ This is the compatibility regression gate. 0.9.8.0 must not be broken by adding 
 With official 0.9.8.1 installed:
 
 ```text
-1. Confirm registry DisplayVersion = 0.9.8.1.
-2. Start canonical VIIPER path.
-3. Confirm selected native ABI = 0.9.8.1 / 1124 bytes.
-4. Confirm LocationHash request field is zero before submission.
+1. Install/switch to official usbip-win2 0.9.8.1 and complete the required Windows restart.
+2. After reboot, confirm registry DisplayVersion = 0.9.8.1.
+3. Start canonical VIIPER path.
+4. Capture the native attachment-timing record and confirm:
+       installedVersion = 0.9.8.1
+       selectedABI = 0.9.8.1
+       inputLength = 1124
 5. Confirm native attach returns bytesReturned=8 and port>0.
 6. Confirm Xbox360 presentation works.
 7. Confirm SteamDeck presentation transition works.
@@ -920,6 +1004,8 @@ With official 0.9.8.1 installed:
 10. Confirm one Sleep/Resume cycle.
 11. Re-run the existing Xbox360 rumble reproduction with the current boundary trace enabled.
 ```
+
+`LocationHash=0` is request-construction evidence and must be proven by the deterministic 0.9.8.1 unit test in section 6.5. Do not add hot-path logging or another runtime inspector solely to expose that field during hardware validation.
 
 The rumble comparison is observational at this stage. usbip-win2 0.9.8.1 contains upstream OUT-transfer fixes, but this PR must not assume those fixes resolve the existing latch investigation.
 
@@ -949,6 +1035,8 @@ The implementation is complete only when all are true:
 16. No public libVIIPER C ABI changes occur.
 17. Current architecture/API docs state dual 0.9.8.0/0.9.8.1 native ABI support and preserve zero-copy/exact-port/fail-close semantics.
 18. SteamInputAddonforClaw remains unchanged until separate hardware validation and adoption work.
+19. Native attach `attachment-timing` records expose `installedVersion`, `selectedABI`, and `inputLength` so hardware ABI selection is auditable from captured logs.
+20. Hardware validation for each installed usbip-win2 version begins only after the installer-required Windows restart has completed.
 
 ---
 
