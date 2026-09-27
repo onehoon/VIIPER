@@ -91,7 +91,9 @@ from:
     terminal STOP is fully received by VIIPER
     but does not reach Xbox360.HandleTransfer
 
-and also show whether an accepted Xbox360 OUT request completes normally back to the USB/IP client.
+and also show whether VIIPER successfully hands the corresponding RET_SUBMIT to its current writer path.
+
+This completion-side evidence is intentionally weaker than "sent to the USB/IP client". With WriteBatchFlushInterval > 0, EP1 OUT calls writeRet with flush=false, so writeRet may return successfully while the bytes remain buffered in batchingWriter until a later timer/threshold flush. The diagnostic must not claim socket flush or peer receipt.
 
 Required server-side boundaries:
 
@@ -100,12 +102,12 @@ Required server-side boundaries:
       -> X360 USB/IP OUT ingress trace
       -> processSubmit
       -> existing Xbox360.HandleTransfer / rumble trace
-      -> RET_SUBMIT successfully written
-      -> X360 USB/IP OUT completion trace
+      -> writeRet returns success / current writer accepts RET_SUBMIT
+      -> X360 USB/IP OUT writer-accepted trace
 
 The primary diagnostic is the ingress event.
 
-The completion event is supporting evidence for server-side response/backpressure analysis. It must not become a new lifecycle contract.
+The completion event is supporting evidence for server-side response/backpressure analysis. It proves only that writeRet returned successfully and the current writer accepted the RET_SUBMIT bytes. When batching is enabled it does not prove that batchingWriter flushed those bytes to the socket, and it never proves peer receipt. It must not become a new lifecycle contract.
 
 ---
 
@@ -167,9 +169,9 @@ exactly.
 
 ### 4.2 Completion event
 
-After processSubmit has returned and the corresponding RET_SUBMIT has been written successfully, emit:
+After processSubmit has returned and writeRet returns successfully for the corresponding RET_SUBMIT, emit:
 
-    Event=X360USBIPOutCompletion
+    Event=X360USBIPOutWriterAccepted
 
 Required fields:
 
@@ -181,7 +183,23 @@ Required fields:
     Endpoint
     ActualLength
 
-Do not emit a successful completion event if writeRet failed.
+Do not emit X360USBIPOutWriterAccepted if writeRet failed.
+
+Interpretation is deliberately limited:
+
+    X360USBIPOutWriterAccepted
+    = writeRet returned success and the current writer accepted the response bytes
+
+It does NOT prove:
+
+    batchingWriter flushed those bytes to the socket
+    the kernel sent them
+    usbip-win2 received them
+    the peer processed the RET_SUBMIT
+
+For EP1 OUT, current code calls writeRet(..., flush=false). If 1 ms batching is enabled, the response may still be buffered when this event is emitted.
+
+Do not force a flush to make the diagnostic stronger. That would change transport timing.
 
 Do not alter RET_SUBMIT status, payload, flush policy, or ordering for the sake of diagnostics.
 
@@ -203,7 +221,7 @@ A suitable shape is conceptually:
 
     type usbipOutBoundaryTracer interface {
         TraceUSBIPOutIngress(seq uint32, ep uint32, declaredLength uint32, payload []byte)
-        TraceUSBIPOutCompletion(seq uint32, ep uint32, actualLength uint32)
+        TraceUSBIPOutWriterAccepted(seq uint32, ep uint32, actualLength uint32)
     }
 
 The exact naming may differ if a simpler implementation fits the existing code better.
@@ -244,7 +262,7 @@ The USB/IP protocol sequence number is additional connection-local context:
 
     USBIPSeq
 
-Do not reuse or increment the existing device trace TraceSeq for ingress/completion events.
+Do not reuse or increment the existing device trace TraceSeq for ingress/writer-accepted events.
 
 TraceSeq remains owned by the device-handler packet trace.
 
@@ -359,18 +377,20 @@ Use a representative non-zero Xbox360 output packet and prove identical preserva
 
 ### 9.4 Completion ordering
 
-For a successful EP1 OUT submit, prove:
+For an EP1 OUT submit where writeRet returns success, prove:
 
     ingress
       -> HandleTransfer
-      -> successful RET_SUBMIT write
-      -> completion event
+      -> writeRet returns success / current writer accepts RET_SUBMIT
+      -> X360USBIPOutWriterAccepted
 
 Do not require a specific elapsed time.
 
+Do not assert that this event means a socket flush occurred. In the 1 ms batching configuration, flush may happen later.
+
 ### 9.5 Failed RET_SUBMIT
 
-If the test seam makes writeRet fail, prove no successful X360USBIPOutCompletion event is emitted.
+If the test seam makes writeRet fail, prove no X360USBIPOutWriterAccepted event is emitted.
 
 The existing failure behavior must be unchanged.
 
@@ -413,7 +433,7 @@ No panic and no behavior change.
 
 ### 9.11 File-only sink
 
-Verify ingress/completion events use the existing file-only rumble diagnostic sink and do not invoke the embedding application's synchronous VIIPERLogCallback.
+Verify ingress/writer-accepted events use the existing file-only rumble diagnostic sink and do not invoke the embedding application's synchronous VIIPERLogCallback.
 
 ### 9.12 Existing trace tests
 
@@ -438,16 +458,26 @@ For one complete trace session, correlate:
     X360RumbleRaw
     X360RumbleParsed
     X360RumbleCallbackDispatch
-    X360USBIPOutCompletion
+    X360USBIPOutWriterAccepted
 
-### Case A — STOP visible at ingress and device trace
+### Case A — STOP received, recognized, and dispatched by VIIPER
+
+Require the complete native evidence chain:
 
     X360USBIPOutIngress Payload=0008000000000000
     X360RumbleRaw        Payload=0008000000000000
+    X360RumbleParsed     Recognized=true Left=0 Right=0 CallbackPresent=true
+    X360RumbleCallbackDispatch Left=0 Right=0
 
-VIIPER received and dispatched at least one terminal STOP request.
+Only with all of those records can the trace conclude:
 
-Continue downstream correlation.
+    VIIPER received the complete terminal STOP payload,
+    the Xbox360 parser recognized it as 0/0,
+    and VIIPER reached the registered callback-dispatch point.
+
+This still does NOT prove that CTW received or successfully processed the callback. Correlate the managed CTW/application logs for that later boundary.
+
+If only X360RumbleRaw exists, conclude only that Xbox360.HandleTransfer observed the raw payload. Do not call that callback dispatch.
 
 Do not modify the parser.
 
@@ -465,11 +495,19 @@ Inspect the direct code path before proposing any architecture change.
     no terminal X360USBIPOutIngress
     no terminal X360RumbleRaw
 
-If the trace session is complete:
+If the trace session is complete, first inspect the existing connection/read-error evidence around the interval.
 
-    VIIPER did not observe the terminal STOP at its server receive boundary.
+If there is a payload ReadExactly failure, disconnect, truncation, or stream termination before the full declared EP1 OUT payload was read, the correct conclusion is:
 
-That moves investigation upstream of this server boundary.
+    VIIPER did not obtain a complete terminal STOP payload at the ingress trace point.
+
+Do not infer whether the USB/IP client attempted to send it.
+
+If there is no such read/disconnect evidence and the complete session still contains no terminal ingress event, the strongest supported statement remains:
+
+    VIIPER did not observe a complete terminal STOP payload at this server ingress boundary.
+
+That moves the next investigation upstream of this successfully-read-payload boundary, but still does not prove the client never attempted or partially transmitted the request.
 
 Possible later targets include:
 
@@ -477,17 +515,20 @@ Possible later targets include:
     usbip-win2 client submission
     game / Steam input-output source
 
-This case does not prove which upstream component omitted or lost the request.
+This case does not prove that the client failed to send the request, nor which upstream component omitted, truncated, delayed, or lost it.
 
 A later usbip-win2 client-side capture may be required to prove whether the client emitted the STOP.
 
-### Case D — ingress exists, handler exists, completion missing
+### Case D — ingress exists, handler exists, writer-accepted event missing
 
-If ingress and device trace are present but the successful completion event is absent:
+If ingress and device trace are present but X360USBIPOutWriterAccepted is absent:
 
 - inspect existing writeRet failure/disconnect evidence;
 - inspect writer contention/backpressure only if supported by timestamps/logs;
+- do not infer socket flush or peer receipt either way;
 - do not redesign async IN from this fact alone.
+
+If X360USBIPOutWriterAccepted is present, conclude only that writeRet returned successfully and the current writer accepted the response bytes. With batching enabled, actual socket flush may still occur later.
 
 ### Case E — stop-like non-canonical bytes
 
@@ -581,7 +622,7 @@ After the new diagnostic DLL is adopted by the CTW test build:
    - X360RumbleRaw;
    - X360RumbleParsed;
    - X360RumbleCallbackDispatch;
-   - X360USBIPOutCompletion;
+   - X360USBIPOutWriterAccepted;
 9. preserve exact timestamps and USBIPSeq values;
 10. do not combine the test with another VIIPER behavior change.
 
@@ -618,8 +659,8 @@ The PR is complete when:
 
 1. current behavior is unchanged with tracing inactive;
 2. complete Xbox360 EP1 OUT payload reception is observable before device dispatch;
-3. successful EP1 OUT RET_SUBMIT completion is observable;
-4. both events correlate with the existing RumbleTrace session and USBIPSeq;
+3. successful writeRet / current-writer acceptance of the EP1 OUT RET_SUBMIT is observable without claiming socket flush or peer receipt;
+4. both ingress and writer-accepted events correlate with the existing RumbleTrace session and USBIPSeq;
 5. the canonical zero/zero STOP bytes are preserved exactly;
 6. diagnostic records cannot be corrupted by scratch-buffer reuse;
 7. no synchronous application log callback is added to the OUT hot path;
@@ -628,6 +669,6 @@ The PR is complete when:
 10. the resulting hardware log can distinguish:
     - STOP absent before VIIPER device dispatch,
     - STOP present at VIIPER ingress but lost before handler,
-    - STOP handled but completion/problem occurs later.
+    - STOP handled but RET_SUBMIT writer acceptance fails or later transport behavior remains unresolved.
 
 Keep this PR strictly diagnostic. Do not fix the suspected transport regression until the trace identifies the first missing boundary.
