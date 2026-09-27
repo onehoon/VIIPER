@@ -203,7 +203,12 @@ func TestCanonicalXbox360TraceStartsBeforeAutoAttachAndUsesFileOnlySink(t *testi
 			return api.LocalhostAttachment{}, fmt.Errorf("created device type is %T", devs[0])
 		}
 		pad.SetRumbleCallback(func(xbox360.XRumbleState) {})
-		pad.HandleTransfer(context.Background(), 1, usbip.DirOut, []byte{0, 8, 0, 0, 0, 0, 0, 0})
+		payload := []byte{0, 8, 0, 0, 0, 0, 0, 0}
+		// Exercise both USB/IP boundary event methods on the same file-only
+		// trace logger; server-path ordering is covered in internal/server/usb.
+		pad.TraceUSBIPOutIngress(77, 1, uint32(len(payload)), payload)
+		pad.HandleTransfer(context.Background(), 1, usbip.DirOut, payload)
+		pad.TraceUSBIPOutWriterAccepted(77, 1, uint32(len(payload)))
 		return api.LocalhostAttachment{Backend: api.LocalhostAttachmentBackendCommand, Port: 5011}, nil
 	}
 	hw.ops.detachLocalhost = func(context.Context, api.LocalhostAttachment, *slog.Logger) error { return nil }
@@ -211,8 +216,13 @@ func TestCanonicalXbox360TraceStartsBeforeAutoAttachAndUsesFileOnlySink(t *testi
 	if !attachCalled || pad.RumbleTraceSession() == nil {
 		t.Fatal("auto-attach did not run with the device trace already active")
 	}
-	if got := []string{xbox360TraceEvents(traceSink)[0]["Event"].(string), xbox360TraceEvents(traceSink)[1]["Event"].(string), xbox360TraceEvents(traceSink)[2]["Event"].(string)}; fmt.Sprint(got) != "[X360RumbleTraceStart X360RumbleRaw X360RumbleParsed]" {
-		t.Fatalf("first auto-attached OUT ordering = %v", got)
+	gotEvents := xbox360TraceEvents(traceSink)
+	var got []string
+	for _, event := range gotEvents {
+		got = append(got, event["Event"].(string))
+	}
+	if want := "[X360RumbleTraceStart X360USBIPOutIngress X360RumbleRaw X360RumbleParsed X360RumbleCallbackDispatch X360USBIPOutWriterAccepted]"; fmt.Sprint(got) != want {
+		t.Fatalf("file-only rumble and USB/IP trace ordering = %v, want %s", got, want)
 	}
 	hw.logger.Info("ordinary-observer-check")
 	for _, record := range callbackSink.snapshot() {
@@ -434,11 +444,11 @@ func TestCanonicalXbox360TraceRollbackAbortWaitsForExposedTransportDrain(t *test
 		t.Fatal("rollback drain did not release the in-flight OUT")
 	}
 	events := xbox360TraceEvents(traceSink)
-	if len(events) != 4 || events[0]["Event"] != "X360RumbleTraceStart" || events[1]["Event"] != "X360RumbleRaw" || events[2]["Event"] != "X360RumbleParsed" || events[3]["Event"] != "X360RumbleTraceAbort" {
+	if len(events) != 5 || events[0]["Event"] != "X360RumbleTraceStart" || events[1]["Event"] != "X360USBIPOutIngress" || events[2]["Event"] != "X360RumbleRaw" || events[3]["Event"] != "X360RumbleParsed" || events[4]["Event"] != "X360RumbleTraceAbort" {
 		t.Fatalf("rollback trace event order = %+v", events)
 	}
-	if events[3]["LastTraceSeq"] != uint64(1) || events[3]["Reason"] != "auto-attach-failure" {
-		t.Fatalf("rollback terminal marker = %+v", events[3])
+	if events[4]["LastTraceSeq"] != uint64(1) || events[4]["Reason"] != "auto-attach-failure" {
+		t.Fatalf("rollback terminal marker = %+v", events[4])
 	}
 	assertXbox360TraceProcessIdentity(t, events)
 }
@@ -767,8 +777,8 @@ func TestCanonicalXbox360TraceSeparatesReusedDeviceIDDuringPriorDrain(t *testing
 		start      map[string]any
 		wantEvents []string
 	}{
-		{startA, []string{"X360RumbleTraceStart", "X360RumbleRaw", "X360RumbleParsed", "X360RumbleCallbackDispatch", "X360RumbleTraceEnd"}},
-		{startB, []string{"X360RumbleTraceStart", "X360RumbleRaw", "X360RumbleParsed", "X360RumbleTraceEnd"}},
+		{startA, []string{"X360RumbleTraceStart", "X360USBIPOutIngress", "X360RumbleRaw", "X360RumbleParsed", "X360RumbleCallbackDispatch", "X360RumbleTraceEnd"}},
+		{startB, []string{"X360RumbleTraceStart", "X360USBIPOutIngress", "X360RumbleRaw", "X360RumbleParsed", "X360USBIPOutWriterAccepted", "X360RumbleTraceEnd"}},
 	} {
 		var sessionEvents []map[string]any
 		for _, event := range events {
@@ -783,7 +793,7 @@ func TestCanonicalXbox360TraceSeparatesReusedDeviceIDDuringPriorDrain(t *testing
 			if event["Event"] != check.wantEvents[i] || fmt.Sprint(event["BusID"]) != fmt.Sprint(check.start["BusID"]) || fmt.Sprint(event["DeviceID"]) != fmt.Sprint(check.start["DeviceID"]) {
 				t.Fatalf("session %+v event %d = %+v", check.start, i, event)
 			}
-			if i > 0 && i < len(sessionEvents)-1 && event["TraceSeq"] != uint64(1) {
+			if (event["Event"] == "X360RumbleRaw" || event["Event"] == "X360RumbleParsed" || event["Event"] == "X360RumbleCallbackDispatch") && event["TraceSeq"] != uint64(1) {
 				t.Fatalf("session %+v packet sequence = %+v", check.start, event)
 			}
 		}
