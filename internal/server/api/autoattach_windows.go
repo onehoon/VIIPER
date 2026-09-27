@@ -8,12 +8,14 @@ import (
 	"log/slog"
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/Alia5/VIIPER/usbip"
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
 
 var (
@@ -55,12 +57,9 @@ const (
 	serialBufSize = 16
 )
 
-// usbip-win2 v0.9.8.0 ABI reference:
-// https://github.com/vadimgrn/usbip-win2/blob/83bd1f781d57ed6efdf15530c55710cf5d4482bc/include/usbip/vhci.h
-//
-// plugin_hardware is intentionally pinned to that released ABI. The driver
-// validates the complete request size, so the trailing fields are required.
-type attachIOCTL struct {
+// attachIOCTL0980 mirrors usbip-win2 v0.9.8.0's MSVC plugin_hardware ABI.
+// The explicit tail padding preserves the imported_device_location base size.
+type attachIOCTL0980 struct {
 	Size                          uint32
 	PortOutput                    int32
 	BusID                         [32]byte
@@ -71,7 +70,69 @@ type attachIOCTL struct {
 	WskEvents                     bool
 }
 
-// plugoutIOCTL is usbip-win2 v0.9.8.0 ioctl::plugout_hardware.
+// attachIOCTL0981 mirrors v0.9.8.1, which inserts LocationHash into the
+// imported_device_location base. The driver computes LocationHash on output;
+// VIIPER keeps it zero on input and never uses it for ownership.
+type attachIOCTL0981 struct {
+	Size                          uint32
+	PortOutput                    int32
+	LocationHash                  uint32
+	BusID                         [32]byte
+	Service                       [niMaxServ]byte
+	Host                          [niMaxHost]byte
+	ImportedDeviceLocationPadding [3]byte
+	Serial                        [serialBufSize]byte
+	WskEvents                     bool
+}
+
+type usbipWin2NativeABI uint8
+
+const (
+	usbipWin2NativeABIUnknown usbipWin2NativeABI = iota
+	usbipWin2NativeABI0980
+	usbipWin2NativeABI0981
+)
+
+func selectUSBIPWin2NativeABI(version string) usbipWin2NativeABI {
+	switch strings.TrimSpace(version) {
+	case "0.9.8.0":
+		return usbipWin2NativeABI0980
+	case "0.9.8.1":
+		return usbipWin2NativeABI0981
+	default:
+		return usbipWin2NativeABIUnknown
+	}
+}
+
+func (abi usbipWin2NativeABI) String() string {
+	switch abi {
+	case usbipWin2NativeABI0980:
+		return "0.9.8.0"
+	case usbipWin2NativeABI0981:
+		return "0.9.8.1"
+	default:
+		return "unsupported"
+	}
+}
+
+func (abi usbipWin2NativeABI) inputLength() uint32 {
+	switch abi {
+	case usbipWin2NativeABI0980:
+		return uint32(unsafe.Sizeof(attachIOCTL0980{}))
+	case usbipWin2NativeABI0981:
+		return uint32(unsafe.Sizeof(attachIOCTL0981{}))
+	default:
+		return 0
+	}
+}
+
+const (
+	usbipWin2UninstallSubKey = `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{199505b0-b93d-4521-a8c7-897818e0205a}_is1`
+	usbipWin2DisplayVersion  = "DisplayVersion"
+	attachPortOutputLength   = uint32(8)
+)
+
+// plugoutIOCTL is the common 8-byte plugout_hardware ABI in both supported releases.
 type plugoutIOCTL struct {
 	Size uint32
 	Port int32
@@ -84,11 +145,6 @@ const (
 	fileWriteData        = 0x0002
 	ioctlPluginHardware  = (fileDeviceUnknown << 16) | ((fileReadData | fileWriteData) << 14) | (0x800 << 2) | methodBuffered
 	ioctlPlugoutHardware = (fileDeviceUnknown << 16) | ((fileReadData | fileWriteData) << 14) | (0x801 << 2) | methodBuffered
-)
-
-var (
-	attachPortOutputLength = uint32(unsafe.Offsetof(attachIOCTL{}.PortOutput) + unsafe.Sizeof(attachIOCTL{}.PortOutput))
-	attachInputLength      = uint32(unsafe.Sizeof(attachIOCTL{}))
 )
 
 func attachLocalhostClientImpl(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, useNativeIOCTL bool, logger *slog.Logger) error {
@@ -111,15 +167,14 @@ func attachLocalhostClientTrackedImpl(ctx context.Context, deviceExportMeta *usb
 
 // nativeAttachOps is the fake seam for attachViaIOCTLWithOps. Production code always uses
 // realNativeAttachOps(); tests inject fakes so they never touch the real usbip-win2 driver,
-// SetupAPI, or DeviceIoControl. pluginHardware receives the same *attachIOCTL the real
-// DeviceIoControl call would fill in-place, so a fake can simulate a successful native response
-// by writing PortOutput directly, exactly like the real driver would via the shared input/output
-// buffer.
+// SetupAPI, registry, or DeviceIoControl. pluginHardware receives the selected ABI request as
+// the shared input/output buffer, matching the real METHOD_BUFFERED call.
 type nativeAttachOps struct {
-	discoverDevicePath func() (string, error)
-	openDevice         func(devicePath string) (windows.Handle, error)
-	closeDevice        func(handle windows.Handle) error
-	pluginHardware     func(handle windows.Handle, data *attachIOCTL) (bytesReturned uint32, err error)
+	readInstalledVersion func() (string, error)
+	discoverDevicePath   func() (string, error)
+	openDevice           func(devicePath string) (windows.Handle, error)
+	closeDevice          func(handle windows.Handle) error
+	pluginHardware       func(handle windows.Handle, request unsafe.Pointer, inputLength, outputLength uint32) (bytesReturned uint32, err error)
 }
 
 // nativeDetachOps is the fake seam for detachViaIOCTLWithOps, mirroring nativeAttachOps.
@@ -132,18 +187,18 @@ type nativeDetachOps struct {
 
 func realNativeAttachOps() nativeAttachOps {
 	return nativeAttachOps{
-		discoverDevicePath: func() (string, error) { return getDeviceInterfacePath(&deviceGUID) },
-		openDevice:         openUSBIPWin2Device,
-		closeDevice:        func(handle windows.Handle) error { return windows.CloseHandle(handle) },
-		pluginHardware: func(handle windows.Handle, data *attachIOCTL) (uint32, error) {
+		readInstalledVersion: readInstalledUSBIPWin2Version,
+		discoverDevicePath:   func() (string, error) { return getDeviceInterfacePath(&deviceGUID) },
+		openDevice:           openUSBIPWin2Device,
+		closeDevice:          func(handle windows.Handle) error { return windows.CloseHandle(handle) },
+		pluginHardware: func(handle windows.Handle, request unsafe.Pointer, inputLength, outputLength uint32) (uint32, error) {
 			var bytesReturned uint32
-			inputLength, outputLength := nativeAttachIOCTLLengths()
 			err := windows.DeviceIoControl(
 				handle,
 				ioctlPluginHardware,
-				(*byte)(unsafe.Pointer(data)),
+				(*byte)(request),
 				inputLength,
-				(*byte)(unsafe.Pointer(data)),
+				(*byte)(request),
 				outputLength,
 				&bytesReturned,
 				nil,
@@ -151,6 +206,20 @@ func realNativeAttachOps() nativeAttachOps {
 			return bytesReturned, err
 		},
 	}
+}
+
+func readInstalledUSBIPWin2Version() (string, error) {
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, usbipWin2UninstallSubKey, registry.QUERY_VALUE|registry.WOW64_64KEY)
+	if err != nil {
+		return "", fmt.Errorf("open usbip-win2 uninstall registry key: %w", err)
+	}
+	defer key.Close()
+
+	version, _, err := key.GetStringValue(usbipWin2DisplayVersion)
+	if err != nil {
+		return "", fmt.Errorf("read usbip-win2 DisplayVersion: %w", err)
+	}
+	return version, nil
 }
 
 func realNativeDetachOps() nativeDetachOps {
@@ -195,13 +264,19 @@ func realCommandRunner(ctx context.Context, name string, args ...string) ([]byte
 	return exec.CommandContext(ctx, name, args...).CombinedOutput()
 }
 
+type nativeAttachABIEvidence struct {
+	installedVersion string
+	selectedABI      string
+	inputLength      uint32
+}
+
 // logNativeIOCTLTiming emits one behavior-neutral "attachment-timing" summary (layer=native-ioctl)
 // per actual native attach/detach attempt. discoveryUs/openUs/ioctlUs/validationUs are 0 for any
 // stage never reached; reachedIOCTL distinguishes a request that never got past discovery/open
 // (backendCalled=false) from one where DeviceIoControl actually ran. This is diagnostic-only and
 // runs after err is already finalized by the caller; it never changes err or classification.
-func logNativeIOCTLTiming(logger *slog.Logger, operation string, err error, reachedIOCTL bool, total time.Duration, discoveryUs, openUs, ioctlUs, validationUs int64) {
-	logger.Info("attachment-timing",
+func logNativeIOCTLTiming(logger *slog.Logger, operation string, err error, reachedIOCTL bool, total time.Duration, discoveryUs, openUs, ioctlUs, validationUs int64, attachABI *nativeAttachABIEvidence) {
+	attrs := []any{
 		"operation", operation,
 		"layer", "native-ioctl",
 		"result", attachmentTimingResultLabel(err),
@@ -212,7 +287,15 @@ func logNativeIOCTLTiming(logger *slog.Logger, operation string, err error, reac
 		"openUs", openUs,
 		"ioctlUs", ioctlUs,
 		"validationUs", validationUs,
-	)
+	}
+	if attachABI != nil {
+		attrs = append(attrs,
+			"installedVersion", attachABI.installedVersion,
+			"selectedABI", attachABI.selectedABI,
+			"inputLength", uint64(attachABI.inputLength),
+		)
+	}
+	logger.Info("attachment-timing", attrs...)
 }
 
 // logCommandBackendTiming emits one behavior-neutral "attachment-timing" summary
@@ -238,16 +321,76 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 	nativeStart := time.Now()
 	var discoveryUs, openUs, ioctlUs, validationUs int64
 	var reachedIOCTL bool
+	attachABI := nativeAttachABIEvidence{selectedABI: "unsupported"}
 	defer func() {
-		logNativeIOCTLTiming(logger, "attach", err, reachedIOCTL, time.Since(nativeStart), discoveryUs, openUs, ioctlUs, validationUs)
+		logNativeIOCTLTiming(logger, "attach", err, reachedIOCTL, time.Since(nativeStart), discoveryUs, openUs, ioctlUs, validationUs, &attachABI)
 	}()
+
+	if deviceExportMeta == nil {
+		err = fmt.Errorf("argumentValidation: missing device export metadata")
+		return
+	}
+
+	if usbipServerPort == 0 {
+		err = fmt.Errorf("argumentValidation: invalid TCP port number (0)")
+		return
+	}
+
+	busID := fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID)
+	if len(busID) >= len(attachIOCTL0980{}.BusID) {
+		err = fmt.Errorf("argumentValidation: bus ID too long: %s", busID)
+		return
+	}
+
+	service := fmt.Sprintf("%d", usbipServerPort)
+	if len(service) >= len(attachIOCTL0980{}.Service) {
+		err = fmt.Errorf("argumentValidation: service string too long: %s", service)
+		return
+	}
 
 	logger.Info("Auto-attaching localhost client via native IOCTL",
 		"busID", deviceExportMeta.BusID,
 		"deviceID", deviceExportMeta.DevID)
-
-	if usbipServerPort == 0 {
-		err = fmt.Errorf("argumentValidation: invalid TCP port number (0)")
+	if ops.readInstalledVersion == nil {
+		err = fmt.Errorf("version: usbip-win2 package version reader is unavailable")
+		return
+	}
+	installedVersion, versionErr := ops.readInstalledVersion()
+	if versionErr != nil {
+		err = fmt.Errorf("version: failed to read usbip-win2 DisplayVersion: %w", versionErr)
+		return
+	}
+	installedVersion = strings.TrimSpace(installedVersion)
+	attachABI.installedVersion = installedVersion
+	selectedABI := selectUSBIPWin2NativeABI(installedVersion)
+	attachABI.selectedABI = selectedABI.String()
+	if selectedABI == usbipWin2NativeABIUnknown {
+		err = fmt.Errorf("version: unsupported usbip-win2 DisplayVersion %q", installedVersion)
+		return
+	}
+	attachABI.inputLength = selectedABI.inputLength()
+	var request0980 attachIOCTL0980
+	var request0981 attachIOCTL0981
+	var request unsafe.Pointer
+	var portOutput *int32
+	switch selectedABI {
+	case usbipWin2NativeABI0980:
+		request0980.Size = uint32(unsafe.Sizeof(request0980))
+		copy(request0980.BusID[:], busID)
+		copy(request0980.Service[:], service)
+		copy(request0980.Host[:], "127.0.0.1")
+		request = unsafe.Pointer(&request0980)
+		portOutput = &request0980.PortOutput
+	case usbipWin2NativeABI0981:
+		request0981.Size = uint32(unsafe.Sizeof(request0981))
+		copy(request0981.BusID[:], busID)
+		copy(request0981.Service[:], service)
+		copy(request0981.Host[:], "127.0.0.1")
+		request = unsafe.Pointer(&request0981)
+		portOutput = &request0981.PortOutput
+	default:
+		// The selected ABI was validated above; this is an internal invariant.
+		err = fmt.Errorf("version: no supported usbip-win2 ABI selected")
 		return
 	}
 
@@ -258,27 +401,7 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 		err = fmt.Errorf("discovery: %w", discoveryErr)
 		return
 	}
-
 	logger.Debug("Found usbip-win2 device", "path", devicePath)
-
-	var ioctlData attachIOCTL
-	ioctlData.Size = uint32(unsafe.Sizeof(ioctlData))
-
-	busID := fmt.Sprintf("%d-%d", deviceExportMeta.BusID, deviceExportMeta.DevID)
-	if len(busID) >= len(ioctlData.BusID) {
-		err = fmt.Errorf("argumentValidation: bus ID too long: %s", busID)
-		return
-	}
-	copy(ioctlData.BusID[:], busID)
-
-	service := fmt.Sprintf("%d", usbipServerPort)
-	if len(service) >= len(ioctlData.Service) {
-		err = fmt.Errorf("argumentValidation: service string too long: %s", service)
-		return
-	}
-	copy(ioctlData.Service[:], service)
-	copy(ioctlData.Host[:], "127.0.0.1")
-	ioctlData.WskEvents = false
 
 	openStart := time.Now()
 	handle, openErr := ops.openDevice(devicePath)
@@ -292,22 +415,22 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 	logger.Debug("Opened device handle")
 
 	ioctlStart := time.Now()
-	bytesReturned, ioctlErr := ops.pluginHardware(handle, &ioctlData)
+	bytesReturned, ioctlErr := ops.pluginHardware(handle, request, attachABI.inputLength, attachPortOutputLength)
 	ioctlUs = time.Since(ioctlStart).Microseconds()
 	reachedIOCTL = true
 	if ioctlErr != nil {
 		logger.Error("native PLUGIN_HARDWARE DeviceIoControl failed",
 			"error", ioctlErr,
-			"inputLength", attachInputLength,
+			"inputLength", uint64(attachABI.inputLength),
 			"outputLength", attachPortOutputLength)
 		err = fmt.Errorf("%w: native PLUGIN_HARDWARE DeviceIoControl failed: %v", ErrAttachmentOutcomeUnknown, ioctlErr)
 		return
 	}
 
-	logger.Debug("IOCTL completed", "bytesReturned", bytesReturned, "portOutput", ioctlData.PortOutput)
+	logger.Debug("IOCTL completed", "bytesReturned", bytesReturned, "portOutput", *portOutput)
 
 	validationStart := time.Now()
-	validationErr := validateNativeAttachResponse(bytesReturned, ioctlData.PortOutput)
+	validationErr := validateNativeAttachResponse(bytesReturned, *portOutput)
 	validationUs = time.Since(validationStart).Microseconds()
 	if validationErr != nil {
 		err = validationErr
@@ -317,14 +440,10 @@ func attachViaIOCTLWithOps(deviceExportMeta *usbip.ExportMeta, usbipServerPort u
 	logger.Info("Successfully attached device via IOCTL",
 		"busID", deviceExportMeta.BusID,
 		"deviceID", deviceExportMeta.DevID,
-		"usbPort", ioctlData.PortOutput)
+		"usbPort", *portOutput)
 
-	result = LocalhostAttachment{Backend: LocalhostAttachmentBackendNativeIOCTL, Port: ioctlData.PortOutput}
+	result = LocalhostAttachment{Backend: LocalhostAttachmentBackendNativeIOCTL, Port: *portOutput}
 	return
-}
-
-func nativeAttachIOCTLLengths() (input uint32, output uint32) {
-	return attachInputLength, attachPortOutputLength
 }
 
 func attachViaCommand(ctx context.Context, deviceExportMeta *usbip.ExportMeta, usbipServerPort uint16, logger *slog.Logger) (LocalhostAttachment, error) {
@@ -427,7 +546,7 @@ func detachViaIOCTLWithOps(port int32, logger *slog.Logger, ops nativeDetachOps)
 	var validationUs, discoveryUs, openUs, ioctlUs int64
 	var reachedIOCTL bool
 	defer func() {
-		logNativeIOCTLTiming(logger, "detach", err, reachedIOCTL, time.Since(nativeStart), discoveryUs, openUs, ioctlUs, validationUs)
+		logNativeIOCTLTiming(logger, "detach", err, reachedIOCTL, time.Since(nativeStart), discoveryUs, openUs, ioctlUs, validationUs, nil)
 	}()
 
 	validationStart := time.Now()

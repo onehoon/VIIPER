@@ -15,14 +15,21 @@ matching header under `dist/libVIIPER/`.
 | --- | --- | --- |
 | Typed virtual device creation | Supported | Compile-compatible; validate the target USB/IP client separately |
 | Typed device state and callbacks | Supported | Compile-compatible; runtime support depends on the USB/IP client |
-| Tracked localhost `AttachUSBDevice` / `DetachUSBDevice` | Supported with usbip-win2 `v0.9.8.0` | Not provided by this fork |
+| Tracked localhost `AttachUSBDevice` / `DetachUSBDevice` | Supported with usbip-win2 `v0.9.8.0` and `v0.9.8.1` | Not provided by this fork |
 | Caller-owned bus lifetime | Supported | Same canonical lifecycle contract |
 
-The tracked Windows attachment ABI is pinned to usbip-win2 `v0.9.8.0`, commit
-`83bd1f781d57ed6efdf15530c55710cf5d4482bc`. Windows localhost attach always
-uses usbip-win2 zero-copy receive mode for native IOCTL and command attach
-paths. The fork does not claim compatibility with older or later package
-versions until their ABI and runtime behavior are explicitly validated.
+The tracked Windows native attachment path supports the usbip-win2
+`v0.9.8.0` and `v0.9.8.1` `plugin_hardware` ABIs. VIIPER selects the exact
+layout from the official installed package `DisplayVersion` before submitting
+native `DeviceIoControl`: v0.9.8.0 uses a 1120-byte request and v0.9.8.1 uses
+a 1124-byte request with zero-initialized `LocationHash`. Both versions use
+zero-copy receive mode (`WskEvents=false`), retain the exact positive imported
+port as attachment ownership, and share the 8-byte `plugout_hardware` detach
+ABI. Missing or unsupported versions never trigger a native ABI guess; a
+known pre-submit failure follows the existing fallback policy, while a
+failure after native submission remains fail-closed. Complete the
+installer-required Windows restart after installing or switching versions
+before hardware validation.
 
 Non-Windows builds remain compile-compatible, but they must fail safely for
 tracked localhost attachment. They must not record a fake attachment token or
