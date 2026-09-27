@@ -18,11 +18,15 @@ architectural source of truth for the fork.
   Xbox360 and the other supported device families.
 - `AttachUSBDevice` and `DetachUSBDevice` provide tracked localhost USB/IP
   attachment lifecycle for typed device handles on Windows.
-- The tracked native ABI is pinned to usbip-win2 `v0.9.8.0`
-  (`83bd1f781d57ed6efdf15530c55710cf5d4482bc`). Windows localhost attach
-  always uses usbip-win2 zero-copy receive mode for native IOCTL and command
-  paths; older and later package versions are not claimed compatible by this
-  fork.
+- Windows tracked native attachment supports usbip-win2 `v0.9.8.0` and
+  `v0.9.8.1`. Before native `DeviceIoControl`, VIIPER selects the exact ABI
+  from the official installed package `DisplayVersion`: 0.9.8.0 uses a
+  1120-byte request, while 0.9.8.1 uses a 1124-byte request with
+  zero-initialized `LocationHash`. Both retain `WskEvents=false` / zero-copy,
+  exact positive imported-port ownership, and the common 8-byte detach ABI.
+  Unknown package versions do not trigger a native ABI guess. Complete the
+  installer-required Windows restart after installing or switching versions
+  before relying on the package record for hardware validation.
 - Non-Windows builds remain ABI-compatible, but tracked localhost attachment
   is unsupported and fails safely without recording ownership.
 - `clib/` remains a compatibility flat API. New integrations must not use it
