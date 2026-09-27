@@ -1888,6 +1888,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#913-device-trace-sequence-correlation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.13 Device trace sequence correlation
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2381,6 +2392,9 @@ X360RumbleTraceEnd
 X360RumbleTraceAbort
 </code></pre></div>
 <p>must continue to pass.</p>
+<h3 id="913-device-trace-sequence-correlation">9.13 Device trace sequence correlation</h3>
+<p>For one recognized EP1 OUT with a registered callback, verify that its <code>X360RumbleRaw</code>, <code>X360RumbleParsed</code>, and <code>X360RumbleCallbackDispatch</code> records share the same <code>TraceSeq</code> and <code>ProcessID / BusID / DeviceID / TraceSessionID</code> identity.</p>
+<p>Do not add a mapping table between <code>USBIPSeq</code> and <code>TraceSeq</code>.</p>
 <hr />
 <h2 id="10-field-interpretation">10. Field interpretation</h2>
 <p>For one complete trace session, correlate:</p>
@@ -2393,10 +2407,12 @@ X360USBIPOutWriterAccepted
 <h3 id="case-a-stop-received-recognized-and-dispatched-by-viiper">Case A — STOP received, recognized, and dispatched by VIIPER</h3>
 <p>Require the complete native evidence chain:</p>
 <div class="highlight"><pre><span></span><code>X360USBIPOutIngress Payload=0008000000000000
-X360RumbleRaw        Payload=0008000000000000
-X360RumbleParsed     Recognized=true Left=0 Right=0 CallbackPresent=true
-X360RumbleCallbackDispatch Left=0 Right=0
+X360RumbleRaw        TraceSeq=N Payload=0008000000000000
+X360RumbleParsed     TraceSeq=N Recognized=true Left=0 Right=0 CallbackPresent=true
+X360RumbleCallbackDispatch TraceSeq=N Left=0 Right=0
 </code></pre></div>
+<p>The <code>X360RumbleRaw</code>, <code>X360RumbleParsed</code>, and <code>X360RumbleCallbackDispatch</code> records must have the same <code>TraceSeq=N</code> and the same <code>ProcessID / BusID / DeviceID / TraceSessionID</code>. Never combine device-side records from different <code>TraceSeq</code> values to complete this chain.</p>
+<p><code>X360USBIPOutIngress</code> has no device <code>TraceSeq</code>. Pair it with the handler record only through the session identity, exact payload, and unambiguous event ordering/timestamps described in Section 6. <code>USBIPSeq</code> pairs ingress with writer-accepted evidence on the same connection; it is not a direct join key for <code>X360RumbleRaw</code>. If repeated identical payloads make ingress-to-handler pairing ambiguous, classify that comparison as inconclusive.</p>
 <p>Only with all of those records can the trace conclude:</p>
 <div class="highlight"><pre><span></span><code>VIIPER received the complete terminal STOP payload,
 the Xbox360 parser recognized it as 0/0,
