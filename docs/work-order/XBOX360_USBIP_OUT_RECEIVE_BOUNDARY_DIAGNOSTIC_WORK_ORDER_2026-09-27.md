@@ -448,6 +448,12 @@ All existing tests for:
 
 must continue to pass.
 
+### 9.13 Device trace sequence correlation
+
+For one recognized EP1 OUT with a registered callback, verify that its `X360RumbleRaw`, `X360RumbleParsed`, and `X360RumbleCallbackDispatch` records share the same `TraceSeq` and `ProcessID / BusID / DeviceID / TraceSessionID` identity.
+
+Do not add a mapping table between `USBIPSeq` and `TraceSeq`.
+
 ---
 
 ## 10. Field interpretation
@@ -465,9 +471,13 @@ For one complete trace session, correlate:
 Require the complete native evidence chain:
 
     X360USBIPOutIngress Payload=0008000000000000
-    X360RumbleRaw        Payload=0008000000000000
-    X360RumbleParsed     Recognized=true Left=0 Right=0 CallbackPresent=true
-    X360RumbleCallbackDispatch Left=0 Right=0
+    X360RumbleRaw        TraceSeq=N Payload=0008000000000000
+    X360RumbleParsed     TraceSeq=N Recognized=true Left=0 Right=0 CallbackPresent=true
+    X360RumbleCallbackDispatch TraceSeq=N Left=0 Right=0
+
+The `X360RumbleRaw`, `X360RumbleParsed`, and `X360RumbleCallbackDispatch` records must have the same `TraceSeq=N` and the same `ProcessID / BusID / DeviceID / TraceSessionID`. Never combine device-side records from different `TraceSeq` values to complete this chain.
+
+`X360USBIPOutIngress` has no device `TraceSeq`. Pair it with the handler record only through the session identity, exact payload, and unambiguous event ordering/timestamps described in Section 6. `USBIPSeq` pairs ingress with writer-accepted evidence on the same connection; it is not a direct join key for `X360RumbleRaw`. If repeated identical payloads make ingress-to-handler pairing ambiguous, classify that comparison as inconclusive.
 
 Only with all of those records can the trace conclude:
 
