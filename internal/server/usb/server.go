@@ -35,14 +35,6 @@ type batchingWriter struct {
 	err           error
 }
 
-// usbipOutBoundaryTracer is an optional, diagnostic-only hook for devices
-// that need visibility at the USB/IP OUT receive and completion boundaries.
-// It deliberately does not extend the required usb.Device interface.
-type usbipOutBoundaryTracer interface {
-	TraceUSBIPOutIngress(seq uint32, ep uint32, declaredLength uint32, payload []byte)
-	TraceUSBIPOutWriterAccepted(seq uint32, ep uint32, actualLength uint32)
-}
-
 const (
 	retSubmitHeaderSize = 0x30
 
@@ -930,7 +922,6 @@ func (lc *logConn) Write(p []byte) (int, error) {
 
 func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	_ = conn.SetDeadline(time.Time{})
-	outBoundaryTracer, _ := dev.(usbipOutBoundaryTracer)
 
 	var writer io.Writer
 	var bw *batchingWriter
@@ -1114,10 +1105,6 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 				return fmt.Errorf("read OUT payload: %w", err)
 			}
 		}
-		if dir == usbip.DirOut && ep == 1 && outBoundaryTracer != nil {
-			outBoundaryTracer.TraceUSBIPOutIngress(seq, ep, xferLen, outPayload)
-		}
-
 		if dir == usbip.DirIn && ep != 0 {
 			urbCtx, urbCancel := context.WithCancel(ctx)
 			pendingMu.Lock()
@@ -1187,9 +1174,6 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 		}
 		if err := writeRet(seq, actualLen, respData, ep == 0); err != nil {
 			return err
-		}
-		if dir == usbip.DirOut && ep == 1 && outBoundaryTracer != nil {
-			outBoundaryTracer.TraceUSBIPOutWriterAccepted(seq, ep, actualLen)
 		}
 	}
 }
