@@ -64,6 +64,7 @@ type usbipOutTraceProbe struct {
 	descriptor rootusb.Descriptor
 	logger     *slog.Logger
 	trace      bool
+	response   []byte
 	busID      uint32
 	deviceID   uint32
 	mu         sync.Mutex
@@ -78,7 +79,7 @@ func (d *usbipOutTraceProbe) HandleTransfer(_ context.Context, _ uint32, _ uint3
 	if d.trace {
 		d.log("ProbeHandleTransfer", "Payload", hex.EncodeToString(copyOfPayload))
 	}
-	return nil
+	return append([]byte(nil), d.response...)
 }
 
 func (d *usbipOutTraceProbe) GetDescriptor() *rootusb.Descriptor  { return &d.descriptor }
@@ -205,6 +206,12 @@ func (h *usbipOutTraceHarness) waitWriterAccepted(t *testing.T, seq string) {
 
 func (h *usbipOutTraceHarness) submit(t *testing.T, seq uint32, payload []byte) (uint32, uint32) {
 	t.Helper()
+	h.sendSubmit(t, seq, payload)
+	return h.readResponse(t)
+}
+
+func (h *usbipOutTraceHarness) sendSubmit(t *testing.T, seq uint32, payload []byte) {
+	t.Helper()
 	cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirOut, Ep: 1}, TransferBufferLen: uint32(len(payload))}
 	if err := cmd.Write(h.client); err != nil {
 		t.Fatalf("write CMD_SUBMIT header: %v", err)
@@ -214,7 +221,6 @@ func (h *usbipOutTraceHarness) submit(t *testing.T, seq uint32, payload []byte) 
 			t.Fatalf("write CMD_SUBMIT payload: %v", err)
 		}
 	}
-	return h.readResponse(t)
 }
 
 func (h *usbipOutTraceHarness) readResponse(t *testing.T) (uint32, uint32) {
@@ -303,6 +309,47 @@ func TestUSBIPXbox360OutTraceOrdersAndPreservesPackets(t *testing.T) {
 	}
 	if first, second := outTraceEvent(events, "X360USBIPOutIngress", "71"), outTraceEvent(events, "X360USBIPOutIngress", "72"); first["Payload"] != hex.EncodeToString(stop) || second["Payload"] != hex.EncodeToString(nonzero) {
 		t.Fatalf("scratch-buffer reuse changed a prior record: first=%+v second=%+v", first, second)
+	}
+}
+
+func TestUSBIPOutRetSubmitOmitsDeviceResponsePayload(t *testing.T) {
+	payload := []byte{0x10, 0x20, 0x30, 0x40}
+	deviceResponse := []byte{0xAA, 0xBB, 0xCC}
+	device := &usbipOutTraceProbe{response: deviceResponse}
+	h := newUSBIPOutTraceHarness(t, device, nil, false, 0)
+
+	h.sendSubmit(t, 101, payload)
+	secondSubmitWritten := make(chan error, 1)
+	go func() {
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 102, Dir: usbip.DirOut, Ep: 1}, TransferBufferLen: uint32(len(payload))}
+		if err := cmd.Write(h.client); err != nil {
+			secondSubmitWritten <- err
+			return
+		}
+		_, err := h.client.Write(payload)
+		secondSubmitWritten <- err
+	}()
+
+	if gotSeq, gotLength := h.readResponse(t); gotSeq != 101 || gotLength != uint32(len(payload)) {
+		t.Fatalf("first RET_SUBMIT seq/length = %d/%d, want 101/%d", gotSeq, gotLength, len(payload))
+	}
+	if err := h.client.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	secondSeq, secondLength := h.readResponse(t)
+	if err := h.client.SetReadDeadline(time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-secondSubmitWritten; err != nil {
+		t.Fatalf("write second CMD_SUBMIT: %v", err)
+	}
+	if secondSeq != 102 || secondLength != uint32(len(payload)) {
+		t.Fatalf("second RET_SUBMIT seq/length = %d/%d, want 102/%d (response stream may contain an illegal OUT body)", secondSeq, secondLength, len(payload))
+	}
+
+	gotPayloads := device.receivedPayloads()
+	if len(gotPayloads) != 2 || !reflect.DeepEqual(gotPayloads[0], payload) || !reflect.DeepEqual(gotPayloads[1], payload) {
+		t.Fatalf("device received OUT payloads = %v, want two copies of %v", gotPayloads, payload)
 	}
 }
 
