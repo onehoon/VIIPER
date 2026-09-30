@@ -2,7 +2,6 @@ package main
 
 import (
 	"path/filepath"
-	"sync"
 	"testing"
 )
 
@@ -59,20 +58,5 @@ func TestResolveEmbeddedLogPathUsesConfiguredDirectory(t *testing.T) {
 	want := filepath.Join(`X:\test\ctw-log-dir`, embeddedLogFileName)
 	if path != want {
 		t.Fatalf("resolved path = %q, want %q", path, want)
-	}
-}
-
-func TestXbox360DiagnosticBuildMarkerIsEmittedOnce(t *testing.T) {
-	handler := &recordingHandler{}
-	logger := buildEmbeddedLogger(handler, nil)
-	var once sync.Once
-	logXbox360RumbleDiagnosticBuildMarker(&once, logger)
-	logXbox360RumbleDiagnosticBuildMarker(&once, logger)
-	if len(handler.records) != 1 {
-		t.Fatalf("diagnostic build marker count = %d, want 1", len(handler.records))
-	}
-	attrs := recordAttrs(handler.records[0])
-	if attrs["Event"] != "X360RumbleDiagnosticBuild" || attrs["Mode"] != "forced-on" {
-		t.Fatalf("diagnostic build marker attrs = %+v", attrs)
 	}
 }

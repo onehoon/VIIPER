@@ -132,10 +132,9 @@ func openEmbeddedLogFileHandler(
 }
 
 var (
-	embeddedLogFileHandlerOnce     sync.Once
-	embeddedLogFileHandlerCache    slog.Handler
-	embeddedLogWriterCache         *asyncLogWriter
-	x360RumbleDiagnosticMarkerOnce sync.Once
+	embeddedLogFileHandlerOnce  sync.Once
+	embeddedLogFileHandlerCache slog.Handler
+	embeddedLogWriterCache      *asyncLogWriter
 )
 
 // osFileDailyLogWriter adapts a real *os.File to dailyLogWriter: Reset truncates it back to
@@ -180,21 +179,6 @@ func openRealEmbeddedLogFileHandler() slog.Handler {
 		)
 	})
 	return embeddedLogFileHandlerCache
-}
-
-// buildEmbeddedRumbleTraceLogger keeps Xbox360 per-packet diagnostics on the
-// shared owned async file sink without attaching the synchronous callback
-// observer used by the ordinary server logger.
-func buildEmbeddedRumbleTraceLogger() *slog.Logger {
-	logger := buildEmbeddedLogger(openRealEmbeddedLogFileHandler(), nil)
-	logXbox360RumbleDiagnosticBuildMarker(&x360RumbleDiagnosticMarkerOnce, logger)
-	return logger
-}
-
-func logXbox360RumbleDiagnosticBuildMarker(once *sync.Once, logger *slog.Logger) {
-	once.Do(func() {
-		logger.Info("Xbox360 rumble diagnostic build", "Event", "X360RumbleDiagnosticBuild", "Mode", "forced-on")
-	})
 }
 
 // flushEmbeddedLogBestEffort requests a bounded, best-effort drain of the process-wide owned-log
