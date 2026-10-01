@@ -23,7 +23,7 @@
     
     
       
-        <title>Main - VIIPER Documentation</title>
+        <title>Work Order — Backport upstream no-data IN URB CPU-spin fix - VIIPER Documentation</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#new-features" class="md-skip">
+        <a href="#work-order-backport-upstream-no-data-in-urb-cpu-spin-fix" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Main
+              Work Order — Backport upstream no-data IN URB CPU-spin fix
             
           </span>
         </div>
@@ -364,7 +364,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../" class="md-tabs__link">
+      <a href="../../changelog/" class="md-tabs__link">
         
   
   
@@ -1571,7 +1571,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../changelog/" class="md-nav__link">
         
   
   
@@ -1608,6 +1608,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1616,10 +1618,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#new-features" class="md-nav__link">
+  <a href="#1-goal-and-concrete-fault" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ✨ New Features
+        1. Goal and concrete fault
       
     </span>
   </a>
@@ -1627,10 +1629,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#fixes" class="md-nav__link">
+  <a href="#2-required-repository-and-product-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🐛 Fixes
+        2. Required repository and product contracts
       
     </span>
   </a>
@@ -1638,10 +1640,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#miscellaneous" class="md-nav__link">
+  <a href="#3-exact-production-edit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🔧 Miscellaneous
+        3. Exact production edit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-focused-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Focused tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-explicit-exclusions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Explicit exclusions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-acceptance-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Acceptance criteria
       
     </span>
   </a>
@@ -1668,135 +1714,125 @@
   
 
 
-  <h1>Main</h1>
-
-<p>All unreleased changes:</p>
-<h3 id="new-features">✨ New Features</h3>
+<h1 id="work-order-backport-upstream-no-data-in-urb-cpu-spin-fix">Work Order — Backport upstream no-data IN URB CPU-spin fix</h1>
+<p>Date: 2026-10-01</p>
+<p>Repository: <code>onehoon/VIIPER</code><br />
+Target base: latest <code>main</code><br />
+Upstream reference: <a href="https://github.com/Alia5/VIIPER/commit/3111299d67bacbaa7f6a31d56ea9ae06678f5865">Alia5/VIIPER <code>3111299d67bacbaa7f6a31d56ea9ae06678f5865</code></a> — <strong>Fix CPU spin on no-data IN URBs</strong></p>
+<p><strong>Scope: one small USB/IP transport fix plus focused regression coverage.</strong></p>
+<h2 id="1-goal-and-concrete-fault">1. Goal and concrete fault</h2>
+<p>In <code>internal/server/usb/server.go</code>, <code>Server.handleUrbStream</code> starts an asynchronous worker for a non-control IN <code>CMD_SUBMIT</code> (<code>dir == usbip.DirIn &amp;&amp; ep != 0</code>).</p>
+<p>The worker calls <code>s.processSubmit</code>. When the emulated device returns <code>nil</code> <em>without an attempt-context timeout</em>, the current code breaks out of its loop and sends an empty <code>RET_SUBMIT</code>. Repeated host resubmissions can cause unnecessary USB/IP activity and CPU consumption.</p>
+<p>The upstream fix keeps that no-data URB outstanding until its existing <code>urbCtx</code> is cancelled (e.g. by <code>CMD_UNLINK</code>, device drain, or server teardown), rather than completing it with an empty <code>RET_SUBMIT</code>.</p>
+<p><strong>Do not conflate this with the existing timed-out-attempt branch.</strong> The <code>expired</code> branch, including <code>lastInResp</code> reuse and its current retry behavior, is a different path and is <strong>not</strong> part of this work order.</p>
+<p>Upstream release context: the change was released in v0.8.2 following an upstream user report about high CPU usage. That report is evidence of an upstream problem, not proof that the fork reproduces the same CPU percentage.</p>
+<h2 id="2-required-repository-and-product-contracts">2. Required repository and product contracts</h2>
+<p>Read before editing:</p>
 <ul>
-<li>Experimental DualSense (and Edge) Emulation<br />
-    thanks to @Alia5</li>
-<li>Nintendo Switch 2 Pro virtual device support<br />
-    thanks to @Cookiekira</li>
-<li>Windows: Add Tray Icon<br />
-    thanks to @Alia5</li>
-<li>libVIIPER<br />
-    thanks to @Alia5</li>
-<li>Add auto update<br />
-    thanks to @Alia5</li>
-<li>Breaking: Support XInput subtypes
-      thanks to @sanjay900 https://github.com/Alia5/VIIPER/pull/10<br />
-    thanks to @sanjay900</li>
-<li>SECURITY: Authenticated/Encrypted API<ul>
-<li>Unauthenticated is still possible on localhost-only.</li>
-<li>(<strong>Breaking</strong>) Remote clients are required to use auth/encryption</li>
-<li>Generated Clients have NO API-Change except for the ability to create clients with "password"<br />
-thanks to @Alia5</li>
+<li><code>FORK_ARCHITECTURE.md</code>;</li>
+<li><code>docs/libviiper/fork-api.md</code>;</li>
+<li><code>internal/server/usb/server.go</code>;</li>
+<li><code>internal/server/usb/transport_async_in_test.go</code>;</li>
+<li>relevant <code>internal/server/usb/transport_lifecycle_test.go</code> tests.</li>
 </ul>
-</li>
-<li>DS4 Emulation<br />
-    thanks to @Alia5</li>
-<li>SteamDeck (Jupiter) Controller emulation<br />
-    thanks to @Alia5</li>
-<li>Windows: Detect gui launches and auto-run server in BG<br />
-    thanks to @Alia5</li>
-<li>Add "ping" endpoint<br />
-    thanks to @Alia5</li>
-<li>Add install command / scripts</li>
-<li>Breaking: Use int16 instead of int8 for mouse relative actions (dx, dy, wheel, pan)</li>
-<li>Add bus auto-cleanup
-  Configured by "ConnectionTimeout"</li>
-<li>SDKs: Add disconnect callback</li>
-<li>Add prerequisites Check</li>
-<li><strong>Breaking:</strong> Refactor API / transport (more flexible)<ul>
-<li><strong>Breaking:</strong> Return Proper problem+json errors from API (http like)</li>
-<li><strong>Breaking:</strong> Better device_add response (json)</li>
-<li>User defined VID/PID (optional)</li>
-<li>(misc) Update examples</li>
-</ul>
-</li>
-<li>Auto attach devices on localhost</li>
-<li>Typescript SDK Gen</li>
-<li>C# SDK Gen</li>
-<li>Add SDK CodeGen
-  Initially C
-  (Largely vibecoded, lol)</li>
-<li>Add virtual keyboard</li>
-<li>Add virtual mouse</li>
-</ul>
-<h3 id="fixes">🐛 Fixes</h3>
+<p>The fork provides the canonical embedded typed <code>lib/viiper</code> API for the standalone Full 1902 MSI Claw Addon. Preserve its existing lifecycle authority:</p>
 <ul>
-<li>Move to wall-clock based report timestamps<br />
-    thanks to @Alia5</li>
-<li>Fix DS4 Emulation, add metadata handling<ul>
-<li>Fix Gyro-Stutter</li>
-<li>Fix Triggers<br />
-thanks to @Alia5</li>
+<li>server-owned device/bus lifecycle and caller-owned long-lived bus;</li>
+<li><code>ManagedTransportLifecycle</code>, <code>BeginDeviceDrain</code>, <code>TransportDrain.Wait</code>, and <code>workerWG</code> joining;</li>
+<li>existing <code>CMD_UNLINK</code> cancellation and <code>RET_UNLINK</code> semantics;</li>
+<li>exact Windows usbip-win2 attachment/detachment ownership, classified results, and fail-closed behavior;</li>
+<li>the canonical C ABI, exported symbols, generated headers, device report formats, and callbacks.</li>
 </ul>
-</li>
-<li>WinInstall: Fix USBIP-Win2 driver detection<br />
-    thanks to @Alia5</li>
-<li>Fix xbox360 capability request<br />
-    thanks to @Alia5</li>
-<li>Handle usbGetStatus<br />
-    thanks to @Alia5</li>
-<li>Fix LangIDs<br />
-    thanks to @Alia5</li>
-<li>Windows: Install-Script: Fix updating<br />
-    thanks to @Alia5</li>
-<li>Fix busCreate with id 0 not choosing next free bus<br />
-    thanks to @Alia5</li>
-<li>Windows-Install: Fix VIIPER server closing upon terminal close<br />
-    thanks to @Alia5</li>
-<li>Fix install scripts and docs<br />
-    thanks to @Alia5</li>
-<li>Fix excessive CPU usage<br />
-    thanks to @Alia5</li>
-<li>Disable nagles algorithm</li>
-<li>Fix: free bus IDs not getting re-used</li>
-<li>Exclude C sdk build folder from artifact</li>
-<li>Fix Xbox360 Controller reports</li>
-<li>Fix go package</li>
-<li><strong>Breaking</strong> Fix missing underscores in C SDK constants</li>
-<li>Fix client using incorrect path</li>
-</ul>
-<h3 id="miscellaneous">🔧 Miscellaneous</h3>
+<p>There is <strong>no</strong> CTW integration work and <strong>no</strong> Addon code change in this PR.</p>
+<h2 id="3-exact-production-edit">3. Exact production edit</h2>
+<p>File: <code>internal/server/usb/server.go</code><br />
+Function: <code>(*Server).handleUrbStream</code><br />
+Location: asynchronous non-EP0 IN worker, after the <code>respData != nil</code> and <code>expired</code> branches.</p>
+<p>Current fork:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">if</span><span class="w"> </span><span class="nx">respData</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nx">respMu</span><span class="p">.</span><span class="nx">Lock</span><span class="p">()</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nx">lastInResp</span><span class="p">[</span><span class="nx">ep</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">append</span><span class="p">([]</span><span class="kt">byte</span><span class="p">(</span><span class="kc">nil</span><span class="p">),</span><span class="w"> </span><span class="nx">respData</span><span class="p">...)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nx">respMu</span><span class="p">.</span><span class="nx">Unlock</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="k">break</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">if</span><span class="w"> </span><span class="nx">expired</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nx">respMu</span><span class="p">.</span><span class="nx">Lock</span><span class="p">()</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nx">cached</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">lastInResp</span><span class="p">[</span><span class="nx">ep</span><span class="p">]</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nx">respMu</span><span class="p">.</span><span class="nx">Unlock</span><span class="p">()</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="nx">respData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">cached</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="k">break</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="nx">time</span><span class="p">.</span><span class="nx">Sleep</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">Millisecond</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="k">continue</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">}</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1">// Device answered "no data" without blocking.</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="k">break</span>
+</code></pre></div>
+<p>Make the narrow upstream-equivalent replacement <strong>only</strong> for the final no-data branch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// Device answered "no data" without blocking.</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="o">&lt;-</span><span class="nx">urbCtx</span><span class="p">.</span><span class="nx">Done</span><span class="p">()</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">return</span>
+</code></pre></div>
+<p>Expected behavior:</p>
 <ul>
-<li>Improve device emulation efficiency<ul>
-<li>Default to data-driven, immediate, updates</li>
-<li>Turn off write-batching by default<br />
-thanks to @Alia5</li>
+<li><strong>Non-nil IN data:</strong> unchanged; cache the report, complete <code>RET_SUBMIT</code>, and remove the pending entry normally.</li>
+<li><strong>Timed-out IN attempt:</strong> unchanged; retain the existing cached-report/retry policy.</li>
+<li><strong>Immediate <code>nil</code> with no deadline expiry:</strong> no empty <code>RET_SUBMIT</code>; park on <code>urbCtx.Done()</code> without polling or a new ticker.</li>
+<li><strong><code>CMD_UNLINK</code>:</strong> the existing pending cancellation ends the worker; the host receives the existing <code>RET_UNLINK</code> with the existing status semantics, not a late empty <code>RET_SUBMIT</code>.</li>
+<li><strong>Managed device drain/close:</strong> existing cancellation ends the worker, allowing the existing <code>workerWG</code> and managed transport teardown to complete.</li>
 </ul>
-</li>
-<li>Default server command<br />
-    thanks to @Alia5</li>
-<li>Add log level alias<br />
-    thanks to @Alia5</li>
-<li>Introduce golangci-lint and make linter happy<ul>
-<li>Breaking: Go users will experience breaking changes due to renamings<br />
-thanks to @Alia5</li>
+<p>The existing <code>defer urbCancel()</code> and <code>defer workerWG.Done()</code> already cover worker exit. Do not create a second state/cancellation/cleanup mechanism solely for this path.</p>
+<h2 id="4-focused-tests">4. Focused tests</h2>
+<p>Prefer extending <code>internal/server/usb/transport_async_in_test.go</code> using its real <code>OP_REQ_IMPORT</code> + <code>CMD_SUBMIT</code> transport pattern rather than introducing a new framework.</p>
+<p><strong>Test A — no-data IN remains pending, then UNLINK completes cleanly (required):</strong></p>
+<ol>
+<li>Register a small fake device with a valid interrupt IN endpoint and <code>HandleTransfer</code> returning <code>nil</code> immediately for that endpoint (not because <code>ctx</code> hit its deadline). Signal when the handler is entered so the test does not rely solely on sleeps.</li>
+<li>Import the fake device over the existing in-process USB/IP server harness.</li>
+<li>Submit an IN URB, observe that no empty <code>RET_SUBMIT</code> is sent while no data is available (use a <strong>bounded</strong> connection read deadline; do not hang tests).</li>
+<li>Submit <code>CMD_UNLINK</code> targeting that sequence number. Confirm the next protocol response is <code>RET_UNLINK</code> with the pre-existing cancellation status. Confirm no stray <code>RET_SUBMIT</code> is emitted for the cancelled IN request.</li>
+<li>Close/clean up all connections and the server through existing test cleanup.</li>
+</ol>
+<p>This test must fail on the old <code>break</code> behavior and pass with the change. Avoid adding arbitrary sleeps, scheduling hooks, or production instrumentation to force rare interleavings.</p>
+<p><strong>Test B — managed drain does not retain a parked worker (required if existing coverage does not cover this exact case):</strong></p>
+<ul>
+<li>Reuse the existing <code>TestManagedDeviceDrainWaitsForAsyncINWorker</code> pattern, adapting only as needed to cover a device that promptly returns <code>nil</code>.</li>
+<li>Once a no-data IN worker is outstanding, initiate <code>BeginDeviceDrain(dev)</code> and verify <code>TransportDrain.Wait()</code>/server close finishes within a bounded test deadline.</li>
+<li>Do <strong>not</strong> alter managed connection ownership or drain implementation merely to pass this test.</li>
 </ul>
-</li>
-<li>Windows: Update install script / USBIP-Driver<br />
-    thanks to @Alia5</li>
-<li>Update dotnet 8.0 -&gt; 10<br />
-    thanks to @Alia5</li>
-<li>Remove C API client<br />
-    thanks to @Alia5</li>
-<li>Configurable write batching time<br />
-    thanks to @Alia5</li>
-<li>Windows: log to file in autorun config<br />
-    thanks to @Alia5</li>
-<li>Linux install script: handle updates more gracefully<br />
-    thanks to @Alia5</li>
-<li>SDKs: add rust client</li>
-<li>Breaking: SDKs: Eliminate (most) fixed size buffers</li>
-<li>Let user allocate device specific sized buffers</li>
-<li>Add windows meta-info and Icon</li>
-<li><strong>Breaking</strong> Switch to \0 terminated transport</li>
-<li>Improve go api-client.</li>
-<li>Support file based configs</li>
-<li>Add Docs (on GH-Pages)</li>
+<p><strong>Positive control (small, within existing tests if possible):</strong> a non-nil IN report still completes with the same sequence, expected actual length, and identical response bytes. Retain existing async IN, OUT, and EP0 tests.</p>
+<p>Test machinery should remain proportionate to a two-line production change. Prefer one small test helper over a general-purpose test abstraction.</p>
+<h2 id="5-explicit-exclusions">5. Explicit exclusions</h2>
+<p>Do <strong>not</strong> include:</p>
+<ul>
+<li>upstream <code>d5a672fa02dc34538a14ae21646be1d5b2837020</code> (orphaned-device automatic cleanup / read-deadline change);</li>
+<li>automatic bus cleanup or caller-owned bus policy changes;</li>
+<li>new <code>conn.SetReadDeadline</code> cancellation hooks in production;</li>
+<li>scheduling/refactoring of the 10 ms main-loop wait or 1 ms expired-attempt retry;</li>
+<li>changes to <code>pending</code>, <code>workerWG</code>, managed connection tracking, <code>CMD_UNLINK</code>, or <code>RET_SUBMIT</code> framing beyond what the exact fix demonstrably requires;</li>
+<li>changes to Xbox360/Steam Deck device implementation, physical input, IMU, haptics/rumble, HidHide, or native USB/IP attachment;</li>
+<li>upstream v0.8.x merge/rebase, DS4 <code>UpdateFlags</code>, dependency bumps, new public exports, or Addon dependency adoption.</li>
 </ul>
+<p>Do not add new locks, managers, retry machinery, epochs, states, or compatibility fallbacks for theoretical races. If tests expose a reproducible real lifecycle regression, document it separately rather than silently expanding this work order.</p>
+<h2 id="6-validation">6. Validation</h2>
+<p>Run the normal repository checks, including:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./internal/server/usb/...
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./internal/server/usb/...
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./...
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>go<span class="w"> </span>vet<span class="w"> </span>./...
+</code></pre></div>
+<p>Build and validate the canonical Windows shared library using the repository's current <code>just build-libVIIPER Release</code>/CI workflow. Verify existing generated-header/export/ABI checks still pass; no ABI change is expected. Do not commit generated DLL/header artifacts.</p>
+<p>The PR description should identify the upstream commit and report the focused test results and canonical build/CI status. Any Addon pin/update is a <strong>separate reviewed change after this fork PR</strong>.</p>
+<h2 id="7-acceptance-criteria">7. Acceptance criteria</h2>
+<ul>
+<li>The old immediate-<code>nil</code> branch no longer writes an empty IN <code>RET_SUBMIT</code>.</li>
+<li>That worker waits without polling until its existing URB context is cancelled.</li>
+<li>Existing valid IN response, cached response, and timeout paths retain their behavior.</li>
+<li><code>CMD_UNLINK</code> and managed drain release the parked worker without hanging.</li>
+<li>No change to Full 1902 typed ownership, bus lifetime, native attachment, or public ABI.</li>
+<li>Only the minimum production code and focused regression tests are changed.</li>
+</ul>
+<p><strong>Expected production diff:</strong> replace the one <code>break</code> with <code>&lt;-urbCtx.Done(); return</code> in the no-data IN branch. Nothing else needs to be redesigned.</p>
 
 
 
