@@ -1659,6 +1659,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="4. Required production change">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-stability-requirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path-stability requirement
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1815,9 +1832,14 @@ Target base: latest <code>main</code></p>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">suppressed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">backing</span><span class="p">.</span><span class="nx">Reset</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span>
 </code></pre></div>
 <p>That policy is correct; the concrete Windows reset mechanism is not.</p>
-<p>On Windows, Go's <code>syscall.Open</code> handling for <code>O_APPEND</code> removes <code>GENERIC_WRITE</code> when <code>O_TRUNC</code> is not present and replaces it with append-oriented rights including <code>FILE_APPEND_DATA</code>. See:</p>
+<p>This repository currently declares <code>go 1.26.2</code> in <code>go.mod</code>. Ground the Windows behavior in that exact toolchain version, not Go <code>master</code>.</p>
+<p>In Go 1.26.2 on Windows, <code>syscall.Open</code> handling for <code>O_APPEND</code> removes <code>GENERIC_WRITE</code> when <code>O_TRUNC</code> is not present and replaces it with append-oriented rights including <code>FILE_APPEND_DATA</code>. See:</p>
 <ul>
-<li>https://github.com/golang/go/blob/master/src/syscall/syscall_windows.go</li>
+<li>https://raw.githubusercontent.com/golang/go/go1.26.2/src/syscall/syscall_windows.go</li>
+</ul>
+<p>Go 1.26.2 <code>os.Truncate(path, size)</code> opens the named file separately with <code>O_WRONLY</code> before truncating it. See:</p>
+<ul>
+<li>https://raw.githubusercontent.com/golang/go/go1.26.2/src/os/file_windows.go</li>
 </ul>
 <p>Windows <code>SetEndOfFile</code>, which underlies truncation of an already-open file handle, requires the handle to have been created with <code>GENERIC_WRITE</code>. See:</p>
 <ul>
@@ -1852,28 +1874,58 @@ Target base: latest <code>main</code></p>
 <li>asynchronous/non-blocking producer path;</li>
 <li>reset failure remains diagnostic-only and suppresses stale-file appends for that day.</li>
 </ul>
-<p>Change only how <code>osFileDailyLogWriter.Reset()</code> truncates the file on Windows-compatible Go semantics.</p>
-<p>Preferred minimum change:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">osFileDailyLogWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">Reset</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Truncate</span><span class="p">(</span><span class="nx">w</span><span class="p">.</span><span class="nx">f</span><span class="p">.</span><span class="nx">Name</span><span class="p">(),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">}</span>
+<p>Change only how the real file writer identifies and truncates its destination on Windows-compatible Go semantics.</p>
+<h3 id="path-stability-requirement">Path-stability requirement</h3>
+<p><code>SetDiagnosticLogDirectory</code> currently accepts a non-empty relative directory as well as an absolute directory. That API behavior must not be changed in this PR.</p>
+<p>Do <strong>not</strong> implement rollover as <code>os.Truncate(w.f.Name(), 0)</code> while retaining a possibly relative <code>Name()</code>. If the process working directory changes after the file was opened, the same relative string could resolve to a different file at rollover time.</p>
+<p>Instead, resolve the selected <code>libVIIPER.log</code> path to one absolute path <strong>once when the real file sink is initialized</strong>, use that same absolute path for stat/open, and retain it in the concrete writer for later reset.</p>
+<p>Preferred shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">osFileDailyLogWriter</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="nx">f</span><span class="w">    </span><span class="o">*</span><span class="nx">os</span><span class="p">.</span><span class="nx">File</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nx">path</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">}</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">osFileDailyLogWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">Write</span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">f</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">p</span><span class="p">)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">}</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="o">*</span><span class="nx">osFileDailyLogWriter</span><span class="p">)</span><span class="w"> </span><span class="nx">Reset</span><span class="p">()</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">Truncate</span><span class="p">(</span><span class="nx">w</span><span class="p">.</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">}</span>
 </code></pre></div>
+<p>The real sink setup should conceptually be:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nx">resolvedPath</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">resolveEmbeddedLogPath</span><span class="p">(</span><span class="nx">directory</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="c1">// existing no-file-sink behavior</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">}</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nx">absolutePath</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">filepath</span><span class="p">.</span><span class="nx">Abs</span><span class="p">(</span><span class="nx">resolvedPath</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="c1">// diagnostic-only sink initialization failure</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">}</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1">// Use absolutePath consistently for:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="c1">//   - initial stat/mod-time lookup</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1">//   - os.OpenFile(... O_APPEND ...)</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="c1">//   - osFileDailyLogWriter.path</span>
+</code></pre></div>
+<p>Keep this path stabilization local to the real owned-file sink. Do not change the public <code>SetDiagnosticLogDirectory</code> contract to reject relative paths, and do not add a new path manager or process-working-directory watcher.</p>
 <p>Why this shape is preferred:</p>
 <ul>
-<li><code>os.Truncate(name, 0)</code> opens a separate writable handle for the truncate operation instead of trying to truncate through the long-lived append-only handle;</li>
-<li>Go's Windows <code>os.Truncate</code> implementation opens the named file with <code>O_WRONLY</code>, then truncates through that writable handle;</li>
+<li><code>os.Truncate(path, 0)</code> opens a separate writable handle for the truncate operation instead of trying to truncate through the long-lived append-only handle;</li>
+<li>Go 1.26.2's Windows <code>os.Truncate</code> implementation opens the named file with <code>O_WRONLY</code>, then truncates through that writable handle;</li>
+<li>freezing one absolute destination at sink initialization preserves the file that was actually selected even if the process working directory later changes;</li>
 <li>the existing append file handle remains the single long-lived writer;</li>
 <li>after the named file is truncated to zero, the next <code>O_APPEND</code> write lands at the new EOF;</li>
-<li>the existing Go Windows file open path uses write sharing, so the temporary truncate handle is compatible with the already-open VIIPER append handle;</li>
 <li>no close/reopen state machine is required.</li>
 </ul>
-<p>Equivalent minimal code is acceptable if a real Windows regression test proves the same invariant. Do not redesign the logger around this fix.</p>
+<p>Equivalent minimal code is acceptable if the Windows regression tests prove both the handle-right invariant and the path-stability invariant. Do not redesign the logger around this fix.</p>
 <p>Update the nearby comment in <code>embeddedlog.go</code>: it currently states that the same append-opened <code>*os.File</code> can successfully <code>Truncate(0)</code> in place. That statement is not valid for the Windows append-handle semantics above.</p>
 <h2 id="5-required-windows-regression-test">5. Required Windows regression test</h2>
 <p>The existing fake <code>dailyLogWriter</code> tests correctly test policy but cannot detect this platform handle-rights bug.</p>
 <p>Add one focused <strong>real filesystem Windows test</strong> using the same open flags as production.</p>
 <p>Preferred location:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>lib/viiper/embeddedlog_windows_test.go
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>lib/viiper/embeddedlog_windows_test.go
 </code></pre></div>
 <p>or another narrowly named <code>*_windows_test.go</code> in <code>lib/viiper</code>.</p>
 <p>The test must exercise a real file, not a fake writer.</p>
@@ -1882,66 +1934,80 @@ Target base: latest <code>main</code></p>
 <li>Create a temporary <code>libVIIPER.log</code> containing old-day/stale bytes.</li>
 <li>Open it exactly like production:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_APPEND</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="p">,</span><span class="w"> </span><span class="mo">0o644</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_APPEND</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="p">,</span><span class="w"> </span><span class="mo">0o644</span><span class="p">)</span>
 </code></pre></div>
 <ol>
 <li>Construct the real <code>osFileDailyLogWriter</code> over that handle.</li>
 <li>Call <code>Reset()</code>.</li>
 <li>Assert reset succeeds on Windows.</li>
-<li>Write a new record through the original long-lived append handle.</li>
+<li>Write a first new-day record through the original long-lived append handle.</li>
+<li>Write a second same-day record through that same original append handle.</li>
 <li>Close/flush as required by the test.</li>
-<li>Read the file and assert it contains only the new record, with no stale prefix.</li>
+<li>Read the file and assert it contains exactly those two new records in order, with no stale prefix.</li>
 </ol>
 <p>The regression should fail with the current <code>w.f.Truncate(0)</code> implementation on Windows and pass with the fix.</p>
 <p>A suitable test shape is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">TestOSFileDailyLogWriterResetWorksWithProductionAppendHandle</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nx">path</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">filepath</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">TempDir</span><span class="p">(),</span><span class="w"> </span><span class="s">"libVIIPER.log"</span><span class="p">)</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">WriteFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"stale-old-day\n"</span><span class="p">),</span><span class="w"> </span><span class="mo">0o644</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_APPEND</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="p">,</span><span class="w"> </span><span class="mo">0o644</span><span class="p">)</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">    </span><span class="nx">w</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">osFileDailyLogWriter</span><span class="p">{</span><span class="nx">f</span><span class="p">:</span><span class="w"> </span><span class="nx">f</span><span class="p">}</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">Reset</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"Reset failed for production append handle: %v"</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">Write</span><span class="p">([]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"new-day\n"</span><span class="p">));</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
-<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>
-<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">    </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span>
-<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
-<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="kt">string</span><span class="p">(</span><span class="nx">got</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s">"new-day\n"</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"log contents = %q, want only new-day record"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">)</span>
-<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">TestOSFileDailyLogWriterResetWorksWithProductionAppendHandle</span><span class="p">(</span><span class="nx">t</span><span class="w"> </span><span class="o">*</span><span class="nx">testing</span><span class="p">.</span><span class="nx">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="nx">path</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">filepath</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">TempDir</span><span class="p">(),</span><span class="w"> </span><span class="s">"libVIIPER.log"</span><span class="p">)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">WriteFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"stale-old-day\n"</span><span class="p">),</span><span class="w"> </span><span class="mo">0o644</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nx">f</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_APPEND</span><span class="o">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="p">,</span><span class="w"> </span><span class="mo">0o644</span><span class="p">)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">f</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="nx">w</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">osFileDailyLogWriter</span><span class="p">{</span><span class="nx">f</span><span class="p">:</span><span class="w"> </span><span class="nx">f</span><span class="p">}</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">Reset</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"Reset failed for production append handle: %v"</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">Write</span><span class="p">([]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"new-day-1\n"</span><span class="p">));</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">Write</span><span class="p">([]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"new-day-2\n"</span><span class="p">));</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="w">    </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">os</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"new-day-1\nnew-day-2\n"</span>
+<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="kt">string</span><span class="p">(</span><span class="nx">got</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="nx">want</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a><span class="w">        </span><span class="nx">t</span><span class="p">.</span><span class="nx">Fatalf</span><span class="p">(</span><span class="s">"log contents = %q, want %q"</span><span class="p">,</span><span class="w"> </span><span class="nx">got</span><span class="p">,</span><span class="w"> </span><span class="nx">want</span><span class="p">)</span>
+<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a><span class="p">}</span>
 </code></pre></div>
-<p>Adjust only for test correctness/style. Do not add production-only hooks just to make the test convenient.</p>
+<p>Adjust only for test correctness/style. The concrete writer may now require the retained absolute path as well as the file handle; construct it exactly as production does. Do not add production-only hooks just to make the test convenient.</p>
+<p>Also add one focused path-stability assertion for the existing relative-directory contract. The test may change the process working directory <strong>inside the test only</strong>, provided it restores it with <code>t.Cleanup</code> and does not run in parallel. The invariant to prove is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>relative configured directory at sink initialization
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    -&gt; sink resolves/fixes one absolute destination
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    -&gt; process working directory changes
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    -&gt; Reset()
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    -&gt; original opened libVIIPER.log is truncated
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    -&gt; no second file is created/resolved under the new working directory
+</code></pre></div>
+<p>Keep this as a small Windows-only regression. No production observer, lock, retry, or working-directory tracking is needed.</p>
 <h2 id="6-daily-rollover-integration-coverage">6. Daily-rollover integration coverage</h2>
 <p>In addition to the direct writer test, preserve the existing fake-policy tests in <code>dailyrollover_test.go</code>.</p>
 <p>If it can be done without a new framework, add or adapt one small Windows real-filesystem test that proves the actual daily policy:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>stale file from previous local day
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    -&gt; first current-day record
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    -&gt; reset succeeds
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    -&gt; stale bytes disappear
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    -&gt; triggering current-day record is preserved
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    -&gt; second current-day record appends normally
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>stale file from previous local day
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    -&gt; first current-day record
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    -&gt; reset succeeds
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    -&gt; stale bytes disappear
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    -&gt; triggering current-day record is preserved
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    -&gt; second current-day record appends normally
 </code></pre></div>
 <p>This is desirable but secondary to the required production-append-handle regression above.</p>
 <p>Do not manipulate the real system clock. Use existing injectable <code>now</code> seams and/or explicit initial-day construction.</p>
 <h2 id="7-preserve-failure-policy">7. Preserve failure policy</h2>
 <p>Do not weaken this existing safety property:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">suppressed</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">p</span><span class="p">),</span><span class="w"> </span><span class="kc">nil</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">suppressed</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="nx">p</span><span class="p">),</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="p">}</span>
 </code></pre></div>
 <p>If reset genuinely fails because of filesystem/AV/filter-driver/permission failure, VIIPER must still avoid appending new-day records onto stale old-day content.</p>
 <p>This PR fixes the Windows handle-right mismatch that causes a normal rollover to fail. It does not convert diagnostic logging into a controller-routing dependency.</p>
@@ -1974,25 +2040,33 @@ Target base: latest <code>main</code></p>
 <li><code>docs/libviiper/fork-api.md</code>;</li>
 </ul>
 <p>only as needed to keep the implementation statement accurate.</p>
-<p>The contract remains:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>same-day -&gt; append
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>new local day -&gt; reset same libVIIPER.log, then write
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>real reset failure -&gt; suppress persistence for that day
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>callback observer -&gt; unaffected
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>routing/lifecycle -&gt; unaffected
+<p>When touching those sections, state the destination rule accurately:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>SetDiagnosticLogDirectory configured before sink initialization
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    -&gt; libVIIPER.log in that configured directory
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>no configured directory
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    -&gt; Windows fallback beside the actually loaded libVIIPER.dll
+</code></pre></div>
+<p>Do not leave wording that implies the DLL-adjacent path is unconditional. A relative configured directory remains accepted, but the sink should freeze the resulting absolute file destination when it initializes.</p>
+<p>The retention contract remains:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>same-day -&gt; append
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>new local day -&gt; reset same libVIIPER.log, then write
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>real reset failure -&gt; suppress persistence for that day
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>callback observer -&gt; unaffected
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>routing/lifecycle -&gt; unaffected
 </code></pre></div>
 <p>Do not expand the documentation beyond the actual fix.</p>
 <h2 id="10-validation">10. Validation</h2>
 <p>Run the normal repository checks:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./lib/viiper/...
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./lib/viiper/...
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./...
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>go<span class="w"> </span>vet<span class="w"> </span>./...
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>git<span class="w"> </span>diff<span class="w"> </span>--check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./lib/viiper/...
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>./lib/viiper/...
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./...
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>go<span class="w"> </span>vet<span class="w"> </span>./...
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>git<span class="w"> </span>diff<span class="w"> </span>--check
 </code></pre></div>
 <p>The Windows real-filesystem regression is mandatory evidence. If local development is not Windows, ensure the repository's Windows CI runs the test and report that result explicitly in the PR.</p>
 <p>Also run the canonical Windows shared-library path:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>just build-libVIIPER Release
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>just build-libVIIPER Release
 </code></pre></div>
 <p>Verify:</p>
 <ul>
@@ -2017,15 +2091,16 @@ Target base: latest <code>main</code></p>
 <li>the production Windows log file is still opened once for append writes;</li>
 <li>daily reset no longer calls <code>Truncate(0)</code> through the append-only long-lived handle;</li>
 <li>a real Windows test proves reset succeeds with the exact production append-open flags;</li>
+<li>the sink retains one absolute destination selected at initialization, so later working-directory changes cannot redirect rollover;</li>
 <li>stale old-day bytes are removed;</li>
 <li>the first new-day record is preserved;</li>
-<li>later same-day records append normally;</li>
+<li>a second same-day record appended through the original long-lived handle is preserved in order;</li>
 <li>genuine reset failure still suppresses stale-file persistence rather than affecting routing;</li>
 <li><code>VIIPERLogCallback</code> behavior is unchanged;</li>
 <li>async producer/non-blocking logging behavior is unchanged;</li>
 <li>no ABI, controller, USB/IP, or lifecycle change is introduced.</li>
 </ul>
-<p><strong>Expected production diff:</strong> a very small change in <code>lib/viiper/embeddedlog.go</code> plus the corresponding comment correction.</p>
+<p><strong>Expected production diff:</strong> a small, localized change in <code>lib/viiper/embeddedlog.go</code> to retain the initialized absolute file path and truncate by that path, plus the corresponding comment correction. If the absolute-path normalization is cleaner in the existing Windows/path helper seam, a similarly narrow edit there is acceptable.</p>
 <p>The objective is not to redesign VIIPER logging. It is to make the existing one-file daily-retention contract actually work on Windows.</p>
 
 
