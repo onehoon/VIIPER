@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -88,10 +89,11 @@ func embeddedFileHandler(w io.Writer) slog.Handler {
 // the daily-rollover layer and then the bounded asyncLogWriter, so the actual (potentially slow)
 // filesystem write -- and any same-write daily reset -- never happens on the caller's thread.
 // resolve, statModTime, openFile, and now are injected so this logic is fully testable without
-// any real module-path Windows API call, real filesystem dependency, or real wall-clock time;
-// failures at resolve or openFile return a nil handler and a nil writer rather than an error,
-// matching the "logging failures must never become routing failures" contract -- callers must
-// never treat a nil result as anything other than "no file sink this run."
+// any real module-path Windows API call, real filesystem dependency, or real wall-clock time.
+// The resolved path is made absolute once before stat/open and then retained by the real writer;
+// failures at resolve, absolute-path conversion, stat, or openFile return a nil handler and a nil
+// writer rather than an error, matching the "logging failures must never become routing failures"
+// contract -- callers must never treat a nil result as anything other than "no file sink this run."
 //
 // A statModTime result of "does not exist" is handled like a brand-new file: the daily-rollover
 // layer treats the first write as establishing today with no reset, since there is nothing stale
@@ -110,6 +112,10 @@ func openEmbeddedLogFileHandler(
 ) (slog.Handler, *asyncLogWriter) {
 	path, ok := resolve()
 	if !ok {
+		return nil, nil
+	}
+	path, err := filepath.Abs(path)
+	if err != nil {
 		return nil, nil
 	}
 	modTime, exists, statErr := statModTime(path)
@@ -137,14 +143,16 @@ var (
 	embeddedLogWriterCache      *asyncLogWriter
 )
 
-// osFileDailyLogWriter adapts a real *os.File to dailyLogWriter: Reset truncates it back to
-// empty in place. The file is opened with O_APPEND, so a write immediately following a
-// successful Truncate(0) lands at the new (zero) end of file -- no close/reopen needed to
-// achieve "the same libVIIPER.log, reset."
-type osFileDailyLogWriter struct{ f *os.File }
+// osFileDailyLogWriter adapts a real *os.File to dailyLogWriter. The append handle is retained
+// for writes; Reset uses the same absolute path captured at sink initialization because Windows
+// append handles do not reliably have the access rights needed to truncate through that handle.
+type osFileDailyLogWriter struct {
+	f    *os.File
+	path string
+}
 
 func (w *osFileDailyLogWriter) Write(p []byte) (int, error) { return w.f.Write(p) }
-func (w *osFileDailyLogWriter) Reset() error                { return w.f.Truncate(0) }
+func (w *osFileDailyLogWriter) Reset() error                { return os.Truncate(w.path, 0) }
 
 func realStatModTime(path string) (time.Time, bool, error) {
 	info, err := os.Stat(path)
@@ -173,7 +181,7 @@ func openRealEmbeddedLogFileHandler() slog.Handler {
 				if err != nil {
 					return nil, err
 				}
-				return &osFileDailyLogWriter{f: f}, nil
+				return &osFileDailyLogWriter{f: f, path: path}, nil
 			},
 			time.Now,
 		)

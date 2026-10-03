@@ -99,15 +99,18 @@ cross-process BusID coordination.
 ## Diagnostic logging
 
 `libVIIPER` owns its own diagnostic log rather than depending on an embedding
-application to persist it. On Windows, `NewUSBServer` writes `libVIIPER.log`
-beside the directory containing the actually loaded `libVIIPER.dll` module
-(resolved from the loaded module itself, never the process executable path,
-current working directory, or an application-specific data directory).
-Non-Windows builds have no file sink in this fork; a supplied
-`VIIPERLogCallback` still works normally. If module-path resolution or the
-file open fails, that is diagnostic-only: `NewUSBServer` and controller
-routing are never affected, and no fallback stdout/stderr CLI-style output is
-introduced into the embedded DLL.
+application to persist it. If `SetDiagnosticLogDirectory` is called before
+the owned file sink initializes, `libVIIPER.log` is placed in that directory.
+If no directory is configured, Windows falls back to the directory containing
+the actually loaded `libVIIPER.dll` module (resolved from the loaded module
+itself, not the process executable path). A relative configured directory is
+resolved to one absolute file path when the sink initializes; later process
+working-directory changes cannot redirect writes or daily reset. Non-Windows
+builds support an explicitly configured directory but have no module-directory
+fallback; a supplied `VIIPERLogCallback` still works normally. If path
+resolution or the file open fails, that is diagnostic-only: `NewUSBServer`
+and controller routing are never affected, and no fallback stdout/stderr
+CLI-style output is introduced into the embedded DLL.
 
 When the Windows owned file sink is available, it uses exactly one
 `libVIIPER.log`, containing current-local-calendar-day diagnostics only.
