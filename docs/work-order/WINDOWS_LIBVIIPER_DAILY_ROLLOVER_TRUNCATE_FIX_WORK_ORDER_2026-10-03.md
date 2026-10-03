@@ -226,7 +226,7 @@ func TestOSFileDailyLogWriterResetWorksWithProductionAppendHandle(t *testing.T) 
     }
     defer f.Close()
 
-    w := &osFileDailyLogWriter{f: f}
+    w := &osFileDailyLogWriter{f: f, path: path}
 
     if err := w.Reset(); err != nil {
         t.Fatalf("Reset failed for production append handle: %v", err)
