@@ -2822,13 +2822,16 @@ application can release it during device removal or server shutdown.</p>
 ownership: <code>libVIIPER</code> owns its own diagnostic log and does not depend on
 the embedding application to persist it.</p>
 <ul>
-<li>On Windows, <code>NewUSBServer</code> independently attempts to provide <code>libVIIPER.log</code>
-  beside the directory containing the actually loaded <code>libVIIPER.dll</code>
-  module, regardless of whether <code>logCallback</code> is <code>NULL</code> — module-path
-  resolution or the file open can still fail safely (see below), in which
-  case there is simply no file sink for that process. This fork has no
-  file-sink implementation for non-Windows builds; a supplied <code>logCallback</code>
-  still works normally there.</li>
+<li>If <code>SetDiagnosticLogDirectory</code> is called before the owned file sink
+  initializes, <code>libVIIPER.log</code> is placed in that directory. If no directory
+  is configured, Windows falls back to the directory containing the actually
+  loaded <code>libVIIPER.dll</code> module. A relative configured directory is resolved
+  to one absolute file path when the sink initializes, so a later process
+  working-directory change cannot redirect writes or daily reset. Non-Windows
+  builds support an explicitly configured directory but have no
+  module-directory fallback. This file sink is independent of whether
+  <code>logCallback</code> is <code>NULL</code>; path resolution or file open can fail safely (see
+  below), in which case there is simply no file sink for that process.</li>
 <li>When the owned file sink is available, it uses exactly one <code>libVIIPER.log</code>,
   containing current-local-calendar-day diagnostics only (local date, no
   timezone configuration). Records append during the same day. On the first
@@ -2862,7 +2865,7 @@ the embedding application to persist it.</p>
   library-owned, file-only fallback logger — never to any particular
   server's <code>VIIPERLogCallback</code>, and never through Go's process-global
   <code>slog.Default()</code>.</li>
-<li>If module-path resolution, the log file open, or a daily reset fails, that
+<li>If path resolution, the log file open, or a daily reset fails, that
   failure is silently absorbed: it never fails <code>NewUSBServer</code>, never changes
   attachment/removal/lifecycle classification, and never falls back to
   stdout/stderr.</li>
