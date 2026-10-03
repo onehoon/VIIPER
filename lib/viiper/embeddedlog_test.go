@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"runtime/cgo"
 	"strings"
 	"testing"
@@ -161,20 +162,27 @@ func TestOpenEmbeddedLogFileHandlerOpenFailureReturnsNilNotError(t *testing.T) {
 	}
 }
 
-func TestOpenEmbeddedLogFileHandlerSuccessUsesResolvedPath(t *testing.T) {
-	var openedPath string
+func TestOpenEmbeddedLogFileHandlerUsesAbsoluteResolvedPath(t *testing.T) {
+	var statPath, openedPath string
+	wantPath, err := filepath.Abs(filepath.Join("fake", "libVIIPER.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	fw := &recordingWriteCloser{}
 	handler, writer := openEmbeddedLogFileHandler(
 		func() (string, bool) { return "fake/libVIIPER.log", true },
-		noopStatModTime,
+		func(path string) (time.Time, bool, error) {
+			statPath = path
+			return time.Time{}, false, nil
+		},
 		func(path string) (dailyLogWriter, error) { openedPath = path; return fw, nil },
 		time.Now,
 	)
 	if handler == nil || writer == nil {
 		t.Fatal("expected a non-nil handler and writer on success")
 	}
-	if openedPath != "fake/libVIIPER.log" {
-		t.Fatalf("openFile path = %q, want fake/libVIIPER.log", openedPath)
+	if statPath != wantPath || openedPath != wantPath {
+		t.Fatalf("stat/open paths = %q/%q, want same absolute path %q", statPath, openedPath, wantPath)
 	}
 	slog.New(handler).Info("hello")
 	if !writer.Flush() {

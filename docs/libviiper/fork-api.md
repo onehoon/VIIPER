@@ -539,13 +539,16 @@ typedef void (*VIIPERLogCallback)(VIIPERLogLevel level, const char* message);
 ownership: `libVIIPER` owns its own diagnostic log and does not depend on
 the embedding application to persist it.
 
-- On Windows, `NewUSBServer` independently attempts to provide `libVIIPER.log`
-  beside the directory containing the actually loaded `libVIIPER.dll`
-  module, regardless of whether `logCallback` is `NULL` — module-path
-  resolution or the file open can still fail safely (see below), in which
-  case there is simply no file sink for that process. This fork has no
-  file-sink implementation for non-Windows builds; a supplied `logCallback`
-  still works normally there.
+- If `SetDiagnosticLogDirectory` is called before the owned file sink
+  initializes, `libVIIPER.log` is placed in that directory. If no directory
+  is configured, Windows falls back to the directory containing the actually
+  loaded `libVIIPER.dll` module. A relative configured directory is resolved
+  to one absolute file path when the sink initializes, so a later process
+  working-directory change cannot redirect writes or daily reset. Non-Windows
+  builds support an explicitly configured directory but have no
+  module-directory fallback. This file sink is independent of whether
+  `logCallback` is `NULL`; path resolution or file open can fail safely (see
+  below), in which case there is simply no file sink for that process.
 - When the owned file sink is available, it uses exactly one `libVIIPER.log`,
   containing current-local-calendar-day diagnostics only (local date, no
   timezone configuration). Records append during the same day. On the first
@@ -579,7 +582,7 @@ the embedding application to persist it.
   library-owned, file-only fallback logger — never to any particular
   server's `VIIPERLogCallback`, and never through Go's process-global
   `slog.Default()`.
-- If module-path resolution, the log file open, or a daily reset fails, that
+- If path resolution, the log file open, or a daily reset fails, that
   failure is silently absorbed: it never fails `NewUSBServer`, never changes
   attachment/removal/lifecycle classification, and never falls back to
   stdout/stderr.
