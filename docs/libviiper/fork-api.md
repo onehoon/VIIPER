@@ -337,6 +337,16 @@ The canonical wrappers currently include:
 | Nintendo Switch 2 Pro | `CreateNS2ProDevice` | `SetNS2ProDeviceState`, `SetNS2ProOutputCallback` | `RemoveNS2ProDevice`, `RemoveNS2ProDeviceEx` |
 | Steam Deck | `CreateSteamDeckDevice` | `SetSteamDeckDeviceState`, `SetSteamDeckOutputCallback` | `RemoveSteamDeckDevice`, `RemoveSteamDeckDeviceEx` |
 
+The DualSense and DualSense Edge output callback deliberately delivers rumble
+events only in this fork, despite retaining the legacy native callback
+signature's LED arguments. A callback is invoked only when a valid classic
+rumble update is present (v1 or v2); a flagged `0,0` remains an explicit stop.
+LED-only, player-LED-only, haptics-select-only, and other unflagged reports do
+not invoke the application callback, and the legacy LED output arguments are
+always zero. Otherwise-valid HID output reports remain acknowledged. This is
+an intentional behavioral reduction for the supported consumer, not upstream
+behavioral parity.
+
 `lib/viiper` exposes the Steam Deck (`28DE:1205` by default) through a typed
 wrapper: `CreateSteamDeckDevice`, `SetSteamDeckDeviceState`,
 `SetSteamDeckOutputCallback`, `RemoveSteamDeckDevice`, and the classified

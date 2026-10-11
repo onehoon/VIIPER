@@ -21,19 +21,22 @@ func makeUSBOutputReport(flag0, flag1, flag2, motorRight, motorLeft byte) []byte
 
 func TestOutputReportRumbleValidityAcrossInputPaths(t *testing.T) {
 	paths := []struct {
-		name string
-		send func(*DualSense, []byte)
+		name    string
+		control bool
+		send    func(*DualSense, []byte) ([]byte, bool)
 	}{
 		{
 			name: "interrupt OUT",
-			send: func(d *DualSense, report []byte) {
+			send: func(d *DualSense, report []byte) ([]byte, bool) {
 				d.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, report)
+				return nil, false
 			},
 		},
 		{
-			name: "HID SET_REPORT",
-			send: func(d *DualSense, report []byte) {
-				d.HandleControl(hidClassOUT, hidSetReport, 0x0202, 0, uint16(len(report)), report)
+			name:    "HID SET_REPORT",
+			control: true,
+			send: func(d *DualSense, report []byte) ([]byte, bool) {
+				return d.HandleControl(hidClassOUT, hidSetReport, 0x0202, 0, uint16(len(report)), report)
 			},
 		},
 	}
@@ -41,67 +44,61 @@ func TestOutputReportRumbleValidityAcrossInputPaths(t *testing.T) {
 	steps := []struct {
 		name   string
 		report []byte
-		want   OutputState
+		state  *OutputState
 	}{
 		{
-			name:   "fresh LED-only report ignores unused motors",
+			name:   "fresh LED-only report is ignored",
 			report: makeUSBOutputReport(0, 0x04, 0, 0xAA, 0xBB),
-			want:   OutputState{},
 		},
 		{
 			name:   "v1 compatible vibration updates motors",
 			report: makeUSBOutputReport(0x01, 0, 0, 0x11, 0x22),
-			want:   OutputState{RumbleSmall: 0x11, RumbleLarge: 0x22},
+			state:  &OutputState{RumbleSmall: 0x11, RumbleLarge: 0x22},
 		},
 		{
-			name:   "LED-only zero motors retain last valid state",
+			name:   "LED-only after rumble is ignored",
 			report: makeUSBOutputReport(0, 0x04, 0, 0, 0),
-			want:   OutputState{RumbleSmall: 0x11, RumbleLarge: 0x22},
 		},
 		{
-			name:   "LED-only incidental motors retain last valid state",
-			report: makeUSBOutputReport(0, 0x10, 0, 0x7F, 0xFE),
-			want:   OutputState{RumbleSmall: 0x11, RumbleLarge: 0x22},
+			name:   "player LED-only report is ignored",
+			report: func() []byte {
+				report := makeUSBOutputReport(0, 0x10, 0, 0x7F, 0xFE)
+				report[44] = 0x05
+				return report
+			}(),
+		},
+		{
+			name:   "haptics select alone is ignored",
+			report: makeUSBOutputReport(0x02, 0, 0, 0x91, 0x92),
+		},
+		{
+			name:   "unflagged arbitrary motor bytes are ignored",
+			report: makeUSBOutputReport(0, 0, 0, 0xA1, 0xA2),
 		},
 		{
 			name:   "v2 compatible vibration updates motors",
 			report: makeUSBOutputReport(0, 0, 0x04, 0x33, 0x44),
-			want:   OutputState{RumbleSmall: 0x33, RumbleLarge: 0x44},
-		},
-		{
-			name:   "haptics select alone does not update motors",
-			report: makeUSBOutputReport(0x02, 0, 0, 0x91, 0x92),
-			want:   OutputState{RumbleSmall: 0x33, RumbleLarge: 0x44},
+			state:  &OutputState{RumbleSmall: 0x33, RumbleLarge: 0x44},
 		},
 		{
 			name:   "v1 explicit zero stops motors",
 			report: makeUSBOutputReport(0x01, 0, 0, 0, 0),
-			want:   OutputState{},
-		},
-		{
-			name:   "v2 nonzero restores motors",
-			report: makeUSBOutputReport(0, 0, 0x04, 0x55, 0x66),
-			want:   OutputState{RumbleSmall: 0x55, RumbleLarge: 0x66},
+			state:  &OutputState{},
 		},
 		{
 			name:   "v2 explicit zero stops motors",
 			report: makeUSBOutputReport(0, 0, 0x04, 0, 0),
-			want:   OutputState{},
+			state:  &OutputState{},
 		},
 		{
-			name: "combined rumble and LED update preserves both",
+			name: "combined rumble and LED update sends motors only",
 			report: func() []byte {
 				report := makeUSBOutputReport(0x01, 0x14, 0x04, 0x77, 0x88)
 				report[44] = 0x05
 				report[45], report[46], report[47] = 0x12, 0x34, 0x56
 				return report
 			}(),
-			want: OutputState{RumbleSmall: 0x77, RumbleLarge: 0x88, LedRed: 0x12, LedGreen: 0x34, LedBlue: 0x56, PlayerLeds: 0x05},
-		},
-		{
-			name:   "unflagged zero after rumble retains last valid state",
-			report: makeUSBOutputReport(0, 0, 0, 0, 0),
-			want:   OutputState{RumbleSmall: 0x77, RumbleLarge: 0x88},
+			state: &OutputState{RumbleSmall: 0x77, RumbleLarge: 0x88},
 		},
 	}
 
@@ -114,15 +111,21 @@ func TestOutputReportRumbleValidityAcrossInputPaths(t *testing.T) {
 			var callbacks []OutputState
 			dev.SetOutputCallback(func(state OutputState) { callbacks = append(callbacks, state) })
 
-			for i, step := range steps {
+			var wantCallbacks []OutputState
+			for _, step := range steps {
 				t.Run(step.name, func(t *testing.T) {
-					path.send(dev, step.report)
-					if len(callbacks) != i+1 {
-						t.Fatalf("callback count = %d, want %d", len(callbacks), i+1)
+					response, handled := path.send(dev, step.report)
+					if path.control && (!handled || response != nil) {
+						t.Fatalf("HID SET_REPORT response = (%v, %v), want (nil, true)", response, handled)
 					}
-					got := callbacks[i]
-					if got != step.want {
-						t.Fatalf("callback state = %+v, want %+v", got, step.want)
+					if step.state != nil {
+						wantCallbacks = append(wantCallbacks, *step.state)
+					}
+					if len(callbacks) != len(wantCallbacks) {
+						t.Fatalf("callback count = %d, want %d", len(callbacks), len(wantCallbacks))
+					}
+					if len(wantCallbacks) > 0 && callbacks[len(wantCallbacks)-1] != wantCallbacks[len(wantCallbacks)-1] {
+						t.Fatalf("callback state = %+v, want %+v", callbacks[len(wantCallbacks)-1], wantCallbacks[len(wantCallbacks)-1])
 					}
 				})
 			}
@@ -130,63 +133,54 @@ func TestOutputReportRumbleValidityAcrossInputPaths(t *testing.T) {
 	}
 }
 
-func TestOutputReportRumbleCacheIsPerDevice(t *testing.T) {
-	first, err := New(nil)
-	if err != nil {
-		t.Fatal(err)
+func TestDualSenseEdgeRumbleOnlyCallbackAcrossReuse(t *testing.T) {
+	paths := []struct {
+		name string
+		send func(*DualSense, []byte) ([]byte, bool)
+	}{
+		{
+			name: "interrupt OUT",
+			send: func(d *DualSense, report []byte) ([]byte, bool) {
+				d.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, report)
+				return nil, false
+			},
+		},
+		{
+			name: "HID SET_REPORT",
+			send: func(d *DualSense, report []byte) ([]byte, bool) {
+				return d.HandleControl(hidClassOUT, hidSetReport, 0x0202, 0, uint16(len(report)), report)
+			},
+		},
 	}
-	second, err := New(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var firstState, secondState OutputState
-	first.SetOutputCallback(func(state OutputState) { firstState = state })
-	second.SetOutputCallback(func(state OutputState) { secondState = state })
+	for _, path := range paths {
+		t.Run(path.name, func(t *testing.T) {
+			dev, err := NewEdge(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var previousSession []OutputState
+			dev.SetOutputCallback(func(state OutputState) { previousSession = append(previousSession, state) })
+			path.send(dev, makeUSBOutputReport(0x01, 0, 0, 0x61, 0x72))
+			if len(previousSession) != 1 || previousSession[0] != (OutputState{RumbleSmall: 0x61, RumbleLarge: 0x72}) {
+				t.Fatalf("previous-session callbacks = %+v, want one 61/72 rumble event", previousSession)
+			}
 
-	first.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, makeUSBOutputReport(0x01, 0, 0, 0x12, 0x34))
-	second.HandleControl(hidClassOUT, hidSetReport, 0x0202, 0, 48, makeUSBOutputReport(0, 0x04, 0, 0xAA, 0xBB))
+			dev.SetOutputCallback(nil)
+			var nextSession []OutputState
+			dev.SetOutputCallback(func(state OutputState) { nextSession = append(nextSession, state) })
+			_, handled := path.send(dev, makeUSBOutputReport(0, 0x04, 0, 0xAA, 0xBB))
+			if path.name == "HID SET_REPORT" && !handled {
+				t.Fatal("HID SET_REPORT did not acknowledge ignored LED-only output")
+			}
+			if len(nextSession) != 0 {
+				t.Fatalf("LED-only callback count after rearm = %d, want 0", len(nextSession))
+			}
 
-	if firstState.RumbleSmall != 0x12 || firstState.RumbleLarge != 0x34 {
-		t.Fatalf("first device rumble = %02x/%02x, want 12/34", firstState.RumbleSmall, firstState.RumbleLarge)
-	}
-	if secondState.RumbleSmall != 0 || secondState.RumbleLarge != 0 {
-		t.Fatalf("second device rumble = %02x/%02x, want 00/00", secondState.RumbleSmall, secondState.RumbleLarge)
-	}
-}
-
-func TestOutputReportRumbleCacheUpdatesWithoutCallback(t *testing.T) {
-	dev, err := New(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dev.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, makeUSBOutputReport(0x01, 0, 0, 0x21, 0x43))
-
-	var got OutputState
-	dev.SetOutputCallback(func(state OutputState) { got = state })
-	dev.HandleControl(hidClassOUT, hidSetReport, 0x0202, 0, 48, makeUSBOutputReport(0, 0x04, 0, 0xAA, 0xBB))
-	if got.RumbleSmall != 0x21 || got.RumbleLarge != 0x43 {
-		t.Fatalf("rumble after callback registration = %02x/%02x, want 21/43", got.RumbleSmall, got.RumbleLarge)
-	}
-}
-
-func TestDualSenseEdgeClearsCachedRumbleWithOutputCallback(t *testing.T) {
-	dev, err := NewEdge(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var previousSession OutputState
-	dev.SetOutputCallback(func(state OutputState) { previousSession = state })
-	dev.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, makeUSBOutputReport(0x01, 0, 0, 0x61, 0x72))
-	if previousSession.RumbleSmall != 0x61 || previousSession.RumbleLarge != 0x72 {
-		t.Fatalf("previous-session rumble = %02x/%02x, want 61/72", previousSession.RumbleSmall, previousSession.RumbleLarge)
-	}
-
-	dev.SetOutputCallback(nil)
-	var nextSession OutputState
-	dev.SetOutputCallback(func(state OutputState) { nextSession = state })
-	dev.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, makeUSBOutputReport(0, 0x04, 0, 0xAA, 0xBB))
-	if nextSession.RumbleSmall != 0 || nextSession.RumbleLarge != 0 {
-		t.Fatalf("new-session LED-only rumble = %02x/%02x, want 00/00", nextSession.RumbleSmall, nextSession.RumbleLarge)
+			path.send(dev, makeUSBOutputReport(0, 0, 0x04, 0x12, 0x34))
+			if len(nextSession) != 1 || nextSession[0] != (OutputState{RumbleSmall: 0x12, RumbleLarge: 0x34}) {
+				t.Fatalf("callbacks after new valid rumble = %+v, want one 12/34 rumble event", nextSession)
+			}
+		})
 	}
 }
 
