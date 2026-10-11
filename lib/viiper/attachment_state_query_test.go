@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/Alia5/VIIPER/device/dualsense"
 	"github.com/Alia5/VIIPER/device/steamdeck"
 	"github.com/Alia5/VIIPER/device/xbox360"
 	"github.com/Alia5/VIIPER/internal/server/api"
@@ -387,6 +388,13 @@ func TestGetUSBDeviceAttachmentStateAcceptsTypedFamilies(t *testing.T) {
 	}{
 		{name: "SteamDeck", make: func(t *testing.T) viiperusb.Device {
 			d, err := steamdeck.New(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return d
+		}},
+		{name: "DualSenseEdge", make: func(t *testing.T) viiperusb.Device {
+			d, err := dualsense.NewEdge(nil)
 			if err != nil {
 				t.Fatal(err)
 			}

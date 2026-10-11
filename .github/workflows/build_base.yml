@@ -156,10 +156,10 @@ jobs:
                   cache-dependency-path: go.sum
 
             - name: Run focused tests
-              run: go test ./device/steamcontroller ./device/steamdeck ./lib/viiper ./internal/server/usb ./virtualbus
+              run: go test ./device/dualsense ./device/steamcontroller ./device/steamdeck ./lib/viiper ./internal/server/usb ./virtualbus
 
             - name: Run lifecycle race tests
-              run: go test -race ./device/steamcontroller ./device/steamdeck ./lib/viiper
+              run: go test -race ./device/dualsense ./device/steamcontroller ./device/steamdeck ./lib/viiper
 
             - name: Run Steam Deck C callback bridge tests
               run: go test -tags viiper_testbridge ./lib/viiper

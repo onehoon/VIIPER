@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math"
 	"net"
 	"sync"
@@ -25,6 +26,9 @@ type DualSense struct {
 	outputFunc func(OutputState)
 	descriptor usb.Descriptor
 	callbackMu sync.RWMutex
+
+	lastRumbleSmall uint8
+	lastRumbleLarge uint8
 
 	subcommand [2]byte
 
@@ -91,6 +95,7 @@ func new(o *device.CreateOptions, edge bool) (*DualSense, error) {
 		descriptor: defaultDescriptor,
 		metaState:  metaState,
 	}
+	d.descriptor.Strings = maps.Clone(defaultDescriptor.Strings)
 	d.descriptor.Device.IDProduct = DefaultPIDDS
 	if edge {
 		d.descriptor.Device.IDProduct = DefaultPIDDSEdge
@@ -193,8 +198,9 @@ func (d *DualSense) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 			d.callbackMu.RLock()
 			callback := d.outputFunc
 			d.callbackMu.RUnlock()
+			feedback := d.parseOutputReport(out)
 			if callback != nil {
-				callback(parseOutputReport(out))
+				callback(feedback)
 			}
 		}
 	}
@@ -248,8 +254,9 @@ func (d *DualSense) HandleControl(bmRequestType, bRequest uint8, wValue, wIndex,
 				d.callbackMu.RLock()
 				callback := d.outputFunc
 				d.callbackMu.RUnlock()
+				feedback := d.parseOutputReport(data)
 				if callback != nil {
-					callback(parseOutputReport(data))
+					callback(feedback)
 				}
 				return nil, true
 			}
@@ -275,10 +282,18 @@ var featureGetHandlers = map[byte]func(*DualSense) []byte{
 	featureIDCommandResponse: (*DualSense).featureReportCommandResponse,
 }
 
-func parseOutputReport(out []byte) OutputState {
+func (d *DualSense) parseOutputReport(out []byte) OutputState {
+	d.mtx.Lock()
+	defer d.mtx.Unlock()
+
+	if out[1]&0x01 != 0 || out[39]&0x04 != 0 {
+		d.lastRumbleSmall = out[3]
+		d.lastRumbleLarge = out[4]
+	}
+
 	feedback := OutputState{
-		RumbleSmall: out[3],
-		RumbleLarge: out[4],
+		RumbleSmall: d.lastRumbleSmall,
+		RumbleLarge: d.lastRumbleLarge,
 	}
 	if len(out) > 2 {
 		flag1 := out[2]
