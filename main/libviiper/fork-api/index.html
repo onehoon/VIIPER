@@ -2621,6 +2621,15 @@ legacy error-only attachment with typed ownership records.</p>
 </tr>
 </tbody>
 </table>
+<p>The DualSense and DualSense Edge output callback deliberately delivers rumble
+events only in this fork, despite retaining the legacy native callback
+signature's LED arguments. A callback is invoked only when a valid classic
+rumble update is present (v1 or v2); a flagged <code>0,0</code> remains an explicit stop.
+LED-only, player-LED-only, haptics-select-only, and other unflagged reports do
+not invoke the application callback, and the legacy LED output arguments are
+always zero. Otherwise-valid HID output reports remain acknowledged. This is
+an intentional behavioral reduction for the supported consumer, not upstream
+behavioral parity.</p>
 <p><code>lib/viiper</code> exposes the Steam Deck (<code>28DE:1205</code> by default) through a typed
 wrapper: <code>CreateSteamDeckDevice</code>, <code>SetSteamDeckDeviceState</code>,
 <code>SetSteamDeckOutputCallback</code>, <code>RemoveSteamDeckDevice</code>, and the classified
