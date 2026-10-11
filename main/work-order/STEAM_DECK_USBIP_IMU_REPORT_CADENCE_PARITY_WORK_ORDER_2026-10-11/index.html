@@ -1,0 +1,2031 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — Steam Deck USB/IP IMU Report Cadence Parity (VIIPER Only) - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-steam-deck-usbip-imu-report-cadence-parity-viiper-only" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — Steam Deck USB/IP IMU Report Cadence Parity (VIIPER Only)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-goal-and-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Goal and evidence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Goal and evidence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-public-implementation-references-evidence-not-code-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Public implementation references (evidence, not code dependencies)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-current-viiper-code-exact-reachable-mismatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Current VIIPER code: exact reachable mismatch
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Current VIIPER code: exact reachable mismatch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-devicesteamdeckdevicego" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 device/steamdeck/device.go
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-internalserverusbservergo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 internal/server/usb/server.go
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-devicedualsensedevicego" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 device/dualsense/device.go
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-required-implementation-one-bounded-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Required implementation — one bounded PR
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Required implementation — one bounded PR">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-match-the-real-decks-usb-descriptor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Match the real Deck's USB descriptor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-separate-usb-descriptor-interval-from-the-software-in-wait-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Separate USB descriptor interval from the software IN wait budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-make-deck-controller-in-response-follow-the-latest-state-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Make Deck controller IN response follow the latest state update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-preserve-the-working-valve-and-product-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Preserve the working Valve and product contracts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-required-automated-coverage-no-physical-hardware-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Required automated coverage (no physical hardware needed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-implementation-acceptance-review-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Implementation acceptance / review boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-developer-notes-recommended-pr-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Developer notes / recommended PR description
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-steam-deck-usbip-imu-report-cadence-parity-viiper-only">Work Order — Steam Deck USB/IP IMU Report Cadence Parity (VIIPER Only)</h1>
+<p><strong>Date:</strong> 2026-10-11<br />
+<strong>Repository:</strong> <code>onehoon/VIIPER</code><br />
+<strong>Source baseline inspected:</strong> <code>main</code> at <code>0689d18416cf6cde9ba4fed04eb373a1a3383ddc</code><br />
+<strong>Implementation owner:</strong> local Codex<br />
+<strong>Physical Steam Input verification owner:</strong> user, <strong>after merge</strong>; it is NOT a PR review, CI, or merge gate.<br />
+<strong>Deliverable:</strong> one focused VIIPER implementation PR. <strong>This document is a work order, not a code change.</strong></p>
+<h2 id="1-goal-and-evidence">1. Goal and evidence</h2>
+<p>Improve the existing VIIPER <strong>Steam Deck</strong> virtual controller's HID input-report delivery timing to match the real Steam Deck's publicly documented <strong>1 ms USB interrupt polling descriptor / approximately 4 ms state-report cadence</strong>, while keeping its Valve input protocol and the Addon's contract intact.</p>
+<p>Observed user feedback, not a laboratory-controlled timing measurement:</p>
+<ul>
+<li>The same MSI Claw + standalone Full1902 Addon sensor path produces choppy <strong>Steam Input Gyro to Mouse</strong> when the virtual presentation is Steam Deck.</li>
+<li>Switching only the Steam-facing virtual presentation to the newly supported <strong>DualSense Edge</strong> produces subjectively smooth/perfect gyro in the user's test.</li>
+<li>The Addon's previously measured physical gyro source runs at approximately 100 Hz; both virtual presentations use the same motion source and nominal 250 Hz Addon publisher.</li>
+<li>The Edge result makes a common physical sensor polling defect less likely; <strong>it does not prove whether the difference is VIIPER delivery or Steam Input's device-specific processing</strong>. Do not promise this PR will resolve Steam Input smoothing.</li>
+</ul>
+<p><strong>Decision:</strong> make the independently grounded Steam Deck transport corrections together in <strong>one VIIPER PR</strong>; do not ask the user for three separate single-knob A/B builds.</p>
+<h3 id="11-public-implementation-references-evidence-not-code-dependencies">1.1 Public implementation references (evidence, not code dependencies)</h3>
+<ol>
+<li><a href="https://github.com/libsdl-org/SDL/blob/main/src/joystick/hidapi/SDL_hidapi_steamdeck.c">SDL Steam Deck HIDAPI implementation</a>:</li>
+<li><code>HIDAPI_DriverSteamDeck_InitDevice</code> explicitly says <em>"Always 1kHz according to USB descriptor, but actually about 4 ms"</em> and sets <code>update_rate_us = 4000</code>.</li>
+<li><code>HIDAPI_DriverSteamDeck_HandleState</code> advances <code>sensor_timestamp_ns</code> by that <strong>4 ms per received Deck report</strong>; the Deck packet itself has no Sony-style sample timestamp.</li>
+<li>The report consumer requires the Valve 64-byte report header, type <code>ID_CONTROLLER_DECK_STATE</code>, and length 64.</li>
+<li><a href="https://github.com/torvalds/linux/blob/master/drivers/hid/hid-steam.c">Linux <code>hid-steam.c</code></a>:</li>
+<li>Steam Deck <code>sensor_update_rate_us</code> starts at <strong>4000</strong> and may be refreshed from <code>ATTRIB_CONNECTION_INTERVAL_IN_US</code>.</li>
+<li><code>steam_do_deck_sensors_event</code> advances its synthetic sensor timestamp once per received sensor report; it does <strong>not</strong> imply 1000 actual gyro samples/second.</li>
+<li>Steam Deck native IMU byte offsets and signed axis definitions are already supported by VIIPER; do not casually remap or rescale them.</li>
+<li><a href="https://github.com/hifihedgehog/HIDMaestro/blob/master/profiles/valve/steam-deck-composite.json">HIDMaestro real-device-based composite Steam Deck profile</a>:</li>
+<li>A captured Steam Deck composite descriptor uses <strong><code>interval: 1</code></strong> on the controller interrupt IN endpoint, with <strong><code>idleFrameIntervalMs: 4</code></strong> for generated frames.</li>
+<li>HIDMaestro's frame/pending-read behavior is useful as a conceptual comparison; <strong>do not port its whole USB stack, 5-interface descriptor, CDC endpoints, or additional threads</strong> to VIIPER.</li>
+<li>HIDMaestro's particular real-unit capture and device identity are not evidence that the current successfully enumerated VIIPER device needs a broad identity/descriptor redesign.</li>
+<li><a href="../../device/dualsense/device.go">VIIPER DualSense Edge input path</a> is a <strong>local reference</strong> for bounded latest-state notification plus cancellable interrupt reads. Edge's packet layout, timestamp, and calibration are Sony-specific and must NOT be transplanted into Valve reports.</li>
+</ol>
+<p><strong>Important distinction:</strong> USB interrupt <code>bInterval=1</code> means the host can poll at a 1 ms interval; it <strong>does not require</strong> a new 64-byte Deck report on every millisecond. A real Deck commonly reports at roughly 4 ms.</p>
+<h2 id="2-current-viiper-code-exact-reachable-mismatch">2. Current VIIPER code: exact reachable mismatch</h2>
+<p>Review current code again immediately before implementation; the paths below were inspected at the baseline SHA.</p>
+<h3 id="21-devicesteamdeckdevicego">2.1 <code>device/steamdeck/device.go</code></h3>
+<ul>
+<li>The Steam Deck controller interface is number <strong>2</strong>, controller interrupt endpoint number <strong>3</strong> (<code>0x83</code> IN); it currently has <code>BInterval: 0x06</code> (6 ms). Keyboard/mouse are separate interfaces/endpoints.</li>
+<li><code>UpdateInputState</code> -&gt; <code>setInputState</code> locks, increments <code>d.frame</code>, and replaces <code>d.inputState</code> with a copy.</li>
+<li>The controller <code>HandleTransfer</code> immediately snapshots <code>d.inputState</code> and returns <code>st.buildReport(st.Frame)</code> for <strong>every</strong> incoming IN request. It does not wait for fresh state.</li>
+<li>The virtual Deck reports <code>AttributeConnectionIntervalUs = 4000</code> (feature response), which disagrees with the current controller endpoint <code>bInterval=6</code> and the observed physical USB descriptor.</li>
+<li>Controller <code>HandleControl</code> <code>GET_REPORT</code> intentionally snapshots immediately; preserve this behavior. Feature commands, Lizard mode, rumble callback, and setting responses are established contracts.</li>
+<li>The 64-byte report is built in <a href="../../device/steamdeck/inputstate.go"><code>device/steamdeck/inputstate.go</code></a>, starting with <code>01 00 09 40</code>, a 32-bit Frame at bytes 4:8, accel bytes 24:30 and gyro bytes 30:36. These are <strong>not</strong> change targets.</li>
+</ul>
+<h3 id="22-internalserverusbservergo">2.2 <code>internal/server/usb/server.go</code></h3>
+<p>The existing async interrupt-IN worker:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nx">interval</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">endpointInterval</span><span class="p">(</span><span class="nx">dev</span><span class="p">.</span><span class="nx">GetDescriptor</span><span class="p">(),</span><span class="w"> </span><span class="nx">ep</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1">// Each attempt:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nx">attemptCtx</span><span class="p">,</span><span class="w"> </span><span class="nx">attemptCancel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">WithTimeout</span><span class="p">(</span><span class="nx">urbCtx</span><span class="p">,</span><span class="w"> </span><span class="nx">interval</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nx">respData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">processSubmit</span><span class="p">(</span><span class="nx">attemptCtx</span><span class="p">,</span><span class="w"> </span><span class="nx">dev</span><span class="p">,</span><span class="w"> </span><span class="nx">ep</span><span class="p">,</span><span class="w"> </span><span class="nx">dir</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">,</span><span class="w"> </span><span class="kc">nil</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">if</span><span class="w"> </span><span class="nx">respData</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">Is</span><span class="p">(</span><span class="nx">attemptCtx</span><span class="p">.</span><span class="nx">Err</span><span class="p">(),</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">DeadlineExceeded</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="c1">// Returns lastInResp[ep] if available; otherwise retries after a short wait.</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
+</code></pre></div>
+<p>And <code>endpointInterval</code> currently computes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">return</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span><span class="p">(</span><span class="nx">epDesc</span><span class="p">.</span><span class="nx">BInterval</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Millisecond</span>
+</code></pre></div>
+<p><strong>This means <code>bInterval</code> is not merely a USB descriptor field in VIIPER.</strong> It is also the internal no-data wait budget for asynchronous USB/IP IN handling, and timeout can replay <code>lastInResp[ep]</code>.</p>
+<p>Consequences:</p>
+<ul>
+<li>Current Deck interrupt reads complete with the latest snapshot immediately, not necessarily on the 4 ms Addon publication cadence.</li>
+<li><strong>Changing <code>BInterval: 6 -&gt; 1</code> alone is inadequate</strong>: it also shortens the server's fallback timeout to 1 ms and can cause extra cached reports without new controller state.</li>
+<li>The server supports asynchronous IN, unlink, managed drain, and cancel; these must remain intact.</li>
+</ul>
+<h3 id="23-devicedualsensedevicego">2.3 <code>device/dualsense/device.go</code></h3>
+<p>Edge <code>UpdateInputState</code> replaces the latest state and maintains a <strong>capacity-one notification channel</strong>. Its controller interrupt <code>HandleTransfer</code> waits for the next state or its context deadline, then uses a current/cached snapshot. The Sony report also has its own sequence/timestamp construction.</p>
+<p><strong>Take only the delivery/notification concept</strong>; keep Steam Deck's own Frame semantics and Valve report generation.</p>
+<h2 id="3-required-implementation-one-bounded-pr">3. Required implementation — one bounded PR</h2>
+<h3 id="31-match-the-real-decks-usb-descriptor">3.1 Match the real Deck's USB descriptor</h3>
+<p>In <code>device/steamdeck/device.go</code> change <strong>only the controller interrupt IN endpoint</strong> (<code>controllerEndpointNumber</code>) to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">BInterval</span><span class="p">:</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="c1">// Real Deck: 1 ms USB poll capability; sensor reports ~4 ms</span>
+</code></pre></div>
+<p>Do <strong>not</strong> change the device VID/PID, interface ordering, HID report descriptor, USB/IP address, report size, the existing keyboard/mouse endpoint intervals, CDC interfaces, or board/firmware/serial identity.</p>
+<p>Keep <code>AttributeConnectionIntervalUs = 4000</code>. That attribute describes the expected sensor/report cadence, not the USB poll descriptor.</p>
+<h3 id="32-separate-usb-descriptor-interval-from-the-software-in-wait-budget">3.2 Separate USB descriptor interval from the software IN wait budget</h3>
+<p>Adjust <code>internal/server/usb/server.go</code> <strong>narrowly</strong> so the Steam Deck controller endpoint uses a <strong>4 ms logical report wait/fallback budget</strong>, even while its advertised USB <code>bInterval</code> is 1 ms. Other endpoints and all other device families retain their present <code>endpointInterval</code> behavior.</p>
+<p><strong>Preferred minimal seam:</strong> an optional single-method device-specific override declared by the server at the existing interval-selection call site. For example (illustrative; adapt names to the current repository):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// Local to internal/server/usb; not a generic controller abstraction.</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kd">type</span><span class="w"> </span><span class="nx">interruptINWaitBudget</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nx">InterruptINWaitBudget</span><span class="p">(</span><span class="nx">ep</span><span class="w"> </span><span class="kt">uint32</span><span class="p">)</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kd">func</span><span class="w"> </span><span class="nx">interruptINWaitDuration</span><span class="p">(</span><span class="nx">dev</span><span class="w"> </span><span class="nx">usb</span><span class="p">.</span><span class="nx">Device</span><span class="p">,</span><span class="w"> </span><span class="nx">ep</span><span class="w"> </span><span class="kt">uint32</span><span class="p">)</span><span class="w"> </span><span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">d</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dev</span><span class="p">.(</span><span class="nx">interruptINWaitBudget</span><span class="p">);</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">wait</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">InterruptINWaitBudget</span><span class="p">(</span><span class="nx">ep</span><span class="p">);</span><span class="w"> </span><span class="nx">wait</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">wait</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">endpointInterval</span><span class="p">(</span><span class="nx">dev</span><span class="p">.</span><span class="nx">GetDescriptor</span><span class="p">(),</span><span class="w"> </span><span class="nx">ep</span><span class="p">)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">}</span>
+</code></pre></div>
+<p>On <code>*steamdeck.SteamDeck</code>, return <code>4*time.Millisecond</code> <strong>only for controller endpoint 3</strong>, and zero for others to select the existing fallback behavior.</p>
+<p>It is acceptable to choose an equivalently smaller device-local solution <strong>if</strong> it preserves the layering and proves the same invariant. <strong>Do not introduce a general USB scheduler, additional transport manager, global 4 ms timer, broad device family switch, new state owner, or another worker.</strong> The optional method is justified only by the concrete need to express two distinct existing contracts: the physical USB descriptor versus VIIPER's async-IN software deadline.</p>
+<p>Do <strong>not</strong> change the existing interval/fallback semantics globally: that could regress DualSense Edge, Xbox360, and other USB/IP devices.</p>
+<h3 id="33-make-deck-controller-in-response-follow-the-latest-state-update">3.3 Make Deck controller IN response follow the latest state update</h3>
+<p>In <code>device/steamdeck/device.go</code>, reuse the existing snapshot lock and add <strong>one bounded, coalesced notification mechanism</strong> analogous to Edge's current input notification. Requirements:</p>
+<ul>
+<li><code>UpdateInputState</code> still performs the existing deep state copy and Frame increment <strong>once per SetState</strong>, under the current lock. Do not use caller-owned state pointers, do not change the native <code>SetSteamDeckDeviceState</code> ABI.</li>
+<li>Publish a <strong>nonblocking</strong> latest-state notification <em>after</em> storing the new snapshot. A capacity-one signal is sufficient; drop/coalesce superseded notifications, <strong>never queue hundreds of historical IMU frames</strong>.</li>
+<li>For controller endpoint <strong>3 only</strong>, wait on the notification or incoming <code>ctx.Done()</code>. A successful notification returns <strong>the latest locked snapshot</strong> encoded as the existing Valve input report, not an old queued payload.</li>
+<li>On the <strong>ordinary 4 ms deadline</strong>, return the latest state as a valid 64-byte report (or let the existing server's proven bounded fallback return a cached report, provided it cannot report stale content after a newer stored snapshot). Choose one clearly documented behavior, not two separate retries.</li>
+<li>On <strong>unlink, drain, shutdown, actual context cancellation</strong>, return promptly without an uncancellable wait or a delayed success report. Preserve the server's existing pending-URB cleanup/join behavior.</li>
+<li>Preserve controller <code>GET_REPORT</code> as immediate snapshot access; don't route control transfers through the notification wait.</li>
+<li>Preserve the existing latest-state Frame when publishing it. Don't advance Frame just because the host polls and don't add a timestamp into Valve bytes. A repeated value from a real ~100 Hz gyro in otherwise fresh 250 Hz controller state is normal; <strong>do not interpolate or re-filter</strong> the IMU.</li>
+<li>Ensure a fresh neutral or first input state can be obtained during initial attach/first host read without indefinite blocking. A single initial neutral notification (as Edge does) or bounded request deadline is sufficient.</li>
+<li>Handle ordinary host behavior with more than one outstanding IN request without introducing stale state queues, runaway 1 ms cached completion, indefinite hanging reads, or out-of-order snapshots. Reuse the existing cancellation and response serialization; no speculative race state machine.</li>
+</ul>
+<p>The goal is <strong>fresh-report-biased, bounded-latency Steam Deck HID delivery</strong>, not 1000 generated reports/second or a synthetic gyro clock.</p>
+<h3 id="34-preserve-the-working-valve-and-product-contracts">3.4 Preserve the working Valve and product contracts</h3>
+<p>This PR is <strong>VIIPER ONLY</strong>. Do not edit the SteamInputAddonforClaw repository, its Sensor API polling, ~250 Hz managed publisher, ABI/header/DLL pin, MSI Center M ownership, Full1902 routing, HidHide, physical PID1901/1902, shutdown/restart/suspend, or physical rumble routing.</p>
+<p>Keep unchanged:</p>
+<ul>
+<li>Valve VID <code>0x28DE</code> / PID <code>0x1205</code>, report type <code>0x09</code>, header <code>01 00 09 40</code>, 64-byte payload and byte offsets;</li>
+<li><code>Pitch/Yaw/Roll</code>, accel axes, quaternion-zero/raw gyro+accel IMU mode, scalings, and <code>AttributeConnectionIntervalUs=4000</code>;</li>
+<li>all face/rear/Steam/QAM buttons, stick/trigger values, feature/setting commands, haptics/rumble callbacks;</li>
+<li>native device creation, ownership/teardown, bus, classified detach/removal results, current callback lifecycle;</li>
+<li>DualSense and DualSense Edge report timing/encoding/callbacks, Xbox360 and other VIIPER device models.</li>
+</ul>
+<p>Do not copy Sony's sequence number, Sony's timestamp or calibration report, or Edge's accelerometer/gyro unit scales into Steam Deck.</p>
+<p><strong>Separate observation (out of scope):</strong> the current virtual Deck responds with neutral mouse/keyboard reports even after Steam disables Lizard mode, whereas HIDMaestro parks unused secondary endpoints. That is an additional possible USB/IP traffic difference, but altering Lizard-mode keyboard/mouse semantics here would expand the regression surface. Leave them unchanged in this PR unless direct code-level evidence establishes they actually interfere with the controller endpoint, and document any future investigation separately.</p>
+<h2 id="4-required-automated-coverage-no-physical-hardware-needed">4. Required automated coverage (no physical hardware needed)</h2>
+<p>Use the existing Go test infrastructure, primarily:</p>
+<ul>
+<li><code>device/steamdeck/steamdeck_test.go</code></li>
+<li><code>internal/server/usb/transport_async_in_test.go</code></li>
+<li><code>internal/server/usb/descriptor_test.go</code> if useful</li>
+<li>existing <code>device/dualsense</code> regression tests and native/ownership tests</li>
+</ul>
+<p>Tests must be <strong>deterministic wherever possible</strong>. Use controlled channels, context deadlines and existing fake USB/IP sessions. Do not assert scheduler-perfect millisecond delivery on ordinary CI.</p>
+<p>Minimum checks:</p>
+<ol>
+<li><strong>Descriptor separation:</strong> controller <code>0x83</code> advertises <code>bInterval=1</code>; Deck controller software IN wait budget is 4 ms; feature attribute still says 4000 us; other device endpoints retain old behavior.</li>
+<li><strong>Notification/Frame:</strong> after state A then B before a read, response uses B; no FIFO stale replay. The latest Valve Frame corresponds to last <code>UpdateInputState</code>, not number of reads.</li>
+<li><strong>Bounded reading:</strong> pending IN becomes ready when new state is stored; when no update arrives, it is released by the deadline/latest-state fallback, without busy-spin or unbounded goroutines.</li>
+<li><strong>Control-path independence:</strong> <code>GET_REPORT</code> still returns the immediate latest state; FEATURE_SET/GET and callback/haptics behavior remain intact.</li>
+<li><strong>Cancellation/lifecycle:</strong> pending read stops on cancellation/unlink/managed drain; worker is joined and no stale IN completion appears after detach. Reuse existing realistic lifecycle cases rather than inventing tiny instruction-level races.</li>
+<li><strong>USB/IP behavior:</strong> a realistic series of incoming IN URBs and 4 ms-ish SetState updates does not force cached duplicate responses at the <strong>1 ms descriptor interval</strong>. Include at least one fake transport-level scenario with a live/pending request and a fresh update, rather than testing the device in isolation only.</li>
+<li><strong>Unchanged report compatibility:</strong> existing Steam Deck 64-byte, button, gyro/accel, force, system key and feature-report tests still pass; other device families' tests remain green.</li>
+</ol>
+<p>Run the normal repository Go test/build checks (at minimum <code>go test ./...</code> and whichever repo build/format checks already exist). If race tests are supported by the existing CI environment, use focused <code>go test -race</code> on the touched packages; do not add race-defense mechanisms solely for a hypothetical interleaving.</p>
+<p><strong>No requirement to produce a physical Steam Input video, access a Claw, or prove smoothness before approval/merge.</strong> Those are exclusively user-owned post-merge observations.</p>
+<h2 id="5-implementation-acceptance-review-boundary">5. Implementation acceptance / review boundary</h2>
+<p>Accept the PR when:</p>
+<ul>
+<li>The Deck controller's <strong>USB poll descriptor and actual state notification cadence are separately represented</strong>: 1 ms advertised capability, 4 ms logical-report behavior.</li>
+<li>Ordinary host reads prefer the newest available <code>SetState</code> snapshot and do not turn <code>bInterval=1</code> into unconditional 1 kHz cached-state replies.</li>
+<li>Read timeout, cancellation, unlink, detach and native teardown behave correctly under normal Windows USB/IP lifecycles.</li>
+<li>No Valve report/feature/IMU wire incompatibility, other virtual-device regression, duplicate sensor correction, or application-level architecture change has been introduced.</li>
+<li>Focused and existing automated tests pass.</li>
+</ul>
+<p>Do <strong>not</strong> block for hypothetical sub-instruction races, speculative 1000 Hz real-sensor support, perfect host scheduling, unsupported multi-session operation, or absence of physical hardware verification.</p>
+<p>The outcome is <strong>protocol/transport parity improvement</strong>, not a guarantee of gyro-to-mouse smoothness. Steam's Windows Valve/Sony-specific input handling remains unobservable and could still explain a residual difference.</p>
+<h2 id="6-developer-notes-recommended-pr-description">6. Developer notes / recommended PR description</h2>
+<p>Explain the three coherent elements together: (1) real Deck 1 ms poll descriptor, (2) separate 4 ms async-IN wait budget, (3) Edge-inspired coalesced latest-state wakeup <strong>while preserving Valve report semantics</strong>.</p>
+<p>Explicitly say why <strong>changing only <code>bInterval</code></strong> is incorrect in VIIPER's current USB/IP server: <code>endpointInterval</code> doubles as the software timeout and triggers cached report reuse. Prefer a very small implementation with one clear source of state and the existing server lifecycle. No new USB/IP pacing subsystem, timers or compatibility wrappers.</p>
+<p>Keep the user comparison concise: <em>"The same Addon source felt smooth as DualSense Edge but choppy as Steam Deck; this PR aligns Deck virtual HID timing with the real Deck references. Final subjective gyro quality will be checked separately after merge."</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
