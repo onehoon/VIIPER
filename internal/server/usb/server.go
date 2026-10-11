@@ -1110,7 +1110,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			pendingMu.Lock()
 			pending[seq] = urbCancel
 			pendingMu.Unlock()
-			interval := endpointInterval(dev.GetDescriptor(), ep)
+			interval := interruptINWaitDuration(dev, ep)
 
 			workerWG.Add(1)
 			go func(seq, ep, dir uint32) {
@@ -1177,6 +1177,19 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			return err
 		}
 	}
+}
+
+type interruptINWaitBudget interface {
+	InterruptINWaitBudget(ep uint32) time.Duration
+}
+
+func interruptINWaitDuration(dev usb.Device, ep uint32) time.Duration {
+	if d, ok := dev.(interruptINWaitBudget); ok {
+		if wait := d.InterruptINWaitBudget(ep); wait > 0 {
+			return wait
+		}
+	}
+	return endpointInterval(dev.GetDescriptor(), ep)
 }
 
 func endpointInterval(desc *usb.Descriptor, ep uint32) time.Duration {

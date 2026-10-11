@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Alia5/VIIPER/device/steamdeck"
 	srvusb "github.com/Alia5/VIIPER/internal/server/usb"
 	rootusb "github.com/Alia5/VIIPER/usb"
 	"github.com/Alia5/VIIPER/usbip"
@@ -212,6 +213,144 @@ func TestAsyncINDataResponsePreservesSequenceLengthAndBytes(t *testing.T) {
 	if !bytes.Equal(got, want) {
 		t.Fatalf("RET_SUBMIT payload = % x, want % x", got, want)
 	}
+}
+
+type observedSteamDeckINDevice struct {
+	*steamdeck.SteamDeck
+	entered chan struct{}
+}
+
+func (d *observedSteamDeckINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out []byte) []byte {
+	if dir == usbip.DirIn && ep == 3 {
+		select {
+		case d.entered <- struct{}{}:
+		default:
+		}
+	}
+	return d.SteamDeck.HandleTransfer(ctx, ep, dir, out)
+}
+
+func readSteamDeckINResponse(t *testing.T, conn net.Conn, seq uint32) []byte {
+	t.Helper()
+	var header [48]byte
+	if _, err := io.ReadFull(conn, header[:]); err != nil {
+		t.Fatalf("read Steam Deck RET_SUBMIT: %v", err)
+	}
+	if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+		t.Fatalf("response command = %#x, want RET_SUBMIT", got)
+	}
+	if got := binary.BigEndian.Uint32(header[4:8]); got != seq {
+		t.Fatalf("RET_SUBMIT sequence = %d, want %d", got, seq)
+	}
+	payloadLen := binary.BigEndian.Uint32(header[24:28])
+	payload := make([]byte, payloadLen)
+	if _, err := io.ReadFull(conn, payload); err != nil {
+		t.Fatalf("read Steam Deck RET_SUBMIT payload: %v", err)
+	}
+	return payload
+}
+
+func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
+	deck, err := steamdeck.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev := &observedSteamDeckINDevice{SteamDeck: deck, entered: make(chan struct{}, 4)}
+	_, conn := startAsyncINTestSession(t, dev, 3054)
+
+	first := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 31, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
+	if err := first.Write(conn); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-dev.entered:
+	case <-time.After(time.Second):
+		t.Fatal("Steam Deck async IN worker did not reach the device")
+	}
+	initial := readSteamDeckINResponse(t, conn, 31)
+	if len(initial) != steamdeck.InputReportLen {
+		t.Fatalf("initial report length = %d, want %d", len(initial), steamdeck.InputReportLen)
+	}
+	if got := binary.LittleEndian.Uint32(initial[4:8]); got != 0 {
+		t.Fatalf("initial frame = %d, want neutral frame 0", got)
+	}
+
+	second := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 32, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
+	if err := second.Write(conn); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-dev.entered:
+	case <-time.After(time.Second):
+		t.Fatal("pending Steam Deck async IN worker did not reach the device")
+	}
+	dev.UpdateInputState(&steamdeck.InputState{Pitch: 1234, LStickX: -2345})
+
+	latest := readSteamDeckINResponse(t, conn, 32)
+	if len(latest) != steamdeck.InputReportLen {
+		t.Fatalf("updated report length = %d, want %d", len(latest), steamdeck.InputReportLen)
+	}
+	if got := binary.LittleEndian.Uint32(latest[4:8]); got != 1 {
+		t.Fatalf("updated frame = %d, want latest state frame 1", got)
+	}
+	if got := int16(binary.LittleEndian.Uint16(latest[30:32])); got != 1234 {
+		t.Fatalf("updated gyro pitch = %d, want 1234", got)
+	}
+	if got := int16(binary.LittleEndian.Uint16(latest[48:50])); got != -2345 {
+		t.Fatalf("updated stick X = %d, want -2345", got)
+	}
+}
+
+func TestManagedDrainCancelsPendingSteamDeckINWithoutLateCompletion(t *testing.T) {
+	deck, err := steamdeck.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev := &observedSteamDeckINDevice{SteamDeck: deck, entered: make(chan struct{}, 4)}
+	server, conn := startAsyncINTestSession(t, dev, 3055)
+
+	first := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 41, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
+	if err := first.Write(conn); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-dev.entered:
+	case <-time.After(time.Second):
+		t.Fatal("initial Steam Deck IN did not reach device")
+	}
+	readSteamDeckINResponse(t, conn, 41)
+
+	second := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 42, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
+	if err := second.Write(conn); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-dev.entered:
+	case <-time.After(time.Second):
+		t.Fatal("pending Steam Deck IN did not reach device")
+	}
+
+	drain := server.BeginDeviceDrain(dev)
+	drainDone := make(chan struct{})
+	go func() { drain.Wait(); close(drainDone) }()
+	select {
+	case <-drainDone:
+	case <-time.After(time.Second):
+		t.Fatal("managed drain did not cancel and join pending Steam Deck IN")
+	}
+	if err := conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	var response [48]byte
+	n, readErr := io.ReadFull(conn, response[:])
+	if n != 0 || readErr == nil || (!errors.Is(readErr, io.EOF) && !isTimeoutError(readErr)) {
+		t.Fatalf("pending Steam Deck IN produced a late response or unexpected stream result: bytes=%d err=%v", n, readErr)
+	}
+}
+
+func isTimeoutError(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func TestManagedDeviceDrainReleasesParkedNoDataAsyncINWorker(t *testing.T) {
