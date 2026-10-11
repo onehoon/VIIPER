@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Alia5/VIIPER/device/dualsense"
 	"github.com/Alia5/VIIPER/device/steamdeck"
+	"github.com/Alia5/VIIPER/device/xbox360"
 	srvusb "github.com/Alia5/VIIPER/internal/server/usb"
 	rootusb "github.com/Alia5/VIIPER/usb"
 	"github.com/Alia5/VIIPER/usbip"
@@ -212,6 +214,129 @@ func TestAsyncINDataResponsePreservesSequenceLengthAndBytes(t *testing.T) {
 	}
 	if !bytes.Equal(got, want) {
 		t.Fatalf("RET_SUBMIT payload = % x, want % x", got, want)
+	}
+}
+
+func TestXbox360AndDualSenseEdgeUSBIPINRegression(t *testing.T) {
+	xbox, err := xbox360.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edge, err := dualsense.NewEdge(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name         string
+		dev          rootusb.Device
+		bus          uint32
+		endpoint     uint32
+		addr         byte
+		interval     byte
+		reportLen    int
+		reportID     byte
+		update       func()
+		check        func(*testing.T, []byte)
+		checkNeutral func(*testing.T, []byte)
+	}{
+		{
+			name: "xbox360", dev: xbox, bus: 3056, endpoint: 1,
+			addr: 0x81, interval: 4, reportLen: 20, reportID: 0x00,
+			update: func() {
+				xbox.UpdateInputState(xbox360.InputState{Buttons: xbox360.ButtonA})
+			},
+			check: func(t *testing.T, report []byte) {
+				if report[3]&0x10 == 0 {
+					t.Fatal("Xbox360 A button missing from report")
+				}
+			},
+			checkNeutral: func(t *testing.T, report []byte) {
+				if report[2] != 0 || report[3] != 0 {
+					t.Fatalf("initial Xbox360 buttons = %02x %02x, want neutral", report[2], report[3])
+				}
+			},
+		},
+		{
+			name: "dualsenseedge", dev: edge, bus: 3057, endpoint: 4,
+			addr: 0x84, interval: 2, reportLen: 64, reportID: 0x01,
+			update: func() {
+				edge.UpdateInputState(&dualsense.InputState{GyroX: 0x1234})
+			},
+			check: func(t *testing.T, report []byte) {
+				if got := binary.LittleEndian.Uint16(report[16:18]); got != 0x1234 {
+					t.Fatalf("DualSense Edge gyro X = %#x, want 0x1234", got)
+				}
+			},
+			checkNeutral: func(t *testing.T, report []byte) {
+				if !bytes.Equal(report[1:5], []byte{0x80, 0x80, 0x80, 0x80}) {
+					t.Fatalf("initial DualSense Edge stick axes = % x, want centered", report[1:5])
+				}
+				if got := binary.LittleEndian.Uint16(report[16:18]); got != 0 {
+					t.Fatalf("initial DualSense Edge gyro X = %#x, want neutral", got)
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, ok := tc.dev.(interface {
+				InterruptINWaitBudget(uint32) time.Duration
+			}); ok {
+				t.Fatal("non-Deck device unexpectedly overrides the interrupt IN wait budget")
+			}
+
+			foundEndpoint := false
+			for _, iface := range tc.dev.GetDescriptor().Interfaces {
+				for _, endpoint := range iface.Endpoints {
+					if endpoint.BEndpointAddress == tc.addr {
+						foundEndpoint = true
+						if endpoint.BInterval != tc.interval {
+							t.Fatalf("endpoint %#x interval = %d, want %d", tc.addr, endpoint.BInterval, tc.interval)
+						}
+					}
+				}
+			}
+			if !foundEndpoint {
+				t.Fatalf("IN endpoint %#x not found", tc.addr)
+			}
+
+			_, conn := startAsyncINTestSession(t, tc.dev, tc.bus)
+			if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			defer conn.SetReadDeadline(time.Time{})
+
+			read := func(seq uint32) []byte {
+				t.Helper()
+				cmd := usbip.CmdSubmit{
+					Basic: usbip.HeaderBasic{
+						Command: usbip.CmdSubmitCode,
+						Seqnum:  seq,
+						Dir:     usbip.DirIn,
+						Ep:      tc.endpoint,
+					},
+					TransferBufferLen: 64,
+				}
+				if err := cmd.Write(conn); err != nil {
+					t.Fatal(err)
+				}
+				report := readSteamDeckINResponse(t, conn, seq)
+				if len(report) != tc.reportLen {
+					t.Fatalf("%s report length = %d, want %d", tc.name, len(report), tc.reportLen)
+				}
+				if report[0] != tc.reportID {
+					t.Fatalf("%s report ID = %#x, want %#x", tc.name, report[0], tc.reportID)
+				}
+				return report
+			}
+
+			tc.checkNeutral(t, read(1))
+			tc.update()
+			tc.check(t, read(2)) // Updated state reaches the host.
+			tc.check(t, read(3)) // No update: preserve each device's existing latest-state fallback.
+		})
 	}
 }
 
