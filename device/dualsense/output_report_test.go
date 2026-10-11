@@ -169,6 +169,27 @@ func TestOutputReportRumbleCacheUpdatesWithoutCallback(t *testing.T) {
 	}
 }
 
+func TestDualSenseEdgeClearsCachedRumbleWithOutputCallback(t *testing.T) {
+	dev, err := NewEdge(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var previousSession OutputState
+	dev.SetOutputCallback(func(state OutputState) { previousSession = state })
+	dev.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, makeUSBOutputReport(0x01, 0, 0, 0x61, 0x72))
+	if previousSession.RumbleSmall != 0x61 || previousSession.RumbleLarge != 0x72 {
+		t.Fatalf("previous-session rumble = %02x/%02x, want 61/72", previousSession.RumbleSmall, previousSession.RumbleLarge)
+	}
+
+	dev.SetOutputCallback(nil)
+	var nextSession OutputState
+	dev.SetOutputCallback(func(state OutputState) { nextSession = state })
+	dev.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, makeUSBOutputReport(0, 0x04, 0, 0xAA, 0xBB))
+	if nextSession.RumbleSmall != 0 || nextSession.RumbleLarge != 0 {
+		t.Fatalf("new-session LED-only rumble = %02x/%02x, want 00/00", nextSession.RumbleSmall, nextSession.RumbleLarge)
+	}
+}
+
 func TestDualSenseAndEdgeDescriptorStringsAreIsolated(t *testing.T) {
 	normal, err := New(nil)
 	if err != nil {

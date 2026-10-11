@@ -135,6 +135,13 @@ func (d *DualSense) SetOutputCallback(f func(OutputState)) {
 	d.callbackMu.Lock()
 	d.outputFunc = f
 	d.callbackMu.Unlock()
+
+	if f == nil {
+		d.mtx.Lock()
+		d.lastRumbleSmall = 0
+		d.lastRumbleLarge = 0
+		d.mtx.Unlock()
+	}
 }
 
 func (d *DualSense) UpdateInputState(state *InputState) {
