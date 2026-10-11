@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math"
 	"net"
 	"sync"
@@ -91,6 +92,7 @@ func new(o *device.CreateOptions, edge bool) (*DualSense, error) {
 		descriptor: defaultDescriptor,
 		metaState:  metaState,
 	}
+	d.descriptor.Strings = maps.Clone(defaultDescriptor.Strings)
 	d.descriptor.Device.IDProduct = DefaultPIDDS
 	if edge {
 		d.descriptor.Device.IDProduct = DefaultPIDDSEdge
@@ -190,11 +192,13 @@ func (d *DualSense) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 
 	if dir == usbip.DirOut && ep == 3 {
 		if len(out) >= 48 && out[0] == ReportIDOutput {
-			d.callbackMu.RLock()
-			callback := d.outputFunc
-			d.callbackMu.RUnlock()
-			if callback != nil {
-				callback(parseOutputReport(out))
+			if feedback, hasRumble := parseRumbleOutputReport(out); hasRumble {
+				d.callbackMu.RLock()
+				callback := d.outputFunc
+				d.callbackMu.RUnlock()
+				if callback != nil {
+					callback(feedback)
+				}
 			}
 		}
 	}
@@ -245,11 +249,13 @@ func (d *DualSense) HandleControl(bmRequestType, bRequest uint8, wValue, wIndex,
 			case reportType == reportTypeFeature:
 				return nil, true
 			case reportType == reportTypeOutput && reportID == ReportIDOutput && len(data) >= 48:
-				d.callbackMu.RLock()
-				callback := d.outputFunc
-				d.callbackMu.RUnlock()
-				if callback != nil {
-					callback(parseOutputReport(data))
+				if feedback, hasRumble := parseRumbleOutputReport(data); hasRumble {
+					d.callbackMu.RLock()
+					callback := d.outputFunc
+					d.callbackMu.RUnlock()
+					if callback != nil {
+						callback(feedback)
+					}
 				}
 				return nil, true
 			}
@@ -275,23 +281,17 @@ var featureGetHandlers = map[byte]func(*DualSense) []byte{
 	featureIDCommandResponse: (*DualSense).featureReportCommandResponse,
 }
 
-func parseOutputReport(out []byte) OutputState {
-	feedback := OutputState{
+func parseRumbleOutputReport(out []byte) (OutputState, bool) {
+	if len(out) < 48 || out[0] != ReportIDOutput {
+		return OutputState{}, false
+	}
+	if out[1]&0x01 == 0 && out[39]&0x04 == 0 {
+		return OutputState{}, false
+	}
+	return OutputState{
 		RumbleSmall: out[3],
 		RumbleLarge: out[4],
-	}
-	if len(out) > 2 {
-		flag1 := out[2]
-		if flag1&0x04 != 0 && len(out) > 47 {
-			feedback.LedRed = out[45]
-			feedback.LedGreen = out[46]
-			feedback.LedBlue = out[47]
-		}
-		if flag1&0x10 != 0 && len(out) > 44 {
-			feedback.PlayerLeds = out[44]
-		}
-	}
-	return feedback
+	}, true
 }
 
 func (d *DualSense) featureReportCalibration() []byte {

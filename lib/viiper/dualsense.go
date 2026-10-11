@@ -238,9 +238,9 @@ func SetDualSenseDeviceState(handle C.DSDeviceHandle, state C.DSDeviceState) boo
 	})
 }
 
-// SetDualSenseOutputCallback sets a callback to be invoked when the host sends output (rumble/LED) commands to the device.
+// SetDualSenseOutputCallback sets a callback for valid DualSense/Edge rumble commands from the host.
 // @param handle Handle to the DualSense device.
-// @param callback Callback receiving rumbleSmall, rumbleLarge, ledRed, ledGreen, ledBlue, playerLeds. Pass NULL to clear.
+// @param callback Callback receiving rumbleSmall and rumbleLarge; legacy LED arguments are always zero. Pass NULL to clear.
 //
 //export SetDualSenseOutputCallback
 func SetDualSenseOutputCallback(handle C.DSDeviceHandle, cb C.DSOutputCallback) bool {

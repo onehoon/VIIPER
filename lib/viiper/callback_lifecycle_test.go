@@ -58,6 +58,7 @@ func canonicalCallbackCases() []callbackLifecycleCase {
 			dispatch: func(dev viiperusb.Device) {
 				report := make([]byte, 48)
 				report[0] = dualsense.ReportIDOutput
+				report[1] = 0x01
 				report[2] = 0x04
 				dev.(*dualsense.DualSense).HandleTransfer(context.Background(), dualsense.EndpointOut, usbip.DirOut, report)
 			},

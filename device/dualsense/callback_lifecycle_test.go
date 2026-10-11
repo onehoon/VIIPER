@@ -12,6 +12,7 @@ import (
 func dualsenseTestOutputReport() []byte {
 	report := make([]byte, 48)
 	report[0] = ReportIDOutput
+	report[1] = 0x01
 	report[2] = 0x04
 	report[3] = 0x11
 	report[4] = 0x22
