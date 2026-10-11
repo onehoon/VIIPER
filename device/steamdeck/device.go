@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"sync"
+	"time"
 
 	"github.com/Alia5/VIIPER/device"
 	"github.com/Alia5/VIIPER/usb"
@@ -20,6 +21,7 @@ const (
 	mouseEndpointNumber      = 0x02
 	controllerEndpointNumber = 0x03
 	genericEndpointNumber    = 0x01
+	controllerReportWait     = 4 * time.Millisecond
 )
 
 var zeroMouseReport = []byte{0x00, 0x00, 0x00, 0x00}
@@ -28,6 +30,7 @@ var zeroKeyboardReport = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 type SteamDeck struct {
 	inputState          *InputState
+	inputNotify         chan struct{}
 	mtx                 sync.Mutex
 	featureMtx          sync.Mutex
 	callbackMu          sync.RWMutex
@@ -111,10 +114,12 @@ func cloneDescriptor() usb.Descriptor {
 
 func New(o *device.CreateOptions) (*SteamDeck, error) {
 	d := &SteamDeck{
-		descriptor: cloneDescriptor(),
-		inputState: &InputState{},
-		controller: newControllerState(),
+		descriptor:  cloneDescriptor(),
+		inputState:  &InputState{},
+		inputNotify: make(chan struct{}, 1),
+		controller:  newControllerState(),
 	}
+	d.inputNotify <- struct{}{}
 	if o != nil {
 		if o.IDVendor != nil {
 			d.descriptor.Device.IDVendor = *o.IDVendor
@@ -146,6 +151,11 @@ func (d *SteamDeck) setInputState(state *InputState) {
 	updated.Frame = d.frame
 	d.inputState = &updated
 	d.mtx.Unlock()
+	select {
+	case d.inputNotify <- struct{}{}:
+	default:
+		// Coalesce updates: the reader always snapshots the newest state.
+	}
 }
 
 func (d *SteamDeck) snapshotInputState() InputState {
@@ -162,8 +172,18 @@ func (d *SteamDeck) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 		case keyboardEndpointNumber:
 			return append([]byte(nil), zeroKeyboardReport...)
 		case controllerEndpointNumber:
-			st := d.snapshotInputState()
-			return st.buildReport(st.Frame)
+			select {
+			case <-ctx.Done():
+				if ctx.Err() != context.DeadlineExceeded {
+					return nil
+				}
+				return d.currentInputReport()
+			case <-d.inputNotify:
+				if ctx.Err() == context.Canceled {
+					return nil
+				}
+				return d.currentInputReport()
+			}
 		default:
 			return nil
 		}
@@ -172,6 +192,21 @@ func (d *SteamDeck) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 		d.handleHostCommand(normalizeHostCommand(out, 0))
 	}
 	return nil
+}
+
+func (d *SteamDeck) currentInputReport() []byte {
+	st := d.snapshotInputState()
+	return st.buildReport(st.Frame)
+}
+
+// InterruptINWaitBudget separates the Deck controller's expected report cadence
+// from its 1 ms USB interrupt polling descriptor. Other endpoints use the
+// server's normal descriptor-derived wait interval.
+func (d *SteamDeck) InterruptINWaitBudget(ep uint32) time.Duration {
+	if ep == controllerEndpointNumber {
+		return controllerReportWait
+	}
+	return 0
 }
 
 func (d *SteamDeck) HandleControl(bmRequestType, bRequest uint8, wValue, _ /* wIndex */, wLength uint16, data []byte) ([]byte, bool) {
@@ -620,7 +655,7 @@ var defaultDescriptor = usb.Descriptor{
 				BEndpointAddress: 0x80 | controllerEndpointNumber,
 				BMAttributes:     0x03,
 				WMaxPacketSize:   0x0040,
-				BInterval:        0x06,
+				BInterval:        0x01, // 1 ms USB poll capability; reports use the separate 4 ms wait budget.
 			}},
 		},
 	},

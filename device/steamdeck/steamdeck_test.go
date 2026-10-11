@@ -91,6 +91,89 @@ func TestInputReports(t *testing.T) {
 		})
 	}
 }
+
+func TestControllerINCoalescesToLatestInputState(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	dev.UpdateInputState(&steamdeck.InputState{LStickX: 111, Pitch: 222})
+	dev.UpdateInputState(&steamdeck.InputState{LStickX: 333, Pitch: 444})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	report := dev.HandleTransfer(ctx, defaultControllerEndpoint, usbip.DirIn, nil)
+	if !assert.Len(t, report, steamdeck.InputReportLen) {
+		return
+	}
+	assert.Equal(t, uint32(2), binary.LittleEndian.Uint32(report[4:8]), "Frame advances once per update, not per read")
+	assert.Equal(t, int16(333), int16(binary.LittleEndian.Uint16(report[48:50])))
+	assert.Equal(t, int16(444), int16(binary.LittleEndian.Uint16(report[30:32])))
+}
+
+func TestControllerINDeadlineReturnsLatestReportAndCancellationReturnsNoData(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	// Consume the constructor's initial neutral-state notification.
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
+
+	deadlineCtx, cancelDeadline := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	report := dev.HandleTransfer(deadlineCtx, defaultControllerEndpoint, usbip.DirIn, nil)
+	cancelDeadline()
+	if !assert.Len(t, report, steamdeck.InputReportLen) {
+		return
+	}
+	assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(report[4:8]))
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	assert.Nil(t, dev.HandleTransfer(cancelCtx, defaultControllerEndpoint, usbip.DirIn, nil), "cancelled reads must not produce a stale success report")
+}
+
+func TestControllerGETReportRemainsImmediateLatestSnapshot(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	// Consume the initial IN notification so GET_REPORT cannot depend on it.
+	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
+	dev.UpdateInputState(&steamdeck.InputState{Pitch: 1234})
+
+	report, handled := dev.HandleControl(0xa1, 0x01, 0x0100, 0, steamdeck.InputReportLen, nil)
+	if !assert.True(t, handled) || !assert.Len(t, report, steamdeck.InputReportLen) {
+		return
+	}
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(report[4:8]))
+	assert.Equal(t, int16(1234), int16(binary.LittleEndian.Uint16(report[30:32])))
+}
+
+func TestSteamDeckControllerDescriptorAndSoftwareWaitBudget(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+	desc := dev.GetDescriptor()
+	intervals := map[uint8]uint8{}
+	for _, iface := range desc.Interfaces {
+		for _, endpoint := range iface.Endpoints {
+			intervals[endpoint.BEndpointAddress] = endpoint.BInterval
+		}
+	}
+	assert.Equal(t, uint8(10), intervals[0x81], "keyboard endpoint interval is unchanged")
+	assert.Equal(t, uint8(6), intervals[0x82], "mouse endpoint interval is unchanged")
+	assert.Equal(t, uint8(1), intervals[0x83], "controller endpoint advertises 1 ms polling")
+	assert.Equal(t, 4*time.Millisecond, dev.InterruptINWaitBudget(defaultControllerEndpoint))
+	assert.Zero(t, dev.InterruptINWaitBudget(1))
+
+	attributes, handled := dev.HandleControl(0xa1, 0x01, uint16(0x0300|steamdeck.FeatureGetAttributesValues), 0, steamdeck.InputReportLen, nil)
+	if assert.True(t, handled) {
+		assert.Equal(t, []byte{0xa0, 0x0f, 0x00, 0x00}, attributes[28:32], "feature report continues to advertise 4000 us")
+	}
+}
+
 func TestMotionFieldWireOrderMatchesSteamConsumers(t *testing.T) {
 	dev, err := steamdeck.New(nil)
 	if !assert.NoError(t, err) {
