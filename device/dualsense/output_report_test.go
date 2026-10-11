@@ -60,7 +60,7 @@ func TestOutputReportRumbleValidityAcrossInputPaths(t *testing.T) {
 			report: makeUSBOutputReport(0, 0x04, 0, 0, 0),
 		},
 		{
-			name:   "player LED-only report is ignored",
+			name: "player LED-only report is ignored",
 			report: func() []byte {
 				report := makeUSBOutputReport(0, 0x10, 0, 0x7F, 0xFE)
 				report[44] = 0x05
