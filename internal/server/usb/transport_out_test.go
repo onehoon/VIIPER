@@ -1,7 +1,9 @@
 package usb
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"log/slog"
@@ -20,11 +22,13 @@ import (
 var transportOutTestBusID atomic.Uint32
 
 type transportOutTestDevice struct {
-	descriptor rootusb.Descriptor
-	mu         sync.Mutex
-	received   [][]byte
-	notify     chan struct{}
-	response   []byte
+	descriptor      rootusb.Descriptor
+	mu              sync.Mutex
+	received        [][]byte
+	notify          chan struct{}
+	response        []byte
+	controlResponse []byte
+	transferRelease <-chan struct{}
 }
 
 func newTransportOutTestDevice() *transportOutTestDevice {
@@ -34,9 +38,23 @@ func newTransportOutTestDevice() *transportOutTestDevice {
 func (d *transportOutTestDevice) HandleTransfer(_ context.Context, _ uint32, _ uint32, payload []byte) []byte {
 	d.mu.Lock()
 	d.received = append(d.received, append([]byte(nil), payload...))
+	response := append([]byte(nil), d.response...)
+	transferRelease := d.transferRelease
 	d.mu.Unlock()
 	d.notify <- struct{}{}
-	return append([]byte(nil), d.response...)
+	if transferRelease != nil {
+		<-transferRelease
+	}
+	return response
+}
+
+func (d *transportOutTestDevice) HandleControl(_ uint8, bRequest uint8, _, _, _ uint16, _ []byte) ([]byte, bool) {
+	if bRequest != 0x99 {
+		return nil, false
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]byte(nil), d.controlResponse...), true
 }
 
 func (d *transportOutTestDevice) GetDescriptor() *rootusb.Descriptor  { return &d.descriptor }
@@ -59,11 +77,22 @@ type transportOutWriteFailureConn struct {
 
 func (c transportOutWriteFailureConn) Write([]byte) (int, error) { return 0, c.err }
 
+type transportOutCountingConn struct {
+	net.Conn
+	writes atomic.Int32
+}
+
+func (c *transportOutCountingConn) Write(p []byte) (int, error) {
+	c.writes.Add(1)
+	return c.Conn.Write(p)
+}
+
 type transportOutHarness struct {
 	client   net.Conn
 	finished <-chan struct{}
 	done     <-chan error
 	device   *transportOutTestDevice
+	writes   *atomic.Int32
 }
 
 func newTransportOutHarness(t *testing.T, failResponseWrite bool) *transportOutHarness {
@@ -73,6 +102,11 @@ func newTransportOutHarness(t *testing.T, failResponseWrite bool) *transportOutH
 
 func newTransportOutHarnessWithDevice(t *testing.T, device *transportOutTestDevice, failResponseWrite bool) *transportOutHarness {
 	t.Helper()
+	return newTransportOutHarnessWithConfig(t, device, failResponseWrite, 0, false)
+}
+
+func newTransportOutHarnessWithConfig(t *testing.T, device *transportOutTestDevice, failResponseWrite bool, flushInterval time.Duration, countWrites bool) *transportOutHarness {
+	t.Helper()
 	busID := transportOutTestBusID.Add(1) + 41000
 	bus, err := virtualbus.NewWithBusID(busID)
 	if err != nil {
@@ -81,12 +115,18 @@ func newTransportOutHarnessWithDevice(t *testing.T, device *transportOutTestDevi
 	if _, err := bus.Add(device); err != nil {
 		t.Fatal(err)
 	}
-	server := New(ServerConfig{DisableAutoBusCleanup: true}, slog.New(slog.DiscardHandler), nil)
+	server := New(ServerConfig{DisableAutoBusCleanup: true, WriteBatchFlushInterval: flushInterval}, slog.New(slog.DiscardHandler), nil)
 	if err := server.AddBus(bus); err != nil {
 		t.Fatal(err)
 	}
 	serverConn, clientConn := net.Pipe()
 	var streamConn net.Conn = serverConn
+	var writeCount *atomic.Int32
+	if countWrites {
+		countingConn := &transportOutCountingConn{Conn: streamConn}
+		streamConn = countingConn
+		writeCount = &countingConn.writes
+	}
 	if failResponseWrite {
 		streamConn = transportOutWriteFailureConn{Conn: serverConn, err: errors.New("simulated RET_SUBMIT write failure")}
 	}
@@ -102,7 +142,7 @@ func newTransportOutHarnessWithDevice(t *testing.T, device *transportOutTestDevi
 		<-finished
 		_ = server.RemoveBus(busID)
 	})
-	return &transportOutHarness{client: clientConn, finished: finished, done: done, device: device}
+	return &transportOutHarness{client: clientConn, finished: finished, done: done, device: device, writes: writeCount}
 }
 
 func (h *transportOutHarness) writeSubmitHeader(t *testing.T, seq uint32, payloadLength uint32) {
@@ -122,16 +162,41 @@ func (h *transportOutHarness) submit(t *testing.T, seq uint32, payload []byte) (
 }
 
 func (h *transportOutHarness) sendSubmit(seq uint32, payload []byte) error {
-	cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirOut, Ep: 1}, TransferBufferLen: uint32(len(payload))}
+	return h.sendTransfer(seq, usbip.DirOut, 1, uint32(len(payload)), [8]byte{}, payload)
+}
+
+func (h *transportOutHarness) sendTransfer(seq, dir, ep, transferLength uint32, setup [8]byte, payload []byte) error {
+	cmd := usbip.CmdSubmit{
+		Basic:             usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: dir, Ep: ep},
+		TransferBufferLen: transferLength,
+		Setup:             setup,
+	}
 	if err := cmd.Write(h.client); err != nil {
 		return err
 	}
-	if len(payload) > 0 {
+	if dir == usbip.DirOut && len(payload) > 0 {
 		if _, err := h.client.Write(payload); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (h *transportOutHarness) readFrame(t *testing.T, payloadLength int) ([retSubmitHeaderSize]byte, []byte) {
+	t.Helper()
+	var header [retSubmitHeaderSize]byte
+	if _, err := io.ReadFull(h.client, header[:]); err != nil {
+		t.Fatalf("read RET_SUBMIT header: %v", err)
+	}
+	payload := make([]byte, payloadLength)
+	if _, err := io.ReadFull(h.client, payload); err != nil {
+		t.Fatalf("read RET_SUBMIT payload: %v", err)
+	}
+	return header, payload
+}
+
+func controlVendorINSetup(length uint16) [8]byte {
+	return [8]byte{0xc0, 0x99, 0, 0, 0, 0, byte(length), byte(length >> 8)}
 }
 
 func (h *transportOutHarness) readResponse(t *testing.T) (uint32, uint32) {
@@ -241,5 +306,246 @@ func TestUSBIPOutRetSubmitOmitsDeviceResponseAndPreservesStreamBoundary(t *testi
 	}
 	if got := device.receivedPayloads(); !reflect.DeepEqual(got, [][]byte{payload, payload}) {
 		t.Fatalf("device payloads = % x, want two copies of % x", got, payload)
+	}
+}
+
+func TestUSBIPRetSubmitUsesOneDirectWriteForBodyAndHeaderOnly(t *testing.T) {
+	payload := []byte{0x51, 0x62, 0x73}
+	device := newTransportOutTestDevice()
+	device.response = payload
+	h := newTransportOutHarnessWithConfig(t, device, false, 0, true)
+	if err := h.client.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer h.client.SetReadDeadline(time.Time{})
+
+	if err := h.sendTransfer(111, usbip.DirIn, 1, 8, [8]byte{}, nil); err != nil {
+		t.Fatalf("write IN CMD_SUBMIT: %v", err)
+	}
+	header, body := h.readFrame(t, len(payload))
+	if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+		t.Fatalf("IN response command = %#x, want RET_SUBMIT", got)
+	}
+	if got := binary.BigEndian.Uint32(header[4:8]); got != 111 {
+		t.Fatalf("IN response sequence = %d, want 111", got)
+	}
+	if got := binary.BigEndian.Uint32(header[24:28]); got != uint32(len(payload)) {
+		t.Fatalf("IN response length = %d, want %d", got, len(payload))
+	}
+	if !bytes.Equal(body, payload) {
+		t.Fatalf("IN response body = % x, want % x", body, payload)
+	}
+	if got := h.writes.Load(); got != 1 {
+		t.Fatalf("server-side Write calls for body-bearing RET_SUBMIT = %d, want 1", got)
+	}
+
+	outPayload := []byte{0xa1, 0xb2, 0xc3, 0xd4}
+	seq, actualLength := h.submit(t, 112, outPayload)
+	if seq != 112 || actualLength != uint32(len(outPayload)) {
+		t.Fatalf("OUT response sequence/length = %d/%d, want 112/%d", seq, actualLength, len(outPayload))
+	}
+	if got := h.writes.Load(); got != 2 {
+		t.Fatalf("server-side Write calls after header-only OUT RET_SUBMIT = %d, want 2 total", got)
+	}
+}
+
+func TestUSBIPRetSubmitLargeEP0ThenShortAndEmptyFrames(t *testing.T) {
+	controlPayload := make([]byte, 128)
+	for i := range controlPayload {
+		controlPayload[i] = byte(i ^ 0x5a)
+	}
+	device := newTransportOutTestDevice()
+	device.controlResponse = controlPayload
+	h := newTransportOutHarnessWithDevice(t, device, false)
+	if err := h.client.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer h.client.SetReadDeadline(time.Time{})
+
+	for _, tc := range []struct {
+		seq      uint32
+		length   uint16
+		wantBody []byte
+	}{
+		{seq: 121, length: 128, wantBody: controlPayload},
+		{seq: 122, length: 3, wantBody: controlPayload[:3]},
+		{seq: 123, length: 0, wantBody: nil},
+	} {
+		if err := h.sendTransfer(tc.seq, usbip.DirIn, 0, uint32(tc.length), controlVendorINSetup(tc.length), nil); err != nil {
+			t.Fatalf("write EP0 CMD_SUBMIT %d: %v", tc.seq, err)
+		}
+		header, body := h.readFrame(t, len(tc.wantBody))
+		if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+			t.Fatalf("EP0 response command = %#x, want RET_SUBMIT", got)
+		}
+		if got := binary.BigEndian.Uint32(header[4:8]); got != tc.seq {
+			t.Fatalf("EP0 response sequence = %d, want %d", got, tc.seq)
+		}
+		if got := binary.BigEndian.Uint32(header[24:28]); got != uint32(len(tc.wantBody)) {
+			t.Fatalf("EP0 response actual length = %d, want %d", got, len(tc.wantBody))
+		}
+		if !bytes.Equal(body, tc.wantBody) {
+			t.Fatalf("EP0 response body = % x, want % x", body, tc.wantBody)
+		}
+	}
+}
+
+func TestUSBIPRetSubmitMixedCompletionsRemainFramed(t *testing.T) {
+	inPayload := []byte{0x11, 0x22, 0x33}
+	controlPayload := make([]byte, 128)
+	for i := range controlPayload {
+		controlPayload[i] = byte(255 - i)
+	}
+	inRelease := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseIN := func() { releaseOnce.Do(func() { close(inRelease) }) }
+	defer releaseIN()
+
+	device := newTransportOutTestDevice()
+	device.response = inPayload
+	device.controlResponse = controlPayload
+	device.transferRelease = inRelease
+	h := newTransportOutHarnessWithDevice(t, device, false)
+	if err := h.client.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer h.client.SetReadDeadline(time.Time{})
+
+	if err := h.sendTransfer(131, usbip.DirIn, 1, 8, [8]byte{}, nil); err != nil {
+		t.Fatalf("write async IN CMD_SUBMIT: %v", err)
+	}
+	select {
+	case <-device.notify:
+	case <-time.After(time.Second):
+		t.Fatal("async IN worker did not enter the device")
+	}
+
+	type responseFrame struct {
+		header [retSubmitHeaderSize]byte
+		body   []byte
+	}
+	type readResult struct {
+		frames map[uint32]responseFrame
+		err    error
+	}
+	readDone := make(chan readResult, 1)
+	go func() {
+		result := readResult{frames: make(map[uint32]responseFrame, 3)}
+		payloadLengths := map[uint32]int{131: len(inPayload), 132: len(controlPayload), 133: 0}
+		for range 3 {
+			var frame responseFrame
+			if _, err := io.ReadFull(h.client, frame.header[:]); err != nil {
+				result.err = err
+				readDone <- result
+				return
+			}
+			seq := binary.BigEndian.Uint32(frame.header[4:8])
+			payloadLength, ok := payloadLengths[seq]
+			if !ok {
+				result.err = errors.New("unexpected or misaligned response sequence")
+				readDone <- result
+				return
+			}
+			frame.body = make([]byte, payloadLength)
+			if _, err := io.ReadFull(h.client, frame.body); err != nil {
+				result.err = err
+				readDone <- result
+				return
+			}
+			result.frames[seq] = frame
+		}
+		readDone <- result
+	}()
+
+	if err := h.sendTransfer(132, usbip.DirIn, 0, uint32(len(controlPayload)), controlVendorINSetup(uint16(len(controlPayload))), nil); err != nil {
+		t.Fatalf("write EP0 CMD_SUBMIT: %v", err)
+	}
+	if err := h.sendSubmit(133, []byte{0xa1, 0xb2, 0xc3, 0xd4}); err != nil {
+		t.Fatalf("write OUT CMD_SUBMIT: %v", err)
+	}
+	select {
+	case <-device.notify:
+	case <-time.After(time.Second):
+		t.Fatal("OUT transfer did not reach the device")
+	}
+	releaseIN()
+
+	var result readResult
+	select {
+	case result = <-readDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out reading mixed RET_SUBMIT frames")
+	}
+	if result.err != nil {
+		t.Fatalf("read mixed RET_SUBMIT frames: %v", result.err)
+	}
+	wants := map[uint32]struct {
+		actualLength uint32
+		body         []byte
+	}{
+		131: {actualLength: uint32(len(inPayload)), body: inPayload},
+		132: {actualLength: uint32(len(controlPayload)), body: controlPayload},
+		133: {actualLength: 4},
+	}
+	for seq, want := range wants {
+		frame, ok := result.frames[seq]
+		if !ok {
+			t.Fatalf("missing RET_SUBMIT sequence %d", seq)
+		}
+		if got := binary.BigEndian.Uint32(frame.header[0:4]); got != usbip.RetSubmitCode {
+			t.Fatalf("sequence %d command = %#x, want RET_SUBMIT", seq, got)
+		}
+		if got := binary.BigEndian.Uint32(frame.header[24:28]); got != want.actualLength {
+			t.Fatalf("sequence %d actual length = %d, want %d", seq, got, want.actualLength)
+		}
+		if !bytes.Equal(frame.body, want.body) {
+			t.Fatalf("sequence %d body = % x, want % x", seq, frame.body, want.body)
+		}
+	}
+}
+
+func TestUSBIPRetSubmitPositiveIntervalBatchingPreservesFrames(t *testing.T) {
+	inPayload := []byte{0x61, 0x72, 0x83}
+	device := newTransportOutTestDevice()
+	device.response = inPayload
+	h := newTransportOutHarnessWithConfig(t, device, false, time.Millisecond, false)
+	if err := h.client.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer h.client.SetReadDeadline(time.Time{})
+
+	if err := h.sendTransfer(141, usbip.DirIn, 1, 8, [8]byte{}, nil); err != nil {
+		t.Fatalf("write IN CMD_SUBMIT: %v", err)
+	}
+	header, body := h.readFrame(t, len(inPayload))
+	if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+		t.Fatalf("IN response command = %#x, want RET_SUBMIT", got)
+	}
+	if got := binary.BigEndian.Uint32(header[4:8]); got != 141 {
+		t.Fatalf("IN response sequence = %d, want 141", got)
+	}
+	if got := binary.BigEndian.Uint32(header[24:28]); got != uint32(len(inPayload)) {
+		t.Fatalf("IN response actual length = %d, want %d", got, len(inPayload))
+	}
+	if !bytes.Equal(body, inPayload) {
+		t.Fatalf("IN response body = % x, want % x", body, inPayload)
+	}
+
+	outPayload := []byte{0x91, 0xa2, 0xb3, 0xc4}
+	if err := h.sendSubmit(142, outPayload); err != nil {
+		t.Fatalf("write OUT CMD_SUBMIT: %v", err)
+	}
+	header, body = h.readFrame(t, 0)
+	if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+		t.Fatalf("OUT response command = %#x, want RET_SUBMIT", got)
+	}
+	if got := binary.BigEndian.Uint32(header[4:8]); got != 142 {
+		t.Fatalf("OUT response sequence = %d, want 142", got)
+	}
+	if got := binary.BigEndian.Uint32(header[24:28]); got != uint32(len(outPayload)) {
+		t.Fatalf("OUT response actual length = %d, want %d", got, len(outPayload))
+	}
+	if len(body) != 0 {
+		t.Fatalf("OUT response body = % x, want empty", body)
 	}
 }

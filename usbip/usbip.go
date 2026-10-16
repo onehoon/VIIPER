@@ -239,38 +239,26 @@ type RetSubmit struct {
 	Padding         [8]byte
 }
 
+// Encode writes the 48-byte RET_SUBMIT header into dst.
+// dst must have at least 48 bytes.
+func (r *RetSubmit) Encode(dst []byte) {
+	binary.BigEndian.PutUint32(dst[0:4], r.Basic.Command)
+	binary.BigEndian.PutUint32(dst[4:8], r.Basic.Seqnum)
+	binary.BigEndian.PutUint32(dst[8:12], r.Basic.Devid)
+	binary.BigEndian.PutUint32(dst[12:16], r.Basic.Dir)
+	binary.BigEndian.PutUint32(dst[16:20], r.Basic.Ep)
+	binary.BigEndian.PutUint32(dst[20:24], uint32(r.Status))
+	binary.BigEndian.PutUint32(dst[24:28], r.ActualLength)
+	binary.BigEndian.PutUint32(dst[28:32], r.StartFrame)
+	binary.BigEndian.PutUint32(dst[32:36], r.NumberOfPackets)
+	binary.BigEndian.PutUint32(dst[36:40], r.ErrorCount)
+	copy(dst[40:48], r.Padding[:])
+}
+
 func (r *RetSubmit) Write(w io.Writer) error {
-	if err := binary.Write(w, binary.BigEndian, r.Basic.Command); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.Basic.Seqnum); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.Basic.Devid); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.Basic.Dir); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.Basic.Ep); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.Status); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.ActualLength); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.StartFrame); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.NumberOfPackets); err != nil {
-		return err
-	}
-	if err := binary.Write(w, binary.BigEndian, r.ErrorCount); err != nil {
-		return err
-	}
-	_, err := w.Write(r.Padding[:])
+	var header [48]byte
+	r.Encode(header[:])
+	_, err := w.Write(header[:])
 	return err
 }
 

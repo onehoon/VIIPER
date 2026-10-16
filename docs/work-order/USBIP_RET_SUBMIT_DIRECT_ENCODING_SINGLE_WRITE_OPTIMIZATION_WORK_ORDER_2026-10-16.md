@@ -179,7 +179,7 @@ Prefer extending existing test infrastructure rather than introducing a test fra
 - Construct `RetSubmit` with distinct nonzero `HeaderBasic` fields, `Status = -104`, distinct values for all remaining fields and nonzero padding.
 - Assert exactly **48 bytes**, byte-for-byte against a **literal independently specified golden frame**. Do **not** validate `Encode` solely against the refactored `Write`; they would share the same potential encoding bug.
 - Also assert `RetSubmit.Write` produces that golden frame through a normal `bytes.Buffer`, and handles a writer error.
-- Include an all-zero/default-success frame to validate the canonical server case.
+- Include the canonical empty-body success frame: `Basic.Command = RetSubmitCode` (`0x00000003`), with every other header field, status, and padding byte zero. Do not treat the zero-value `RetSubmit{}` (whose command is zero) as a canonical `RET_SUBMIT` frame.
 
 ### Test B — one direct write for body and header-only responses
 
@@ -226,7 +226,7 @@ Preserve and run:
 
 The last test deliberately has a device return nonempty data for an OUT transfer. Assert `RET_SUBMIT.ActualLength == len(outPayload)` but **no response body**, and that a second OUT response is still parseable.
 
-A small explicit positive-interval batching test is appropriate if existing coverage does not already establish that the new combined frame is flushed at the same call sites. The **0 ms and 1 ms** code paths must both work. Do not demand a timing-sensitive millisecond-exact scheduling test.
+Required: exercise a positive-interval batching configuration (use the consumer-relevant **1 ms** interval) through the real transport path and assert complete, correctly framed `RET_SUBMIT` bytes for a body-bearing completion and a header-only OUT completion. Preserve and cover the existing `flush && bw != nil` call-site behavior (including an async IN completion's explicit flush and OUT's timer-driven batching). The test may use a bounded read deadline, but must not assert millisecond-exact timing or a fixed underlying `net.Conn.Write` count; batching can combine multiple protocol frames into one physical write.
 
 ### Test F — mixed completions and lifecycle
 
