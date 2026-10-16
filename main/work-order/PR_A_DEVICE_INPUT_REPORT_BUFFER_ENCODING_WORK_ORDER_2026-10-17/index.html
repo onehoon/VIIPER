@@ -1,0 +1,2191 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — PR-A: Device Input Report Buffer Encoding (Xbox360 / Steam Deck / DualSense Edge) - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-pr-a-device-input-report-buffer-encoding-xbox360-steam-deck-dualsense-edge" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — PR-A: Device Input Report Buffer Encoding (Xbox360 / Steam Deck / DualSense Edge)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-required-source-reading-and-two-consumer-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Required source reading and two-consumer constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-verified-baseline-and-important-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Verified baseline and important invariants
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Verified baseline and important invariants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-xbox360" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Xbox360
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-steam-deck" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Steam Deck
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-dualsense-and-dualsense-edge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 DualSense and DualSense Edge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-pr-6162-transport-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 PR #61/#62 transport compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-exact-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Exact implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Exact implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-xbox360-factor-out-in-place-encoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Xbox360: factor out in-place encoder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-steam-deck-factor-out-in-place-encoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Steam Deck: factor out in-place encoder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-dualsenseedge-factor-out-in-place-encoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 DualSense/Edge: factor out in-place encoder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-destination-buffer-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Destination-buffer contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-automated-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Automated verification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Automated verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-common-reuseownership-cases-for-all-three" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Common reuse/ownership cases for all three
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-xbox360-specifics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Xbox360 specifics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-steam-deck-specifics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Steam Deck specifics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-dualsense-edge-and-normal-dualsense-specifics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 DualSense Edge (and normal DualSense) specifics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#55-additional-regressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.5 Additional regressions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-scope-and-quality-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Scope and quality gates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Scope and quality gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#explicitly-out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Explicitly out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildtests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build/tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-acceptance-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Acceptance checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-follow-up-plan-not-part-of-this-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Follow-up plan (not part of this PR)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-pr-a-device-input-report-buffer-encoding-xbox360-steam-deck-dualsense-edge">Work Order — PR-A: Device Input Report Buffer Encoding (Xbox360 / Steam Deck / DualSense Edge)</h1>
+<p><strong>Date:</strong> 2026-10-17<br />
+<strong>Target repository / branch:</strong> <code>onehoon/VIIPER</code> / <code>main</code><br />
+<strong>Reviewed code baseline:</strong> <code>7c9dc6d85841cb9fa542ba0cb17f8d2050f2a3ca</code> (PR #62 squash merge)<br />
+<strong>Implementer:</strong> Local Codex<br />
+<strong>Deliverable:</strong> One narrow implementation PR, Go unit tests, and an accurate PR description.<br />
+<strong>This is PR-A only.</strong> PR-B will separately connect caller-owned report buffers to the USB/IP transport and address per-endpoint cache ownership. A later, independent PR will assess per-device NAK-idle policy and Windows idle/sleep behavior.</p>
+<h2 id="1-goal">1. Goal</h2>
+<p>Prepare the three canonical embedded virtual device types to encode a full <strong>fixed-size USB interrupt-IN input report into a caller-supplied byte slice</strong>, without allocating a fresh report <em>inside the encoder</em>:</p>
+<ul>
+<li><strong>Xbox360</strong>: 20-byte input report.</li>
+<li><strong>Steam Deck</strong>: 64-byte input report, including the existing 64-byte declared length and 60:64 force-sensor tail.</li>
+<li><strong>DualSense Edge</strong>: 64-byte USB input report (share the implementation with the ordinary DualSense variant already using the same builder).</li>
+</ul>
+<p><strong>The current allocation-returning public/existing helpers and the device <code>HandleTransfer</code> behavior must stay byte- and behavior-compatible.</strong> PR-A only extracts a private, in-place encoder from each existing report builder. There is deliberately <strong>no measurable USB/IP hot-path allocation saving from PR-A by itself</strong>: the unchanged <code>HandleTransfer</code> path still allocates each returned report and the transport still copies it into <code>lastInResp</code>. Actual direct-buffer use and cache reuse belong to PR-B.</p>
+<p>Use the smallest existing-package helper methods. Avoid new exported Go interfaces, generic adapters, buffer pools, lifecycle managers, feature flags, timer changes or abstraction layers in PR-A.</p>
+<h2 id="2-required-source-reading-and-two-consumer-constraints">2. Required source reading and two-consumer constraints</h2>
+<p>Read the current branch and reconcile actual changes after the reviewed baseline before editing:</p>
+<ol>
+<li><code>FORK_ARCHITECTURE.md</code> and <code>docs/libviiper/fork-api.md</code> in this fork.</li>
+<li><code>docs/work-order/USBIP_PERSISTENT_INTERRUPT_IN_ENDPOINT_WORKERS_WORK_ORDER_2026-10-17.md</code> (PR #62's nonblocking idle-worker plus concurrent per-URB fallback contract).</li>
+<li><code>docs/work-order/USBIP_RET_SUBMIT_DIRECT_ENCODING_SINGLE_WRITE_OPTIMIZATION_WORK_ORDER_2026-10-16.md</code> (PR #61 header + body single write).</li>
+<li><code>device/xbox360/inputstate.go</code>, <code>device/xbox360/device.go</code>, <code>device/xbox360/xbox360_test.go</code>.</li>
+<li><code>device/steamdeck/inputstate.go</code>, <code>device/steamdeck/device.go</code>, <code>device/steamdeck/const.go</code>, <code>device/steamdeck/steamdeck_test.go</code>.</li>
+<li><code>device/dualsense/device.go</code>, <code>device/dualsense/state.go</code>, <code>device/dualsense/output_report_test.go</code>, <code>device/dualsense/const.go</code>.</li>
+<li><code>internal/server/usb/server.go</code> for <strong>understanding only</strong>; <strong>do not modify</strong> this file in PR-A.</li>
+<li><code>onehoon/SteamAddonforClaw/docs/Full 1902 Implementation/README.md</code> and the authoritative referenced Full1902 architecture. The Addon is a <strong>standalone</strong> Full1902 app: old references to integration with CTW are out of scope.</li>
+<li><code>onehoon/ClawTweaks-Dev</code> branch <code>release/v0.3.98.0</code> as an independently deployed consumer of the same VIIPER fork; it uses its own typed Xbox360, Steam Deck and DualSense Edge native sessions. Do not edit its code.</li>
+<li>Optional implementation <em>technique</em> reference: WSGM <code>KillerPixelCrew/VIIPER</code>, branch <code>wsgm</code>, <code>device/steamdeck/inputstate.go</code> <code>writeReport</code>. <strong>Do not copy its changed gyro/frame/cadence protocol.</strong></li>
+</ol>
+<p><strong>Artifact-adoption policy:</strong> The user will upgrade the final <code>libVIIPER.dll</code> in <strong>both</strong> Addon and CTW-dev only after all fork optimizations are finished. Do not change either application's DLL, SHA pin, lockfile, generated header or packaging in this PR. No real-device verification as an implementation or PR merge prerequisite; the user performs hardware tests after merge.</p>
+<h2 id="3-verified-baseline-and-important-invariants">3. Verified baseline and important invariants</h2>
+<h3 id="31-xbox360">3.1 Xbox360</h3>
+<p>File <code>device/xbox360/inputstate.go</code>: <code>(*InputState).BuildReport()</code> currently:</p>
+<ul>
+<li>allocates <code>make([]byte, 20)</code>;</li>
+<li>sets <code>b[0]=0x00</code>, <code>b[1]=0x14</code>;</li>
+<li>writes lower 16 button bits at 2:4, triggers 4:6 and four little-endian signed stick values 6:14;</li>
+<li>copies the existing reserved slice into <strong><code>b[14:19]</code></strong> (do not silently alter the existing offset/count or other bytes);</li>
+<li>returns an independently owned 20-byte <code>[]byte</code>.</li>
+</ul>
+<p><code>HandleTransfer</code> EP1 still consumes <code>inputCh</code>, returns <code>st.BuildReport()</code> and uses the existing cancellation, tick and rumble contract. Nothing in that flow changes.</p>
+<h3 id="32-steam-deck">3.2 Steam Deck</h3>
+<p>File <code>device/steamdeck/inputstate.go</code>: <code>(*InputState).buildReport(frame uint32)</code> currently allocates <code>make([]byte, InputReportLen)</code> and serializes precisely <strong>64 bytes</strong>. Report header at 0:4 stays <code>01 00 &lt;InputReportID&gt; 40</code>; the frame is at 4:8. Existing buttons, hats, pads, sticks, triggers, motion, quaternion fields and byte 15 reserved passthrough retain the same positions and sign/endian handling.</p>
+<p><strong>Critical fork-only contract:</strong> bytes <strong>60:64</strong> are <code>LStickForce</code> / <code>RStickForce</code> (independent of L3/R3 stick-click buttons). Do <strong>not</strong> import the WSGM alternate payload-length behavior or drop/relabel the four bytes.</p>
+<p><code>device/steamdeck/device.go</code> increments its <code>Frame</code> <strong>on <code>UpdateInputState</code></strong>, not once per returned input report. <code>currentInputReport</code>, controller <code>HandleTransfer</code> and EP0 <code>GET_REPORT</code> call the allocation-returning report builder today. Keep those calls and the exact frame policy. Preserve existing 4 ms <code>InterruptINWaitBudget</code>, raw gyro/accel and zero-quaternion policy; do not adopt WSGM's resampling or report-driven counter.</p>
+<h3 id="33-dualsense-and-dualsense-edge">3.3 DualSense and DualSense Edge</h3>
+<p>File <code>device/dualsense/device.go</code>: <code>(*DualSense).buildUSBInputReport(s, m)</code> currently allocates <code>make([]byte, InputReportSize)</code> (64 bytes), writes USB input ID, axis centering, L2/R2, button/D-pad mapping, sensor values, 3x-microsecond-derived timestamp at 28:32, touch contacts and battery byte.</p>
+<p>The encoder <strong>advances <code>d.seqCounter</code> once per generated report</strong>; <code>d.timestampBase</code> supplies the existing timestamp. <code>HandleTransfer</code> EP4 returns the report on new input or the current state on a timeout, while preserving cancellation. Both ordinary DualSense and Edge use this same <code>DualSense</code> implementation.</p>
+<p>The report's currently zero/unused bytes must remain zero in new or reused destination buffers. Do not rewrite <code>SetMetaState</code>, state snapshots, rumble parsing/callbacks, feature/control responses, descriptors or device locks as part of this purely encoder-level PR.</p>
+<h3 id="34-pr-6162-transport-compatibility">3.4 PR #61/#62 transport compatibility</h3>
+<p><code>internal/server/usb/server.go</code> currently has two real execution paths for simultaneous IN on the same endpoint: a reusable worker when ready and a per-URB fallback otherwise. It owns <code>pending</code>, <code>lastInResp</code>/ <code>respMu</code>, and serializes <code>writeRet</code> under <code>writeMu</code>. It also retains the timeout-based cached report replay and no-data park behavior. <strong>None of these may change in PR-A.</strong> In particular, do not give <code>HandleTransfer</code> a borrowed response buffer yet; its returned bytes must remain independently owned.</p>
+<h2 id="4-exact-implementation">4. Exact implementation</h2>
+<p>Only these production files should change:</p>
+<ul>
+<li><code>device/xbox360/inputstate.go</code></li>
+<li><code>device/steamdeck/inputstate.go</code></li>
+<li><code>device/dualsense/device.go</code></li>
+</ul>
+<p>Use simple package-private encoder methods and retain the old wrapper API unchanged.</p>
+<h3 id="41-xbox360-factor-out-in-place-encoder">4.1 Xbox360: factor out in-place encoder</h3>
+<p>Illustrative shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">xboxInputReportLen</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">20</span><span class="w"> </span><span class="c1">// or reuse an existing established constant</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1">// writeReport encodes exactly 20 bytes into dst; caller owns dst.</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">x</span><span class="w"> </span><span class="o">*</span><span class="nx">InputState</span><span class="p">)</span><span class="w"> </span><span class="nx">writeReport</span><span class="p">(</span><span class="nx">dst</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dst</span><span class="p">[:</span><span class="nx">xboxInputReportLen</span><span class="p">]</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nb">clear</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nx">b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="nx">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x00</span><span class="p">,</span><span class="w"> </span><span class="mh">0x14</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="c1">// Move existing button, trigger, signed stick and reserved encoding</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="c1">// unchanged (including the current copy(b[14:19], x.Reserved[:])).</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">}</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">x</span><span class="w"> </span><span class="o">*</span><span class="nx">InputState</span><span class="p">)</span><span class="w"> </span><span class="nx">BuildReport</span><span class="p">()</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">xboxInputReportLen</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="nx">x</span><span class="p">.</span><span class="nx">writeReport</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">b</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">}</span>
+</code></pre></div>
+<p>If an existing named report length is already present, prefer it to a duplicate. Do not refactor <code>MarshalBinary</code> or alter wire-state layout as a side quest.</p>
+<h3 id="42-steam-deck-factor-out-in-place-encoder">4.2 Steam Deck: factor out in-place encoder</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">InputState</span><span class="p">)</span><span class="w"> </span><span class="nx">writeReport</span><span class="p">(</span><span class="nx">dst</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">frame</span><span class="w"> </span><span class="kt">uint32</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dst</span><span class="p">[:</span><span class="nx">InputReportLen</span><span class="p">]</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nb">clear</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="c1">// Move existing buildReport encoding byte-for-byte unchanged.</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="c1">// In particular b[3] = byte(InputReportLen), and writes continue</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="c1">// through both uint16 force fields in b[60:64].</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">}</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">InputState</span><span class="p">)</span><span class="w"> </span><span class="nx">buildReport</span><span class="p">(</span><span class="nx">frame</span><span class="w"> </span><span class="kt">uint32</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">InputReportLen</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nx">s</span><span class="p">.</span><span class="nx">writeReport</span><span class="p">(</span><span class="nx">b</span><span class="p">,</span><span class="w"> </span><span class="nx">frame</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">b</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="p">}</span>
+</code></pre></div>
+<p>Use WSGM only as a model for the <em>extract/write</em> technique. Do <strong>not</strong> introduce its <code>payloadLen</code> argument; it is incompatible with this fork's declared 64-byte report contract. Keep comments explaining the final force-sensor bytes.</p>
+<h3 id="43-dualsenseedge-factor-out-in-place-encoder">4.3 DualSense/Edge: factor out in-place encoder</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">DualSense</span><span class="p">)</span><span class="w"> </span><span class="nx">writeUSBInputReport</span><span class="p">(</span><span class="nx">dst</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">InputState</span><span class="p">,</span><span class="w"> </span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">MetaState</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dst</span><span class="p">[:</span><span class="nx">InputReportSize</span><span class="p">]</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nb">clear</span><span class="p">(</span><span class="nx">b</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="c1">// Move the existing buildUSBInputReport encoding unchanged.</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="c1">// Maintain one seqCounter advance and timestamp sampling</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="c1">// per report, including byte offsets and touch/battery fields.</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">}</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="o">*</span><span class="nx">DualSense</span><span class="p">)</span><span class="w"> </span><span class="nx">buildUSBInputReport</span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">InputState</span><span class="p">,</span><span class="w"> </span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">MetaState</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nx">b</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">InputReportSize</span><span class="p">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nx">d</span><span class="p">.</span><span class="nx">writeUSBInputReport</span><span class="p">(</span><span class="nx">b</span><span class="p">,</span><span class="w"> </span><span class="nx">s</span><span class="p">,</span><span class="w"> </span><span class="nx">m</span><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">b</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">}</span>
+</code></pre></div>
+<p>Only change the encoder and its wrapper; leave the current <code>HandleTransfer</code> call sites exactly as they are. <strong>Do not introduce a new mutex, a new clock seam, separate sequence authority or different timestamp policy merely for this refactor.</strong> The existing concurrent-URB behavior is a separate transport/lifecycle concern.</p>
+<h3 id="44-destination-buffer-contract">4.4 Destination-buffer contract</h3>
+<ul>
+<li>The caller provides a slice of <strong>at least</strong> the full report length. The writer operates on the first 20 or 64 bytes only, and must not mutate bytes after that range.</li>
+<li>A too-short buffer can follow Go's conventional slice-bounds panic, exactly as an internal, package-private helper with a documented precondition; do not introduce a generalized validation API, extra status return or allocation fallback.</li>
+<li><strong>Clear the exact report slice on every write</strong>, even when all fields are overwritten, so a buffer previously used for active input never carries stale pressed buttons, sensor data, padding or unused flags after encoding a neutral state.</li>
+<li>In-place writers must not retain the destination slice, return it for later use, save pointers in device state, or store it globally. Lifetime/ownership remains with the caller.</li>
+<li>Avoid <code>sync.Pool</code>, heap-owned per-device caches or persistent scratch fields in this PR; those would need concurrency ownership rules before PR-B.</li>
+<li>Keep <code>BuildReport</code>, <code>buildReport</code> and <code>buildUSBInputReport</code> as <strong>fresh independently owned allocations</strong>. Existing callers and tests must never observe overwritten bytes after a later call.</li>
+<li>The private encoder methods should not invoke controller publishers, scheduling or native callbacks.</li>
+</ul>
+<h2 id="5-automated-verification">5. Automated verification</h2>
+<p><strong>Add focused encoder tests</strong> (prefer small same-package <code>*_test.go</code> files for access to unexported helpers; do not expose the helpers just to satisfy external-package tests), in addition to preserving all existing device and USB/IP tests.</p>
+<h3 id="51-common-reuseownership-cases-for-all-three">5.1 Common reuse/ownership cases for all three</h3>
+<p>For each device type:</p>
+<ol>
+<li>Encode representative active/button+axis/sensor states and a neutral state into the <strong>same prefilled <code>0xFF</code> destination buffer</strong>, confirming no stale bits or padding survive. Verify all bytes using established source-specific golden vectors or fixed expected byte offsets; do not rely only on the legacy wrapper calling the same encoder, which can give a vacuous equality test.</li>
+<li>Use a destination longer than 20/64 and verify a sentinel suffix is unchanged.</li>
+<li>Call the original allocation-returning wrapper twice, retain the first returned slice, and verify it is <strong>still unchanged</strong> after the second call, including after changed input/counter where supported.</li>
+<li>Exercise zero, negative, maximum/edge field encodings and correct fixed report length.</li>
+</ol>
+<h3 id="52-xbox360-specifics">5.2 Xbox360 specifics</h3>
+<ul>
+<li>Maintain full existing 20-byte golden vectors in <code>xbox360_test.go</code>; cover D-pad/buttons, triggers and positive/negative sticks.</li>
+<li>Confirm reserved byte behavior <code>b[14:19]</code> exactly matches the baseline (including the final report byte staying zero).</li>
+<li>Preserve EP1 <code>HandleTransfer</code> input-channel semantics and cancellation, and no change to output rumble.</li>
+</ul>
+<h3 id="53-steam-deck-specifics">5.3 Steam Deck specifics</h3>
+<ul>
+<li>Assert header reports <strong>64</strong> at byte 3, neutral quaternion fields remain <strong>zero</strong>, and bytes 60:64 map to independent <code>LStickForce</code> and <code>RStickForce</code>.</li>
+<li>Verify full-bit button and pad/touch mapping, raw gyro/accel and signed/unsigned axis/trigger offsets, and neutral-after-active reuse.</li>
+<li>Existing tests include <code>TestControllerINCoalescesToLatestInputState</code>, <code>TestControllerINDeadlineReturnsLatestReportAndCancellationReturnsNoData</code>, <code>TestControllerGETReportRemainsImmediateLatestSnapshot</code>, <code>TestMotionFieldWireOrderMatchesSteamConsumers</code>, <code>TestSteamDeckForceWireOffsets</code> and <code>TestSteamDeckFullReportContract</code>: all must remain meaningful and pass.</li>
+<li>Frame must continue to increase <strong>once per input-state update</strong>, not once per encoder call, and <code>GET_REPORT</code> must remain compatible.</li>
+</ul>
+<h3 id="54-dualsense-edge-and-normal-dualsense-specifics">5.4 DualSense Edge (and normal DualSense) specifics</h3>
+<ul>
+<li>Preserve <code>TestDualSenseEdgeUSBInputReportContract</code> and add targeted coverage for the shared in-place writer.</li>
+<li>Check report ID, exact 64-byte length, neutral axis <code>128</code>, D-pad diagonal encoding, Edge L4/R4 and PS/Cross mappings, touch inactive flags/coordinates, signed gyro/accel, and battery byte.</li>
+<li>Ensure sequence byte still advances <strong>exactly once per generated report</strong>, including across consecutive wrapper calls; compare with a fixed expected sequence rather than calling writer and wrapper successively on the same device and expecting identical sequence numbers.</li>
+<li>Timestamp bytes 28:32 reflect the existing live elapsed-time formula. Time-dependent bytes should be checked by a robust monotonic/range property or masked when comparing two separately timed encoder calls. <strong>Do not add a production clock abstraction just to freeze a test timestamp.</strong></li>
+<li>Confirm that a reused buffer is cleared at zero/unused fields, and that normal DualSense is unaffected.</li>
+</ul>
+<h3 id="55-additional-regressions">5.5 Additional regressions</h3>
+<p>Run relevant existing USB/IP transport tests to prove no accidental change to <code>HandleTransfer</code> report length/contents, concurrent IN/fallback behavior, EP0/OUT, <code>RET_SUBMIT</code>, <code>CMD_UNLINK</code>, drain/close and batching. PR #61 single-write and PR #62 worker contracts must remain intact. Existing rumble/callback tests for Xbox360 and DualSense Edge must pass.</p>
+<p>If an encoder test reveals a pre-existing unrelated bug, record it rather than expanding PR-A into a general report semantics redesign. Do not add timing-sensitive race stress for contrived scheduler interleavings.</p>
+<h2 id="6-scope-and-quality-gates">6. Scope and quality gates</h2>
+<h3 id="in-scope">In scope</h3>
+<ul>
+<li>Three private device-input report writers; existing allocation-returning builders become thin wrappers.</li>
+<li>Focused device-level tests for byte-for-byte parity, buffer reuse, clearing, ownership and existing report invariants.</li>
+<li>No behavior change in running consumer configurations.</li>
+</ul>
+<h3 id="explicitly-out-of-scope">Explicitly out of scope</h3>
+<ul>
+<li><code>usb.Device</code>, <code>HandleTransfer</code> signature, <code>InterruptInBufferDevice</code> or any optional fast-path interface (reserved for PR-B).</li>
+<li><code>internal/server/usb/server.go</code>, <code>lastInResp</code> cache changes, in-flight URB buffer ownership, transport worker/timeout/context scheduling, <code>RET_SUBMIT</code>, batching or idle polling.</li>
+<li>WSGM's <code>InterruptInSource</code> / <code>InputSignal</code>, hardware pacing, gyro resampler, Steam Deck packet-number-on-report policy and payload-length differences.</li>
+<li>Windows idle/sleep/NAK policy changes. <strong>After PR-A and PR-B</strong>, review the CTW developer's measured Xbox360 idle/sleep report and WSGM's per-device <code>NaksWhenIdle</code> behavior as a <strong>separate PR</strong>. Do not delete the common <code>lastInResp</code> cache while PR-B still depends on it.</li>
+<li>Go runtime tuning, new allocation benchmarks/analytics framework, new state or lock layers solely to defend against theoretical races.</li>
+<li>Canonical C ABI, generated headers, <code>libVIIPER.dll</code> adoption, typed native server/device ownership, <code>AttachUSBDevice</code> / <code>DetachUSBDevice</code>, HidHide, PID1901/PID1902 restoration, routing and CTW integration.</li>
+</ul>
+<h3 id="buildtests">Build/tests</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gofmt<span class="w"> </span>-w<span class="w"> </span>device/xbox360/inputstate.go<span class="w"> </span>device/steamdeck/inputstate.go<span class="w"> </span>device/dualsense/device.go
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./device/xbox360<span class="w"> </span>./device/steamdeck<span class="w"> </span>./device/dualsense
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./internal/server/usb<span class="w"> </span>./usbip<span class="w"> </span>./lib/viiper
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./...
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./device/xbox360<span class="w"> </span>./device/steamdeck<span class="w"> </span>./device/dualsense<span class="w"> </span>./internal/server/usb
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>go<span class="w"> </span>vet<span class="w"> </span>./...
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>git<span class="w"> </span>diff<span class="w"> </span>--check
+</code></pre></div>
+<p>Respect CI's existing canonical Windows release build/header/export checks. If the local environment lacks Windows native tooling, report that accurately; do not create a hardware validation gate or alter the artifact contract.</p>
+<p><strong>PR review blockers:</strong> demonstrably different report bytes/lengths or per-device counter/gyro/timestamp semantics, uninitialized/stale destination bytes, overwritten legacy response buffers, actual out-of-bounds crash from supported calls, broken device behavior or failures of relevant tests/builds.</p>
+<p><strong>Not blockers:</strong> unmeasured allocation benefit from PR-A alone, speculative race conditions, changes unrelated to encoder code that are merely stylistic, unavailable handheld hardware validation, and unsupported user-session configurations.</p>
+<h2 id="7-acceptance-checklist">7. Acceptance checklist</h2>
+<ul>
+<li>[ ] Xbox360 encoder writes the same 20 bytes in place and original <code>BuildReport()</code> still allocates and returns an independent report.</li>
+<li>[ ] Steam Deck encoder writes the exact same <strong>64 bytes</strong>, keeps the frame-on-state-update rule, full 64-byte declared header and stick-force tail.</li>
+<li>[ ] DualSense/Edge in-place encoder writes the same 64-byte USB report with current sequence/timestamp/touch/battery semantics; the wrapper still owns a fresh report.</li>
+<li>[ ] Every writer clears and touches <strong>only</strong> its prescribed output length, supporting safe reuse.</li>
+<li>[ ] Golden/invariant and reuse/ownership tests cover active → neutral → active transitions; all current device and USB/IP tests remain green.</li>
+<li>[ ] No change to <code>usb.Device</code> API, device <code>HandleTransfer</code>, USB/IP server/cache/polling/worker, C ABI, consumer repositories or packaged DLL.</li>
+<li>[ ] PR description states explicitly: <strong>preparatory extraction only; actual report/cache allocation reduction follows in PR-B</strong>.</li>
+<li>[ ] CI passes; physical tests are performed by the user after merge, not required from local Codex.</li>
+</ul>
+<h2 id="8-follow-up-plan-not-part-of-this-pr">8. Follow-up plan (not part of this PR)</h2>
+<ul>
+<li><strong>PR-B:</strong> introduce the minimal optional, compatible in-place report interface where justified; connect worker-owned and overlapping-fallback-owned 20/64-byte buffers to transport; make the shared per-endpoint report cache safe to reuse under same-endpoint concurrent IN without exposing aliased mutable output. Verify cancellation, cached replay, drain/close and full byte equivalence.</li>
+<li><strong>NAK-idle PR after PR-B:</strong> consider device-aware Xbox360 idle suppression using CTW's physical Windows idle/sleep evidence and WSGM's opt-in per-device approach. Preserve Steam Deck/DualSense streaming and Addon's already working sleep behavior. Its policy may remove the need for an Xbox360 cache and must not be smuggled into these allocation PRs.</li>
+<li><strong>Final DLL adoption:</strong> separately update Addon and CTW-dev from <strong>one final proven fork revision</strong> only after the fork optimization sequence is complete.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
