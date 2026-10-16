@@ -404,7 +404,16 @@ func (d *DualSense) featureReportCommandResponse() []byte {
 
 func (d *DualSense) buildUSBInputReport(s *InputState, m *MetaState) []byte {
 	b := make([]byte, InputReportSize)
+	d.writeUSBInputReport(b, s, m)
+	return b
+}
 
+// writeUSBInputReport encodes the 64-byte USB input report into dst.
+// dst must have room for at least InputReportSize bytes. Bytes beyond that
+// report remain untouched.
+func (d *DualSense) writeUSBInputReport(dst []byte, s *InputState, m *MetaState) {
+	b := dst[:InputReportSize]
+	clear(b)
 	b[0] = ReportIDInput
 
 	b[1] = uint8(int16(s.LX) + 128)
@@ -468,6 +477,4 @@ func (d *DualSense) buildUSBInputReport(s *InputState, m *MetaState) []byte {
 
 	b[49] = 0x10
 	b[53] = m.BatteryStatus
-
-	return b
 }

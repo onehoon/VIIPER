@@ -137,6 +137,16 @@ func (s *InputState) UnmarshalBinary(data []byte) error {
 
 func (s *InputState) buildReport(frame uint32) []byte {
 	b := make([]byte, InputReportLen)
+	s.writeReport(b, frame)
+	return b
+}
+
+// writeReport encodes the full 64-byte Steam Deck input report into dst.
+// dst must have room for at least InputReportLen bytes. Bytes beyond that
+// report remain untouched.
+func (s *InputState) writeReport(dst []byte, frame uint32) {
+	b := dst[:InputReportLen]
+	clear(b)
 	b[0] = 0x01
 	b[1] = 0x00
 	b[2] = InputReportID
@@ -294,7 +304,6 @@ func (s *InputState) buildReport(frame uint32) []byte {
 	// specification.
 	binary.LittleEndian.PutUint16(b[60:62], s.LStickForce)
 	binary.LittleEndian.PutUint16(b[62:64], s.RStickForce)
-	return b
 }
 
 type OutputState struct {
