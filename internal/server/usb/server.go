@@ -960,8 +960,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	}
 
 	var writeMu sync.Mutex
-	var retOut bytes.Buffer
-	retOut.Grow(retSubmitHeaderSize)
+	retOut := make([]byte, retSubmitHeaderSize, retSubmitHeaderSize+64)
 	writeRet := func(seq, actualLen uint32, respData []byte, flush bool) error {
 		writeMu.Lock()
 		defer writeMu.Unlock()
@@ -973,17 +972,10 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			NumberOfPackets: 0,
 			ErrorCount:      0,
 		}
-		retOut.Reset()
-		if err := ret.Write(&retOut); err != nil {
-			return fmt.Errorf("build RET_SUBMIT header: %w", err)
-		}
-		if _, err := writer.Write(retOut.Bytes()); err != nil {
+		ret.Encode(retOut[:retSubmitHeaderSize])
+		retOut = append(retOut[:retSubmitHeaderSize], respData...)
+		if _, err := writer.Write(retOut); err != nil {
 			return fmt.Errorf("write RET_SUBMIT: %w", err)
-		}
-		if len(respData) > 0 {
-			if _, err := writer.Write(respData); err != nil {
-				return fmt.Errorf("write RET_SUBMIT payload: %w", err)
-			}
 		}
 		if flush && bw != nil {
 			if err := bw.Flush(); err != nil {
