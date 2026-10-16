@@ -2047,7 +2047,7 @@
 <li>Construct <code>RetSubmit</code> with distinct nonzero <code>HeaderBasic</code> fields, <code>Status = -104</code>, distinct values for all remaining fields and nonzero padding.</li>
 <li>Assert exactly <strong>48 bytes</strong>, byte-for-byte against a <strong>literal independently specified golden frame</strong>. Do <strong>not</strong> validate <code>Encode</code> solely against the refactored <code>Write</code>; they would share the same potential encoding bug.</li>
 <li>Also assert <code>RetSubmit.Write</code> produces that golden frame through a normal <code>bytes.Buffer</code>, and handles a writer error.</li>
-<li>Include an all-zero/default-success frame to validate the canonical server case.</li>
+<li>Include the canonical empty-body success frame: <code>Basic.Command = RetSubmitCode</code> (<code>0x00000003</code>), with every other header field, status, and padding byte zero. Do not treat the zero-value <code>RetSubmit{}</code> (whose command is zero) as a canonical <code>RET_SUBMIT</code> frame.</li>
 </ul>
 <h3 id="test-b-one-direct-write-for-body-and-header-only-responses">Test B — one direct write for body and header-only responses</h3>
 <p><strong>Test file:</strong> extend <code>internal/server/usb/transport_out_test.go</code> and/or <code>transport_async_in_test.go</code>.</p>
@@ -2086,7 +2086,7 @@
 <li><code>TestUSBIPOutRetSubmitOmitsDeviceResponseAndPreservesStreamBoundary</code></li>
 </ul>
 <p>The last test deliberately has a device return nonempty data for an OUT transfer. Assert <code>RET_SUBMIT.ActualLength == len(outPayload)</code> but <strong>no response body</strong>, and that a second OUT response is still parseable.</p>
-<p>A small explicit positive-interval batching test is appropriate if existing coverage does not already establish that the new combined frame is flushed at the same call sites. The <strong>0 ms and 1 ms</strong> code paths must both work. Do not demand a timing-sensitive millisecond-exact scheduling test.</p>
+<p>Required: exercise a positive-interval batching configuration (use the consumer-relevant <strong>1 ms</strong> interval) through the real transport path and assert complete, correctly framed <code>RET_SUBMIT</code> bytes for a body-bearing completion and a header-only OUT completion. Preserve and cover the existing <code>flush &amp;&amp; bw != nil</code> call-site behavior (including an async IN completion's explicit flush and OUT's timer-driven batching). The test may use a bounded read deadline, but must not assert millisecond-exact timing or a fixed underlying <code>net.Conn.Write</code> count; batching can combine multiple protocol frames into one physical write.</p>
 <h3 id="test-f-mixed-completions-and-lifecycle">Test F — mixed completions and lifecycle</h3>
 <p>Keep the existing asynchronous IN + synchronous EP0/OUT mutual exclusion. Test a realistic stream with back-to-back completions and assert each 48-byte header plus body is parseable and not interleaved; do <strong>not</strong> require a particular cross-URB scheduling order that the current design does not promise.</p>
 <p>Run the existing <code>CMD_UNLINK</code>, pending no-data IN, managed drain/close and <code>workerWG</code> tests. There must be no late completed response after a cancelled/purged URB beyond existing behavior.</p>
