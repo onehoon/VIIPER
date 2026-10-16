@@ -255,6 +255,27 @@ func TestExplicitDetachFailureAndUnknownReplayAfterUnlock(t *testing.T) {
 			if tc.want == deviceDetachUnsafeOutcomeUnknown && (dhw.attachment.state != attachmentOutcomeUnknown || hw.state != serverCloseFailed) {
 				t.Fatalf("state=%v server=%s", dhw.attachment.state, hw.state)
 			}
+			if tc.want == deviceDetachUnsafeOutcomeUnknown {
+				hlog.mu.Lock()
+				var detachTimings []slog.Record
+				for _, record := range hlog.records {
+					attrs := recordAttrs(record)
+					if record.Message == "attachment-timing" && attrs["operation"] == "detach" {
+						detachTimings = append(detachTimings, record.Clone())
+					}
+				}
+				hlog.mu.Unlock()
+				if len(detachTimings) != 2 {
+					t.Fatalf("detach timing records=%d want two unknown outcomes", len(detachTimings))
+				}
+				for _, record := range detachTimings {
+					requireTimingLevel(t, record, slog.LevelError)
+					attrs := recordAttrs(record)
+					if attrs["result"] != "unsafe-outcome-unknown" || attrs["attachmentStateAfter"] != "outcome-unknown" || attrs["serverStateAfter"] != "close-failed" {
+						t.Fatalf("unsafe detach timing attrs=%v", attrs)
+					}
+				}
+			}
 			assertBackendRecordsLockFree(t, hlog)
 		})
 	}

@@ -1,14 +1,20 @@
 package usb
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	rootusb "github.com/Alia5/VIIPER/usb"
+	"github.com/Alia5/VIIPER/usbip"
 	"github.com/Alia5/VIIPER/virtualbus"
 )
 
@@ -21,6 +27,57 @@ func (transportTestDevice) HandleTransfer(context.Context, uint32, uint32, []byt
 func (transportTestDevice) GetDescriptor() *rootusb.Descriptor { return &rootusb.Descriptor{} }
 
 func (transportTestDevice) GetDeviceSpecificArgs() map[string]any { return nil }
+
+func TestIsClientDisconnectClassifiesExpectedCloseErrors(t *testing.T) {
+	closedOp := &net.OpError{Op: "read", Net: "tcp", Err: net.ErrClosed}
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "eof", err: io.EOF, want: true},
+		{name: "closed network", err: net.ErrClosed, want: true},
+		{name: "wrapped closed TCP operation", err: fmt.Errorf("read URB header: %w", closedOp), want: true},
+		{name: "connection reset", err: &net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}, want: true},
+		{name: "broken pipe", err: &net.OpError{Op: "write", Net: "tcp", Err: syscall.EPIPE}, want: true},
+		{name: "unexpected I/O error", err: errors.New("unexpected transport failure"), want: false},
+		{name: "protocol error", err: errors.New("protocol violation: invalid request"), want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isClientDisconnect(tc.err); got != tc.want {
+				t.Fatalf("isClientDisconnect(%v) = %t, want %t", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestUnknownImportBusIDRemainsDiagnosable(t *testing.T) {
+	var logs bytes.Buffer
+	s := New(ServerConfig{ConnectionTimeout: time.Hour}, slog.New(slog.NewTextHandler(&logs, nil)), nil)
+	serverConn, clientConn := net.Pipe()
+	defer clientConn.Close()
+	result := make(chan error, 1)
+	go func() { result <- s.handleConn(serverConn) }()
+
+	var request bytes.Buffer
+	if err := (&usbip.MgmtHeader{Version: usbip.Version, Command: usbip.OpReqImport}).Write(&request); err != nil {
+		t.Fatal(err)
+	}
+	var busID [busIDSize]byte
+	copy(busID[:], "missing-bus")
+	_, _ = request.Write(busID[:])
+	if _, err := clientConn.Write(request.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-result; err == nil || !strings.Contains(err.Error(), "no device matches busid missing-bus") {
+		t.Fatalf("unknown import error = %v, want diagnosable missing-bus failure", err)
+	}
+	if got := logs.String(); !strings.Contains(got, `msg="Import request"`) || !strings.Contains(got, "busid=missing-bus") {
+		t.Fatalf("unknown import request log is not diagnosable: %s", got)
+	}
+}
 
 func TestManagedCloseDrainsAcceptedConnections(t *testing.T) {
 	s := New(ServerConfig{Addr: "127.0.0.1:0", ConnectionTimeout: time.Hour, ManagedTransportLifecycle: true}, slog.Default(), nil)

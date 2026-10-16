@@ -608,6 +608,11 @@ the embedding application to persist it.
   relationship of logging and does not weaken lifecycle serialization. This
   guarantee is specific to the canonical path and is not a claim about the
   legacy `clib`/TCP/server logging stack.
+- The final canonical `attachment-timing` result is INFO for success, WARN for
+  retryable failure, ERROR for unsafe/unknown outcomes, and DEBUG for invalid
+  results. The accompanying `native-ioctl` and `fallback` backend measurement
+  records retain their existing levels. The owned file logger remains DEBUG by
+  default; this classification does not change its threshold.
 
 ## Minimal C usage
 

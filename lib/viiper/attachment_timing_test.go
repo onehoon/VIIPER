@@ -59,6 +59,38 @@ func recordAttrs(r slog.Record) map[string]any {
 	return m
 }
 
+func requireTimingLevel(t *testing.T, record slog.Record, want slog.Level) {
+	t.Helper()
+	if record.Level != want {
+		t.Fatalf("timing level = %s, want %s for result %v", record.Level, want, recordAttrs(record)["result"])
+	}
+}
+
+func TestCanonicalAttachmentTimingUsesOutcomeSeverity(t *testing.T) {
+	cases := []struct {
+		result string
+		level  slog.Level
+	}{
+		{result: "success", level: slog.LevelInfo},
+		{result: "retryable-failure", level: slog.LevelWarn},
+		{result: "unsafe-outcome-unknown", level: slog.LevelError},
+		{result: "invalid", level: slog.LevelDebug},
+	}
+	for _, operation := range []string{"attach", "detach"} {
+		for _, tc := range cases {
+			t.Run(operation+"/"+tc.result, func(t *testing.T) {
+				handler := &timingRecordingHandler{}
+				logCanonicalAttachmentTiming(slog.New(handler), operation, tc.result, operationTiming{}, 0, 0)
+				records := handler.timingRecords()
+				if len(records) != 1 {
+					t.Fatalf("timing records = %d, want exactly one", len(records))
+				}
+				requireTimingLevel(t, records[0], tc.level)
+			})
+		}
+	}
+}
+
 func newTimingTestServer(t *testing.T, busID uint32) (*usbServerHandleWrapper, *timingRecordingHandler) {
 	t.Helper()
 	hw, _ := newLifecycleTestServer(t, busID)
@@ -108,6 +140,7 @@ func TestCanonicalAttachTimingIsBehaviorNeutral(t *testing.T) {
 		t.Fatalf("timing records = %d, want exactly 1 per operation boundary", len(records))
 	}
 	attrs := recordAttrs(records[0])
+	requireTimingLevel(t, records[0], slog.LevelInfo)
 	if attrs["operation"] != "attach" || attrs["layer"] != "canonical" || attrs["result"] != "success" {
 		t.Fatalf("unexpected timing attrs: %+v", attrs)
 	}
@@ -145,6 +178,7 @@ func TestCanonicalAttachTimingIsBehaviorNeutral(t *testing.T) {
 		t.Fatalf("timing records = %d, want exactly 2", len(records))
 	}
 	attrs = recordAttrs(records[1])
+	requireTimingLevel(t, records[1], slog.LevelInfo)
 	if attrs["backendCalled"] != false {
 		t.Fatalf("idempotent backendCalled = %v, want false (backend must not be fabricated)", attrs["backendCalled"])
 	}
@@ -174,6 +208,7 @@ func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 		t.Fatalf("calls = %d, want 1", calls)
 	}
 	first := recordAttrs(handler.timingRecords()[0])
+	requireTimingLevel(t, handler.timingRecords()[0], slog.LevelError)
 	if first["result"] != "unsafe-outcome-unknown" || first["backendCalled"] != true {
 		t.Fatalf("first timing attrs = %+v", first)
 	}
@@ -195,6 +230,7 @@ func TestCanonicalAttachTimingUnknownOutcomeNeverRetriesBackend(t *testing.T) {
 		t.Fatalf("timing records = %d, want exactly 2", len(records))
 	}
 	second := recordAttrs(records[1])
+	requireTimingLevel(t, records[1], slog.LevelError)
 	if second["result"] != "unsafe-outcome-unknown" || second["backendCalled"] != false {
 		t.Fatalf("second timing attrs = %+v", second)
 	}
@@ -222,6 +258,7 @@ func TestCanonicalAttachTimingKnownFailureRetainsDetachedState(t *testing.T) {
 		t.Fatalf("timing records = %d, want 1", len(records))
 	}
 	attrs := recordAttrs(records[0])
+	requireTimingLevel(t, records[0], slog.LevelWarn)
 	if attrs["attachmentStateBefore"] != "detached" || attrs["attachmentStateAfter"] != "detached" || attrs["serverStateBefore"] != "active" || attrs["serverStateAfter"] != "active" || fmt.Sprint(attrs["importPort"]) != "0" {
 		t.Fatalf("known failure state/token attrs = %+v", attrs)
 	}
@@ -261,6 +298,7 @@ func TestCanonicalDetachTimingPreservesTokenAndClassification(t *testing.T) {
 		t.Fatalf("timing records = %d, want exactly 1", len(records))
 	}
 	attrs := recordAttrs(records[0])
+	requireTimingLevel(t, records[0], slog.LevelWarn)
 	if attrs["operation"] != "detach" || attrs["layer"] != "canonical" || attrs["result"] != "retryable-failure" {
 		t.Fatalf("unexpected timing attrs: %+v", attrs)
 	}
@@ -288,6 +326,7 @@ func TestCanonicalDetachTimingPreservesTokenAndClassification(t *testing.T) {
 		t.Fatalf("timing records = %d, want exactly 2", len(records))
 	}
 	successAttrs := recordAttrs(records[1])
+	requireTimingLevel(t, records[1], slog.LevelInfo)
 	if successAttrs["result"] != "success" {
 		t.Fatalf("unexpected success timing attrs: %+v", successAttrs)
 	}

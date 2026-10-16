@@ -144,7 +144,7 @@ func teardownResultLabel(result typedDeviceRemoveResult) string {
 	}
 }
 
-func teardownResultLogLevel(result string) slog.Level {
+func canonicalResultLogLevel(result string) slog.Level {
 	switch result {
 	case "success":
 		return slog.LevelInfo
@@ -191,7 +191,7 @@ func logTeardownDiagnostic(logger *slog.Logger, d teardownDiagnostic, totalUs in
 	if d.error != "" {
 		args = append(args, "error", d.error)
 	}
-	logger.Log(context.Background(), teardownResultLogLevel(d.result), d.operation+" teardown", args...)
+	logger.Log(context.Background(), canonicalResultLogLevel(d.result), d.operation+" teardown", args...)
 }
 
 type typedDeviceRemoveResult uint8
@@ -619,7 +619,7 @@ func logCanonicalAttachmentTiming(logger *slog.Logger, operation, result string,
 		"backendUs", timing.backendUs,
 	}
 	args = append(args, identity...)
-	logger.Info("attachment-timing", args...)
+	logger.Log(context.Background(), canonicalResultLogLevel(result), "attachment-timing", args...)
 }
 
 func attachmentStateName(state deviceAttachmentState) string {
