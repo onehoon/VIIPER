@@ -919,6 +919,44 @@ func (lc *logConn) Write(p []byte) (int, error) {
 	return n, err
 }
 
+type inJob struct {
+	seq      uint32
+	ep       uint32
+	ctx      context.Context
+	cancel   context.CancelFunc
+	interval time.Duration
+}
+
+type inEndpointWorker struct {
+	jobs chan inJob
+}
+
+func startINEndpointWorker(streamDone <-chan struct{}, wg *sync.WaitGroup, run func(inJob)) *inEndpointWorker {
+	worker := &inEndpointWorker{jobs: make(chan inJob)}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case job := <-worker.jobs:
+				run(job)
+			case <-streamDone:
+				return
+			}
+		}
+	}()
+	return worker
+}
+
+func (w *inEndpointWorker) tryDispatch(job inJob) bool {
+	select {
+	case w.jobs <- job:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	_ = conn.SetDeadline(time.Time{})
 
@@ -988,7 +1026,10 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	var pendingMu sync.Mutex
 	pending := map[uint32]context.CancelFunc{}
 	var workerWG sync.WaitGroup
+	streamDone := make(chan struct{})
 	defer func() {
+		// This later defer joins workers before the earlier batchingWriter.Close defer runs.
+		close(streamDone)
 		var cancels []context.CancelFunc
 		pendingMu.Lock()
 		for _, cancel := range pending {
@@ -1003,6 +1044,63 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 
 	var respMu sync.Mutex
 	lastInResp := map[uint32][]byte{}
+	endpoints := map[uint32]*inEndpointWorker{}
+
+	runIN := func(job inJob) {
+		defer job.cancel()
+		var respData []byte
+		for {
+			attemptCtx, attemptCancel := job.ctx, context.CancelFunc(func() {})
+			if job.interval > 0 {
+				attemptCtx, attemptCancel = context.WithTimeout(job.ctx, job.interval)
+			}
+			respData = s.processSubmit(attemptCtx, dev, job.ep, usbip.DirIn, nil, nil)
+			expired := respData == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded)
+			attemptCancel()
+
+			if job.ctx.Err() != nil {
+				return
+			}
+			if respData != nil {
+				respMu.Lock()
+				lastInResp[job.ep] = append([]byte(nil), respData...)
+				respMu.Unlock()
+				break
+			}
+			if expired {
+				respMu.Lock()
+				cached, ok := lastInResp[job.ep]
+				respMu.Unlock()
+				if ok {
+					respData = cached
+					break
+				}
+				time.Sleep(time.Millisecond)
+				continue
+			}
+			// Device answered "no data" without blocking.
+			<-job.ctx.Done()
+			return
+		}
+
+		pendingMu.Lock()
+		_, live := pending[job.seq]
+		if live {
+			delete(pending, job.seq)
+		}
+		pendingMu.Unlock()
+		if !live {
+			return
+		}
+
+		if err := writeRet(job.seq, uint32(len(respData)), respData, true); err != nil {
+			if isClientDisconnect(err) {
+				s.logger.Debug("URB completion after disconnect", "seq", job.seq, "error", err)
+			} else {
+				s.logger.Error("write async RET_SUBMIT", "seq", job.seq, "error", err)
+			}
+		}
+	}
 
 	var outPayloadScratch []byte
 
@@ -1101,59 +1199,19 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			pendingMu.Lock()
 			pending[seq] = urbCancel
 			pendingMu.Unlock()
-			interval := interruptINWaitDuration(dev, ep)
-
-			workerWG.Add(1)
-			go func(seq, ep, dir uint32) {
-				defer workerWG.Done()
-				defer urbCancel()
-				var respData []byte
-				for {
-					attemptCtx, attemptCancel := urbCtx, context.CancelFunc(func() {})
-					if interval > 0 {
-						attemptCtx, attemptCancel = context.WithTimeout(urbCtx, interval)
-					}
-					respData = s.processSubmit(attemptCtx, dev, ep, dir, nil, nil)
-					expired := respData == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded)
-					attemptCancel()
-
-					if urbCtx.Err() != nil {
-						return
-					}
-					if respData != nil {
-						respMu.Lock()
-						lastInResp[ep] = append([]byte(nil), respData...)
-						respMu.Unlock()
-						break
-					}
-					if expired {
-						respMu.Lock()
-						cached, ok := lastInResp[ep]
-						respMu.Unlock()
-						if ok {
-							respData = cached
-							break
-						}
-						time.Sleep(time.Millisecond)
-						continue
-					}
-					// Device answered "no data" without blocking.
-					<-urbCtx.Done()
-					return
-				}
-
-				pendingMu.Lock()
-				delete(pending, seq)
-				pendingMu.Unlock()
-
-				if err := writeRet(seq, uint32(len(respData)), respData, true); err != nil {
-					if isClientDisconnect(err) {
-						s.logger.Debug("URB completion after disconnect", "seq", seq, "error", err)
-					} else {
-						s.logger.Error("write async RET_SUBMIT", "seq", seq, "error", err)
-					}
-				}
-			}(seq, ep, dir)
+			job := inJob{seq: seq, ep: ep, ctx: urbCtx, cancel: urbCancel, interval: interruptINWaitDuration(dev, ep)}
+			endpoint := endpoints[ep]
+			if endpoint == nil {
+				endpoint = startINEndpointWorker(streamDone, &workerWG, runIN)
+				endpoints[ep] = endpoint
+			}
+			if !endpoint.tryDispatch(job) {
+				workerWG.Add(1)
+				go func(job inJob) {
+					defer workerWG.Done()
+					runIN(job)
+				}(job)
+			}
 			continue
 		}
 

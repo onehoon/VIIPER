@@ -185,6 +185,281 @@ func TestNoDataAsyncINWaitsForUnlink(t *testing.T) {
 	assertNoAsyncINResponse(t, conn)
 }
 
+type overlappingINDevice struct {
+	entered    chan struct{}
+	cancelled  chan struct{}
+	descriptor rootusb.Descriptor
+}
+
+func newOverlappingINDevice() *overlappingINDevice {
+	return &overlappingINDevice{
+		entered:   make(chan struct{}, 2),
+		cancelled: make(chan struct{}, 2),
+		descriptor: rootusb.Descriptor{
+			Device: rootusb.DeviceDescriptor{BNumConfigurations: 1, Speed: 3},
+			Interfaces: []rootusb.InterfaceConfig{{
+				Descriptor: rootusb.InterfaceDescriptor{BInterfaceNumber: 0, BNumEndpoints: 1},
+				Endpoints:  []rootusb.EndpointDescriptor{{BEndpointAddress: 0x81, BMAttributes: 0x03, BInterval: 0xff}},
+			}},
+		},
+	}
+}
+
+func (d *overlappingINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, _ []byte) []byte {
+	if dir != usbip.DirIn || ep != 1 {
+		return nil
+	}
+	d.entered <- struct{}{}
+	<-ctx.Done()
+	d.cancelled <- struct{}{}
+	return nil
+}
+
+func (d *overlappingINDevice) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
+
+func (d *overlappingINDevice) GetDeviceSpecificArgs() map[string]any { return nil }
+
+func TestAsyncINUnlinkCancelsActiveRequest(t *testing.T) {
+	dev := newOverlappingINDevice()
+	_, conn := startAsyncINTestSession(t, dev, 3061)
+	defer conn.Close()
+
+	const requestSeq = uint32(83)
+	const unlinkSeq = uint32(93)
+	cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: requestSeq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 8}
+	if err := cmd.Write(conn); err != nil {
+		t.Fatalf("submit IN sequence %d: %v", requestSeq, err)
+	}
+	select {
+	case <-dev.entered:
+	case <-time.After(time.Second):
+		t.Fatal("active IN request did not enter HandleTransfer")
+	}
+
+	unlink := usbip.CmdUnlink{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: unlinkSeq, Dir: usbip.DirIn, Ep: 1}, UnlinkSeqnum: requestSeq}
+	if err := unlink.Write(conn); err != nil {
+		t.Fatalf("unlink active IN sequence %d: %v", requestSeq, err)
+	}
+	var response [48]byte
+	if _, err := io.ReadFull(conn, response[:]); err != nil {
+		t.Fatalf("read RET_UNLINK: %v", err)
+	}
+	if got := binary.BigEndian.Uint32(response[0:4]); got != usbip.RetUnlinkCode {
+		t.Fatalf("response command = %#x, want RET_UNLINK", got)
+	}
+	if got := binary.BigEndian.Uint32(response[4:8]); got != unlinkSeq {
+		t.Fatalf("RET_UNLINK sequence = %d, want %d", got, unlinkSeq)
+	}
+	if got := int32(binary.BigEndian.Uint32(response[20:24])); got != -104 {
+		t.Fatalf("RET_UNLINK status = %d, want -ECONNRESET (-104)", got)
+	}
+	select {
+	case <-dev.cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("active IN request did not observe cancellation")
+	}
+	assertNoAsyncINResponse(t, conn)
+}
+
+func TestOverlappingAsyncINRequestsUnlinkIndependently(t *testing.T) {
+	dev := newOverlappingINDevice()
+	_, conn := startAsyncINTestSession(t, dev, 3058)
+
+	for _, seq := range []uint32{81, 82} {
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 8}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit IN sequence %d: %v", seq, err)
+		}
+	}
+	for range 2 {
+		select {
+		case <-dev.entered:
+		case <-time.After(time.Second):
+			t.Fatal("overlapping IN request did not enter HandleTransfer before the first was released")
+		}
+	}
+
+	writeUnlink := func(unlinkSeq, seq uint32) {
+		t.Helper()
+		unlink := usbip.CmdUnlink{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, UnlinkSeqnum: unlinkSeq}
+		if err := unlink.Write(conn); err != nil {
+			t.Fatalf("unlink IN sequence %d: %v", unlinkSeq, err)
+		}
+		var response [48]byte
+		if _, err := io.ReadFull(conn, response[:]); err != nil {
+			t.Fatalf("read RET_UNLINK for sequence %d: %v", unlinkSeq, err)
+		}
+		if got := binary.BigEndian.Uint32(response[0:4]); got != usbip.RetUnlinkCode {
+			t.Fatalf("response command = %#x, want RET_UNLINK", got)
+		}
+		if got := binary.BigEndian.Uint32(response[4:8]); got != seq {
+			t.Fatalf("RET_UNLINK sequence = %d, want %d", got, seq)
+		}
+		if got := int32(binary.BigEndian.Uint32(response[20:24])); got != -104 {
+			t.Fatalf("RET_UNLINK status = %d, want -ECONNRESET (-104)", got)
+		}
+		select {
+		case <-dev.cancelled:
+		case <-time.After(time.Second):
+			t.Fatalf("IN sequence %d did not observe cancellation", unlinkSeq)
+		}
+	}
+
+	writeUnlink(82, 91)
+	assertNoAsyncINResponse(t, conn)
+	select {
+	case <-dev.cancelled:
+		t.Fatal("unlinking the fallback request also cancelled the independent active request")
+	case <-time.After(20 * time.Millisecond):
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close client connection: %v", err)
+	}
+	select {
+	case <-dev.cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("active request was not cancelled by stream teardown")
+	}
+}
+
+type endpointCacheINDevice struct {
+	mu         sync.Mutex
+	calls      map[uint32]int
+	descriptor rootusb.Descriptor
+}
+
+func newEndpointCacheINDevice() *endpointCacheINDevice {
+	return &endpointCacheINDevice{
+		calls: make(map[uint32]int),
+		descriptor: rootusb.Descriptor{
+			Device: rootusb.DeviceDescriptor{BNumConfigurations: 1, Speed: 3},
+			Interfaces: []rootusb.InterfaceConfig{{
+				Descriptor: rootusb.InterfaceDescriptor{BInterfaceNumber: 0, BNumEndpoints: 2},
+				Endpoints: []rootusb.EndpointDescriptor{
+					{BEndpointAddress: 0x81, BMAttributes: 0x03, BInterval: 2},
+					{BEndpointAddress: 0x82, BMAttributes: 0x03, BInterval: 2},
+				},
+			}},
+		},
+	}
+}
+
+func (d *endpointCacheINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, _ []byte) []byte {
+	if dir != usbip.DirIn || ep < 1 || ep > 2 {
+		return nil
+	}
+	d.mu.Lock()
+	d.calls[ep]++
+	call := d.calls[ep]
+	d.mu.Unlock()
+	if call == 1 {
+		return []byte{byte(0xa0 + ep)}
+	}
+	<-ctx.Done()
+	return nil
+}
+
+func (d *endpointCacheINDevice) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
+
+func (d *endpointCacheINDevice) GetDeviceSpecificArgs() map[string]any { return nil }
+
+func TestAsyncINReportCacheIsIndependentPerEndpoint(t *testing.T) {
+	dev := newEndpointCacheINDevice()
+	_, conn := startAsyncINTestSession(t, dev, 3059)
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
+
+	readPair := func(sequences [2]uint32) map[uint32][]byte {
+		t.Helper()
+		responses := make(map[uint32][]byte, len(sequences))
+		for range sequences {
+			var header [48]byte
+			if _, err := io.ReadFull(conn, header[:]); err != nil {
+				t.Fatalf("read RET_SUBMIT: %v", err)
+			}
+			if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+				t.Fatalf("response command = %#x, want RET_SUBMIT", got)
+			}
+			seq := binary.BigEndian.Uint32(header[4:8])
+			if seq != sequences[0] && seq != sequences[1] {
+				t.Fatalf("unexpected RET_SUBMIT sequence %d", seq)
+			}
+			if _, duplicate := responses[seq]; duplicate {
+				t.Fatalf("duplicate RET_SUBMIT sequence %d", seq)
+			}
+			payloadLen := binary.BigEndian.Uint32(header[24:28])
+			payload := make([]byte, payloadLen)
+			if _, err := io.ReadFull(conn, payload); err != nil {
+				t.Fatalf("read RET_SUBMIT sequence %d payload: %v", seq, err)
+			}
+			responses[seq] = payload
+		}
+		return responses
+	}
+	submit := func(seq, ep uint32) {
+		t.Helper()
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: ep}, TransferBufferLen: 8}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit IN sequence %d on endpoint %d: %v", seq, ep, err)
+		}
+	}
+
+	submit(101, 1)
+	submit(102, 2)
+	first := readPair([2]uint32{101, 102})
+	if !bytes.Equal(first[101], []byte{0xa1}) || !bytes.Equal(first[102], []byte{0xa2}) {
+		t.Fatalf("first endpoint reports = % x / % x, want a1 / a2", first[101], first[102])
+	}
+
+	submit(103, 1)
+	submit(104, 2)
+	replayed := readPair([2]uint32{103, 104})
+	if !bytes.Equal(replayed[103], []byte{0xa1}) || !bytes.Equal(replayed[104], []byte{0xa2}) {
+		t.Fatalf("cached endpoint reports = % x / % x, want a1 / a2", replayed[103], replayed[104])
+	}
+}
+
+func TestAsyncINWorkersExitOnClientEOFWhileDeviceRemainsAttached(t *testing.T) {
+	dev := newOverlappingINDevice()
+	server, conn := startAsyncINTestSession(t, dev, 3060)
+	for _, seq := range []uint32{111, 112} {
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 8}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit IN sequence %d: %v", seq, err)
+		}
+	}
+	for range 2 {
+		select {
+		case <-dev.entered:
+		case <-time.After(time.Second):
+			t.Fatal("overlapping IN requests did not both enter HandleTransfer")
+		}
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("close imported client connection: %v", err)
+	}
+	for range 2 {
+		select {
+		case <-dev.cancelled:
+		case <-time.After(time.Second):
+			t.Fatal("client EOF did not cancel all in-flight IN requests")
+		}
+	}
+
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- server.Close() }()
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("close server after client EOF: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server close did not join workers after client EOF while the device remained attached")
+	}
+}
+
 func TestAsyncINDataResponsePreservesSequenceLengthAndBytes(t *testing.T) {
 	want := []byte{0x11, 0x22, 0x33}
 	dev := newImmediateINDevice(want)
