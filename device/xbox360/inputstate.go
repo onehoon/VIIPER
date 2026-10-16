@@ -19,6 +19,8 @@ type InputState struct {
 	Reserved [6]byte
 }
 
+const xbox360InputReportLen = 20
+
 // NewInputState returns an Xbox 360 input state in its neutral/resting state.
 func NewInputState() *InputState { return &InputState{} }
 
@@ -55,7 +57,17 @@ type GuitarHeroDrumsInputState struct {
 //	12-13: RY (little-endian int16)
 //	14-19: Reserved / zero
 func (x *InputState) BuildReport() []byte {
-	b := make([]byte, 20)
+	b := make([]byte, xbox360InputReportLen)
+	x.writeReport(b)
+	return b
+}
+
+// writeReport encodes the 20-byte Xbox 360 input report into dst.
+// dst must have room for at least xbox360InputReportLen bytes. Bytes beyond
+// that report remain untouched.
+func (x *InputState) writeReport(dst []byte) {
+	b := dst[:xbox360InputReportLen]
+	clear(b)
 	b[0] = 0x00
 	b[1] = 0x14
 	binary.LittleEndian.PutUint16(b[2:4], uint16(x.Buttons&0xffff))
@@ -66,7 +78,6 @@ func (x *InputState) BuildReport() []byte {
 	binary.LittleEndian.PutUint16(b[10:12], uint16(x.RX))
 	binary.LittleEndian.PutUint16(b[12:14], uint16(x.RY))
 	copy(b[14:19], x.Reserved[:])
-	return b
 }
 
 // MarshalBinary encodes InputState to 20 bytes.
