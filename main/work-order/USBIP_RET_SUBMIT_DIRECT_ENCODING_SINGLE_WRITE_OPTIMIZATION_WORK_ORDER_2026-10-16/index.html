@@ -1,0 +1,2204 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — USB/IP RET_SUBMIT Direct Header Encoding and Single-Write Completion - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-usbip-ret_submit-direct-header-encoding-and-single-write-completion" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — USB/IP RET_SUBMIT Direct Header Encoding and Single-Write Completion
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-goal-and-product-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Goal and product context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Goal and product context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#explicit-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Explicit non-goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-verified-current-implementation-and-hot-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Verified current implementation and hot path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Verified current implementation and hot path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#usbipusbipgo-retsubmitwrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        usbip/usbip.go — RetSubmit.Write
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#internalserverusbservergo-serverhandleurbstream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        internal/server/usb/server.go — Server.handleUrbStream
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-required-implementation-direct-retsubmit-encoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Required implementation — direct RetSubmit encoder
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-required-implementation-one-write-per-ret_submit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Required implementation — one write per RET_SUBMIT
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-focused-automated-regression-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Focused automated regression coverage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Focused automated regression coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#test-a-independent-golden-48-byte-header" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test A — independent golden 48-byte header
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-b-one-direct-write-for-body-and-header-only-responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test B — one direct write for body and header-only responses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-c-production-controller-in-regressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test C — production controller IN regressions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-d-64-byte-ep0-response-and-variable-length-buffer-reuse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test D — &gt;64-byte EP0 response and variable-length buffer reuse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-e-out-wire-contract-failure-batching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test E — OUT wire contract, failure, batching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-f-mixed-completions-and-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test F — mixed completions and lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-consumer-compatibility-and-release-boundaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Consumer compatibility and release boundaries
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Consumer compatibility and release boundaries">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#standalone-addon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standalone Addon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctw-dev" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CTW-dev
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-real-world-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common real-world safety
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-build-review-and-merge-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Build, review and merge criteria
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-pr-scope-and-acceptance-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. PR scope and acceptance checklist
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. PR scope and acceptance checklist">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sources-reviewed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources reviewed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-usbip-ret_submit-direct-header-encoding-and-single-write-completion">Work Order — USB/IP RET_SUBMIT Direct Header Encoding and Single-Write Completion</h1>
+<p><strong>Date:</strong> 2026-10-16<br />
+<strong>Target repository:</strong> <code>onehoon/VIIPER</code><br />
+<strong>Target branch:</strong> <code>main</code><br />
+<strong>Reviewed baseline:</strong> <code>e3275bc156fc5dd1cf8c1f2798c5770f3257dd58</code><br />
+<strong>Implementation owner:</strong> Local Codex<br />
+<strong>Scope:</strong> One narrow VIIPER Go PR, with focused automated protocol/transport regression coverage.<br />
+<strong>Reference implementation:</strong> WSGM-pinned <code>KillerPixelCrew/VIIPER</code> commit <code>8210b0a9b54c098dbefb8a39a752c59b239a71f5</code>, primarily <code>usbip/usbip.go</code> and <code>internal/server/usb/server.go</code>.</p>
+<h2 id="1-goal-and-product-context">1. Goal and product context</h2>
+<p>Reduce redundant serialization work and socket write calls in the common USB/IP <code>RET_SUBMIT</code> completion path. This is a transport-level, wire-compatible optimization, not a change to the emulated controller reports or URB completion policy.</p>
+<p>The canonical <code>onehoon/VIIPER</code> library is consumed by <strong>two independently deployed products</strong>:</p>
+<ol>
+<li><strong>Standalone Full1902 SteamAddonforClaw</strong> — production <code>WriteBatchFlushIntervalMs = 0</code>, adopted in Addon commit <code>cb4e44990a896a88c83318e616b5c2f78e5a3970</code>. Its persistent runtime owns one USB server and bus with Xbox360, Steam Deck and DualSense Edge logical devices; only the selected presentation is attached.</li>
+<li><strong><code>onehoon/ClawTweaks-Dev</code>, <code>release/v0.3.98.0</code></strong> — a separate consumer of the <strong>same canonical typed C API</strong>. It has dedicated <code>CanonicalViiperXbox360Session</code>, <code>CanonicalViiperSteamDeckSession</code> and <code>CanonicalViiperDualSenseEdgeSession</code> implementations. Its currently bundled artifact is commit <code>17b9334645b4ede72de81a8d09d967189fb3fdc4</code> and its three session classes still specify 1 ms; migration to 0 ms is a <strong>separate CTW change</strong>.</li>
+</ol>
+<p>The 1 ms values in CTW are not a separate tuned compatibility requirement. CTW commit <code>4519f7fc28b1bab9e7a8e776cc42bf2934be8e43</code> explicitly changed its canonical Xbox360 session from an unspecified flush interval to 1 ms to match the Addon <strong>at that time</strong>. The later Steam Deck and DualSense Edge sessions copied 1 ms at creation. The user intends CTW to use 0 ms as well. <strong>This VIIPER PR must work with both 0 ms and positive batching intervals</strong>, without modifying either consumer.</p>
+<p>Read before implementing:</p>
+<ul>
+<li><code>FORK_ARCHITECTURE.md</code> and <code>docs/libviiper/fork-api.md</code> in this repository.</li>
+<li><code>internal/server/usb/server.go</code> and <code>usbip/usbip.go</code>.</li>
+<li><code>docs/work-order/USBIP_OUT_RET_SUBMIT_PAYLOAD_PROTOCOL_FIX_WORK_ORDER_2026-09-28.md</code> — especially the OUT response body invariant.</li>
+<li><code>docs/work-order/USBIP_NO_DATA_IN_URB_CPU_SPIN_BACKPORT_WORK_ORDER_2026-10-01.md</code> — preserve pending no-data IN / UNLINK behavior.</li>
+<li>Active Full1902 authority, if consumer integration questions arise: <code>onehoon/SteamAddonforClaw/docs/Full 1902 Implementation/README.md</code>, which points to <code>FULL_1902_IMPLEMENTATION_ARCHITECTURE.md</code> and newer precedence documents. <strong>Do not reintroduce CTW integration into the standalone Addon.</strong> CTW is a separate binary consumer of the shared VIIPER fork.</li>
+</ul>
+<h3 id="explicit-non-goals">Explicit non-goals</h3>
+<ul>
+<li>Do not port WSGM's persistent endpoint workers, <code>InterruptInSource</code>, gyro resampler, NAK-idle policy, altered report cadence or 64 ms idle keepalive.</li>
+<li>Do not modify Xbox360/Steam Deck/DualSense Edge device code, descriptors, report contents, feedback/rumble callbacks, or input publishers.</li>
+<li>Do not change <code>CMD_SUBMIT</code>, <code>RET_UNLINK</code>, <code>CMD_UNLINK</code> or management packet encoding as part of this PR. WSGM optimizes more headers, but this PR concerns the <code>RET_SUBMIT</code> hot path only.</li>
+<li>Do not change C ABI exports, generated <code>libVIIPER.h</code>/<code>.def</code>, Go typed handles, attach/detach ownership, usbip-win2 driver ABI selection, or application-side runtime code.</li>
+<li>Do not add a new lock, queue, goroutine, pool, manager, epoch or performance configuration switch.</li>
+<li>Do not use a numerical CPU reduction target as a merge gate; the benefit from this isolated change is not yet measured. Do not require a physical-device test for PR merge.</li>
+</ul>
+<h2 id="2-verified-current-implementation-and-hot-path">2. Verified current implementation and hot path</h2>
+<p>The repository was reviewed at the exact baseline above. Verify the current HEAD before editing and reconcile only genuine intervening changes.</p>
+<h3 id="usbipusbipgo-retsubmitwrite"><code>usbip/usbip.go</code> — <code>RetSubmit.Write</code></h3>
+<p>The <code>RetSubmit</code> struct starts near line 232, and its <code>Write(w io.Writer)</code> implementation near line 242 independently serializes:</p>
+<ul>
+<li>five <code>HeaderBasic</code> <code>uint32</code> fields;</li>
+<li><code>Status</code> (<code>int32</code>);</li>
+<li><code>ActualLength</code>, <code>StartFrame</code>, <code>NumberOfPackets</code>, <code>ErrorCount</code> (<code>uint32</code>);</li>
+<li>the final 8 bytes of <code>Padding</code>.</li>
+</ul>
+<p>The result is exactly <strong>48 bytes (0x30), big-endian</strong>. It currently issues multiple <code>binary.Write</code> calls followed by a padding write, even when the caller is an in-memory buffer.</p>
+<h3 id="internalserverusbservergo-serverhandleurbstream"><code>internal/server/usb/server.go</code> — <code>Server.handleUrbStream</code></h3>
+<p>Near lines 925–938, <code>WriteBatchFlushInterval &gt; 0</code> selects <code>batchingWriter</code>. With zero interval, <code>writer = conn</code> (the direct-write path).</p>
+<p>Near lines 961–995, the local <code>writeRet(seq, actualLen, respData, flush)</code>:</p>
+<ol>
+<li>Acquires the <strong>existing <code>writeMu</code></strong>.</li>
+<li>Creates an all-success <code>usbip.RetSubmit</code> for the given sequence and length.</li>
+<li>Resets a per-stream <code>bytes.Buffer</code> and calls <code>ret.Write(&amp;retOut)</code>.</li>
+<li>Calls <code>writer.Write(retOut.Bytes())</code> for the header.</li>
+<li>If payload is non-empty, calls <strong>a second</strong> <code>writer.Write(respData)</code>.</li>
+<li>Flushes only when <code>flush &amp;&amp; bw != nil</code>.</li>
+</ol>
+<p>Thus a normal 0 ms controller IN completion with a body typically calls the underlying connection's <code>Write</code> twice. The existing <code>writeMu</code> already protects the complete header+payload operation against interleaving between asynchronous IN completions and synchronous EP0/OUT completions.</p>
+<p>Near lines 1107–1165, non-EP0 IN uses <code>pending</code>, <code>urbCtx</code>, <code>workerWG</code>, <code>lastInResp</code> and a later <code>writeRet(..., true)</code>. Near lines 1168–1176, EP0/OUT uses <code>writeRet(..., ep == 0)</code>. The OUT branch deliberately sets <strong><code>actualLen = len(outPayload)</code> and <code>respData = nil</code></strong>. This correction <strong>must survive unchanged</strong>.</p>
+<p>The <code>logConn</code> wrapper writes raw-traffic logs by observing each actual <code>Write</code> chunk. Chunk boundaries may change from two to one, but the concatenated byte stream must be identical. Do not expand this PR into logging changes.</p>
+<h2 id="3-required-implementation-direct-retsubmit-encoder">3. Required implementation — direct <code>RetSubmit</code> encoder</h2>
+<p><strong>Production file:</strong> <code>usbip/usbip.go</code>.</p>
+<p>Add a small method that writes the existing header bytes directly into a caller-owned 48-byte slice:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// Encode writes the 48-byte RET_SUBMIT header into dst.</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1">// dst must have at least 48 bytes.</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">RetSubmit</span><span class="p">)</span><span class="w"> </span><span class="nx">Encode</span><span class="p">(</span><span class="nx">dst</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Basic</span><span class="p">.</span><span class="nx">Command</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">4</span><span class="p">:</span><span class="mi">8</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Basic</span><span class="p">.</span><span class="nx">Seqnum</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">8</span><span class="p">:</span><span class="mi">12</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Basic</span><span class="p">.</span><span class="nx">Devid</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">12</span><span class="p">:</span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Basic</span><span class="p">.</span><span class="nx">Dir</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">16</span><span class="p">:</span><span class="mi">20</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Basic</span><span class="p">.</span><span class="nx">Ep</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">24</span><span class="p">],</span><span class="w"> </span><span class="kt">uint32</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">Status</span><span class="p">))</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">24</span><span class="p">:</span><span class="mi">28</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">ActualLength</span><span class="p">)</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">28</span><span class="p">:</span><span class="mi">32</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">StartFrame</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">32</span><span class="p">:</span><span class="mi">36</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">NumberOfPackets</span><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nx">binary</span><span class="p">.</span><span class="nx">BigEndian</span><span class="p">.</span><span class="nx">PutUint32</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">36</span><span class="p">:</span><span class="mi">40</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">ErrorCount</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="nb">copy</span><span class="p">(</span><span class="nx">dst</span><span class="p">[</span><span class="mi">40</span><span class="p">:</span><span class="mi">48</span><span class="p">],</span><span class="w"> </span><span class="nx">r</span><span class="p">.</span><span class="nx">Padding</span><span class="p">[:])</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">}</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">r</span><span class="w"> </span><span class="o">*</span><span class="nx">RetSubmit</span><span class="p">)</span><span class="w"> </span><span class="nx">Write</span><span class="p">(</span><span class="nx">w</span><span class="w"> </span><span class="nx">io</span><span class="p">.</span><span class="nx">Writer</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">header</span><span class="w"> </span><span class="p">[</span><span class="mi">48</span><span class="p">]</span><span class="kt">byte</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">    </span><span class="nx">r</span><span class="p">.</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">header</span><span class="p">[:])</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">w</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">header</span><span class="p">[:])</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">err</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="p">}</span>
+</code></pre></div>
+<p>Use one clearly defined header-size constant if convenient; reuse the existing server-side <code>retSubmitHeaderSize</code> / <code>0x30</code> agreement without adding abstraction. Keep the <code>RetSubmit</code> fields and public calling convention unchanged. The <code>uint32(r.Status)</code> conversion intentionally preserves signed 32-bit two's-complement wire bits.</p>
+<p><strong>Do not</strong> add a second independently maintained header encoder just for <code>handleUrbStream</code>. <code>RetSubmit.Write</code> and the hot path must share <code>Encode</code>.</p>
+<p>The example deliberately retains the existing <code>io.Writer</code> error contract; do not create generalized short-write retry infrastructure for this optimization unless an actual production contract defect is demonstrated.</p>
+<h2 id="4-required-implementation-one-write-per-ret_submit">4. Required implementation — one write per <code>RET_SUBMIT</code></h2>
+<p><strong>Production file:</strong> <code>internal/server/usb/server.go</code>, local <code>writeRet</code> in <code>(*Server).handleUrbStream</code>.</p>
+<p>Replace only the <code>bytes.Buffer</code> used by <code>writeRet</code> with a <strong>connection-local reusable byte slice</strong> (typically initial capacity <code>48+64</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">writeMu</span><span class="w"> </span><span class="nx">sync</span><span class="p">.</span><span class="nx">Mutex</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nx">retOut</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">retSubmitHeaderSize</span><span class="p">,</span><span class="w"> </span><span class="nx">retSubmitHeaderSize</span><span class="o">+</span><span class="mi">64</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nx">writeRet</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">seq</span><span class="p">,</span><span class="w"> </span><span class="nx">actualLen</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span><span class="w"> </span><span class="nx">respData</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">flush</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nx">writeMu</span><span class="p">.</span><span class="nx">Lock</span><span class="p">()</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="k">defer</span><span class="w"> </span><span class="nx">writeMu</span><span class="p">.</span><span class="nx">Unlock</span><span class="p">()</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nx">ret</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">usbip</span><span class="p">.</span><span class="nx">RetSubmit</span><span class="p">{</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="nx">Basic</span><span class="p">:</span><span class="w"> </span><span class="nx">usbip</span><span class="p">.</span><span class="nx">HeaderBasic</span><span class="p">{</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">            </span><span class="nx">Command</span><span class="p">:</span><span class="w"> </span><span class="nx">usbip</span><span class="p">.</span><span class="nx">RetSubmitCode</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">            </span><span class="nx">Seqnum</span><span class="p">:</span><span class="w">  </span><span class="nx">seq</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">            </span><span class="nx">Devid</span><span class="p">:</span><span class="w">   </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">            </span><span class="nx">Dir</span><span class="p">:</span><span class="w">     </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">            </span><span class="nx">Ep</span><span class="p">:</span><span class="w">      </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="p">},</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="nx">Status</span><span class="p">:</span><span class="w">          </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">        </span><span class="nx">ActualLength</span><span class="p">:</span><span class="w">    </span><span class="nx">actualLen</span><span class="p">,</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">        </span><span class="nx">StartFrame</span><span class="p">:</span><span class="w">      </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">        </span><span class="nx">NumberOfPackets</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">        </span><span class="nx">ErrorCount</span><span class="p">:</span><span class="w">      </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="nx">ret</span><span class="p">.</span><span class="nx">Encode</span><span class="p">(</span><span class="nx">retOut</span><span class="p">[:</span><span class="nx">retSubmitHeaderSize</span><span class="p">])</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="nx">retOut</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">append</span><span class="p">(</span><span class="nx">retOut</span><span class="p">[:</span><span class="nx">retSubmitHeaderSize</span><span class="p">],</span><span class="w"> </span><span class="nx">respData</span><span class="p">...)</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">writer</span><span class="p">.</span><span class="nx">Write</span><span class="p">(</span><span class="nx">retOut</span><span class="p">);</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">"write RET_SUBMIT: %w"</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">flush</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">bw</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">bw</span><span class="p">.</span><span class="nx">Flush</span><span class="p">();</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">"flush response: %w"</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">)</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">nil</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="p">}</span>
+</code></pre></div>
+<p>This is an illustrative replacement, not an instruction to rewrite unrelated surrounding logic. Keep the existing <code>writeMu</code> boundary and all existing <code>writeRet</code> call sites, <code>flush</code> argument meanings, and error propagation.</p>
+<p>Required invariants:</p>
+<ol>
+<li>There is <strong>one call to <code>writer.Write</code> for each successful <code>RET_SUBMIT</code></strong>, whether the response has a body or is header-only.</li>
+<li>The write covers <strong>48 + len(respData)</strong> bytes, without stale bytes from a preceding completion.</li>
+<li>The original 48-byte header fields, success status, seq number, <code>ActualLength</code>, zero fields and padding remain byte-for-byte identical.</li>
+<li>The buffer is owned by the individual stream and is only mutated under the pre-existing <code>writeMu</code>. Do not use a package-global/shared buffer or add another mutex.</li>
+<li>The initial 64-byte payload headroom is an <strong>allocation optimization, not a payload limit</strong>. EP0 descriptors and other legitimate responses larger than 64 bytes must be fully transmitted; <code>append</code> may grow capacity.</li>
+<li>In the 0 ms direct path, one call to <code>writer.Write</code> means one application-level connection write attempt. <strong>It does not promise one TCP packet or one physical USB/IP transaction</strong>.</li>
+<li>In the positive-interval path, maintain the existing <code>batchingWriter</code> and exactly the previous <code>flush &amp;&amp; bw != nil</code> semantics.</li>
+<li>OUT completions still contain <strong>no response payload</strong>, even when their <code>ActualLength</code> is nonzero. Do not modify the current <code>dir == usbip.DirOut</code> handling.</li>
+<li>Do not alter <code>RET_UNLINK</code> serialization, its existing flush operation or UNLINK cancellation logic.</li>
+<li>Preserve the current server error handling, managed draining and close behavior. Do not add a new lifecycle owner/worker.</li>
+</ol>
+<p>Because <code>writer</code> can be the current <code>logConn</code> and/or <code>batchingWriter</code>, do not let <code>retOut</code> escape to a new asynchronous sender or retain it beyond the synchronous <code>Write</code> call. The existing synchronous <code>io.Writer</code> contract plus <code>writeMu</code> is sufficient.</p>
+<h2 id="5-focused-automated-regression-coverage">5. Focused automated regression coverage</h2>
+<p>Prefer extending existing test infrastructure rather than introducing a test framework or a new production seam.</p>
+<h3 id="test-a-independent-golden-48-byte-header">Test A — independent golden 48-byte header</h3>
+<p><strong>Test file:</strong> preferably <code>usbip/usbip_test.go</code> (new file is acceptable).</p>
+<ul>
+<li>Construct <code>RetSubmit</code> with distinct nonzero <code>HeaderBasic</code> fields, <code>Status = -104</code>, distinct values for all remaining fields and nonzero padding.</li>
+<li>Assert exactly <strong>48 bytes</strong>, byte-for-byte against a <strong>literal independently specified golden frame</strong>. Do <strong>not</strong> validate <code>Encode</code> solely against the refactored <code>Write</code>; they would share the same potential encoding bug.</li>
+<li>Also assert <code>RetSubmit.Write</code> produces that golden frame through a normal <code>bytes.Buffer</code>, and handles a writer error.</li>
+<li>Include an all-zero/default-success frame to validate the canonical server case.</li>
+</ul>
+<h3 id="test-b-one-direct-write-for-body-and-header-only-responses">Test B — one direct write for body and header-only responses</h3>
+<p><strong>Test file:</strong> extend <code>internal/server/usb/transport_out_test.go</code> and/or <code>transport_async_in_test.go</code>.</p>
+<ul>
+<li>Wrap the server-side in-process <code>net.Conn</code> with a narrowly scoped <strong>test-only counting Write wrapper</strong>, or reuse an equivalent existing harness.</li>
+<li>Exercise a real <code>CMD_SUBMIT -&gt; handleUrbStream -&gt; RET_SUBMIT</code> path with <strong><code>WriteBatchFlushInterval = 0</code></strong>.</li>
+<li>Verify <strong>exactly one underlying server-side <code>Write</code> per <code>RET_SUBMIT</code></strong>, both for a nonempty IN response and for a header-only OUT response.</li>
+<li>Exclude/import-handshake traffic from the count; do not conflate <code>RET_UNLINK</code> traffic with <code>RET_SUBMIT</code>. If another connection wrapper or harness detail makes the count ambiguous, adjust the test at the existing URB-stream boundary rather than adding instrumentation to product code.</li>
+<li>Assert response bytes/sequence/length, not only the number of calls.</li>
+</ul>
+<h3 id="test-c-production-controller-in-regressions">Test C — production controller IN regressions</h3>
+<p><strong>Existing file:</strong> <code>internal/server/usb/transport_async_in_test.go</code>.</p>
+<p>Retain and run the existing cases:</p>
+<ul>
+<li>Xbox360 main IN <code>0x81</code>, 20-byte report, button/state change.</li>
+<li>DualSense Edge main IN <code>0x84</code>, 64-byte HID report, neutral sticks and gyro.</li>
+<li>Steam Deck main IN, 64-byte HID report, neutral and updated gyro/stick state.</li>
+<li>Relevant pending no-data IN, <code>CMD_UNLINK</code> and managed drain tests.</li>
+</ul>
+<p>Extend minimally only where needed to establish that a new completion's bytes do not contain stale tail bytes from an earlier completion. Do not change report builders, polling budgets or idle behavior to make tests pass.</p>
+<h3 id="test-d-64-byte-ep0-response-and-variable-length-buffer-reuse">Test D — &gt;64-byte EP0 response and variable-length buffer reuse</h3>
+<p>Add a focused in-process EP0/transport test using the existing USB/IP harness pattern, a valid descriptor, or a small <code>usb.ControlDevice</code> fake:</p>
+<ul>
+<li>Return a legal control response longer than 64 bytes (for example, a 128-byte HID report descriptor).</li>
+<li>Verify every byte is returned with correct <code>ActualLength</code> and no truncation; this checks <code>append</code> capacity growth.</li>
+<li>Follow with a short or zero-body response <strong>on the same connection</strong>; verify it contains no bytes left over from the previous larger frame, and the next response begins at the correct header boundary.</li>
+<li>Avoid changing actual descriptor or EP0 behavior to satisfy a test; use the existing <code>processSubmit</code> contract.</li>
+</ul>
+<h3 id="test-e-out-wire-contract-failure-batching">Test E — OUT wire contract, failure, batching</h3>
+<p><strong>Existing file:</strong> <code>internal/server/usb/transport_out_test.go</code>.</p>
+<p>Preserve and run:</p>
+<ul>
+<li><code>TestUSBIPOutProcessesOnlyAfterCompletePayloadAndPreservesResponse</code></li>
+<li><code>TestUSBIPOutZeroLengthPayloadCompletesSuccessfully</code></li>
+<li><code>TestUSBIPOutResponseWriteFailureReturnsError</code></li>
+<li><code>TestUSBIPOutRetSubmitOmitsDeviceResponseAndPreservesStreamBoundary</code></li>
+</ul>
+<p>The last test deliberately has a device return nonempty data for an OUT transfer. Assert <code>RET_SUBMIT.ActualLength == len(outPayload)</code> but <strong>no response body</strong>, and that a second OUT response is still parseable.</p>
+<p>A small explicit positive-interval batching test is appropriate if existing coverage does not already establish that the new combined frame is flushed at the same call sites. The <strong>0 ms and 1 ms</strong> code paths must both work. Do not demand a timing-sensitive millisecond-exact scheduling test.</p>
+<h3 id="test-f-mixed-completions-and-lifecycle">Test F — mixed completions and lifecycle</h3>
+<p>Keep the existing asynchronous IN + synchronous EP0/OUT mutual exclusion. Test a realistic stream with back-to-back completions and assert each 48-byte header plus body is parseable and not interleaved; do <strong>not</strong> require a particular cross-URB scheduling order that the current design does not promise.</p>
+<p>Run the existing <code>CMD_UNLINK</code>, pending no-data IN, managed drain/close and <code>workerWG</code> tests. There must be no late completed response after a cancelled/purged URB beyond existing behavior.</p>
+<h2 id="6-consumer-compatibility-and-release-boundaries">6. Consumer compatibility and release boundaries</h2>
+<h3 id="standalone-addon">Standalone Addon</h3>
+<ul>
+<li>Existing Addon is already 0 ms; <strong>do not</strong> modify its code in this PR.</li>
+<li>Its pinned DLL/commit/hash and package dependency will be updated in a <strong>separate consumer adoption PR after this VIIPER PR merges and a successful native artifact exists</strong>.</li>
+<li>No change to persistent triple-device ownership, Steam/BPM presentation policy, PID1901/PID1902 restoration, HidHide, native callback lifetime, fail-close, or teardown.</li>
+</ul>
+<h3 id="ctw-dev">CTW-dev</h3>
+<ul>
+<li>CTW-dev's <strong>actual private fork</strong> is <code>onehoon/ClawTweaks-Dev</code>, <code>release/v0.3.98.0</code>; do not use the public upstream CTW implementation as a substitute.</li>
+<li>Its three canonical typed sessions use <code>NewUSBServer</code> and <code>SetXbox360DeviceState</code> / <code>SetSteamDeckDeviceState</code> / <code>SetDualSenseDeviceState</code>, with typed attach/remove and fail-close recovery. All share this same USB/IP implementation when a new DLL is adopted.</li>
+<li>CTW's three current <code>WriteBatchFlushIntervalMs = 1</code> settings originated from the old Addon choice. The requested 0 ms alignment is a <strong>separate CTW-side change</strong>, not part of this VIIPER PR. Preserve batching compatibility meanwhile.</li>
+<li>CTW currently packages <code>XboxGamingBarHelper/libVIIPER.dll</code> with <code>XboxGamingBarHelper/Native/VIIPER/</code> header/DEF, <code>viiper-artifact.json</code> and <code>Doku/VIIPER_CANONICAL_ARTIFACT.md</code>. Update these in a <strong>later CTW artifact adoption change</strong>, not this PR.</li>
+<li>There is no change to the canonical exported ABI and no required CTW P/Invoke rewrite.</li>
+</ul>
+<h3 id="common-real-world-safety">Common real-world safety</h3>
+<p>Review that the transport-only edit does not weaken normal shutdown, restart, suspend/resume, device loss/re-enumeration, native detach/remove, <code>CloseUSBServer</code>, <code>ManagedTransportLifecycle</code> or <code>TransportDrain</code> behavior. These are <strong>existing ownership/lifecycle contracts</strong>, not a request to invent new synchronization for theoretical interleavings.</p>
+<h2 id="7-build-review-and-merge-criteria">7. Build, review and merge criteria</h2>
+<p>Required local/CI static and automated checks (appropriate platform/toolchain):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>gofmt<span class="w"> </span>-w<span class="w"> </span>usbip/usbip.go<span class="w"> </span>internal/server/usb/server.go
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./usbip<span class="w"> </span>./internal/server/usb
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./lib/viiper
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./...
+</code></pre></div>
+<p>Use the existing Windows native snapshot/build workflow as appropriate for the shared library. Keep generated C exports/header stable. Report test outcomes and any platform-excluded checks in the PR description; do not suppress test failures or reduce test coverage to satisfy this change.</p>
+<p><strong>Merge-blocking findings:</strong> actual malformed/misaligned USB/IP frames, extra/missing OUT payload, incorrect <code>ActualLength</code>, broken IN/EP0/OUT response, corrupt or interleaved stream, lost cancellation/teardown correctness, compile/test failure, real consumer ABI incompatibility, or ordinary reachable reliability regressions.</p>
+<p><strong>Not merge blockers:</strong> not-yet-measured CPU percentage gain, speculative nanosecond-level races, speculative performance of unsupported environments, and <strong>physical device validation</strong>. The user performs hardware tests after code merge, separately from the local Codex implementation/PR gate.</p>
+<h2 id="8-pr-scope-and-acceptance-checklist">8. PR scope and acceptance checklist</h2>
+<p>One PR, preferably under roughly 300 changed lines (do not compromise correctness to hit an LOC number):</p>
+<ul>
+<li>[ ] <code>RetSubmit.Encode</code> writes the original fixed 48-byte header with unchanged endianness and all fields.</li>
+<li>[ ] <code>RetSubmit.Write</code> reuses <code>Encode</code> and performs one header write.</li>
+<li>[ ] <code>handleUrbStream.writeRet</code> reuses one per-stream byte buffer under existing <code>writeMu</code>.</li>
+<li>[ ] One <code>writer.Write</code> per <code>RET_SUBMIT</code>, including zero-body completions.</li>
+<li>[ ] 0 ms direct and positive-interval buffered output both preserve existing flush/error policy.</li>
+<li>[ ] Xbox360, Steam Deck and DualSense Edge input bytes are unchanged.</li>
+<li>[ ] Large EP0 payloads, zero payloads, successive frames and OUT framing remain correct.</li>
+<li>[ ] Existing asynchronous IN, UNLINK, drain and native lifecycle tests pass.</li>
+<li>[ ] No device implementation, C ABI, consumer repository, pinned DLL or generated artifact changed in this PR.</li>
+<li>[ ] No worker/NAK-idle/polling policy changes; no unnecessary state, lock or abstraction added.</li>
+<li>[ ] PR description describes the exact before/after <code>Write</code> behavior and test evidence, <strong>without claiming a measured CPU gain</strong>.</li>
+</ul>
+<h3 id="sources-reviewed">Sources reviewed</h3>
+<ul>
+<li>Our <code>usbip/usbip.go</code>, <code>internal/server/usb/server.go</code>, <code>internal/server/usb/transport_async_in_test.go</code>, <code>internal/server/usb/transport_out_test.go</code>, <code>internal/server/usb/transport_lifecycle_test.go</code> and <code>internal/server/usb/config.go</code> at <code>e3275bc</code>.</li>
+<li>WSGM fork <code>usbip/usbip.go</code> and <code>internal/server/usb/server.go</code> at its WSGM-pinned <code>8210b0a</code>.</li>
+<li><code>onehoon/SteamAddonforClaw</code> current <code>main</code> and Full1902 documents.</li>
+<li><code>onehoon/ClawTweaks-Dev</code> current <code>release/v0.3.98.0</code> canonical sessions and pinned artifact manifest.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
