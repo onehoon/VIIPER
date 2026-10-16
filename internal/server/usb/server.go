@@ -931,15 +931,36 @@ type inEndpointWorker struct {
 	jobs chan inJob
 }
 
-func startINEndpointWorker(streamDone <-chan struct{}, wg *sync.WaitGroup, run func(inJob)) *inEndpointWorker {
+func storeINResponse(respMu *sync.Mutex, responses map[uint32][]byte, ep uint32, report []byte) {
+	respMu.Lock()
+	responses[ep] = append(responses[ep][:0], report...)
+	respMu.Unlock()
+}
+
+func copyCachedINResponse(respMu *sync.Mutex, responses map[uint32][]byte, ep uint32, scratch []byte) ([]byte, bool) {
+	respMu.Lock()
+	defer respMu.Unlock()
+	cached, ok := responses[ep]
+	if !ok {
+		return nil, false
+	}
+	if len(cached) > len(scratch) {
+		return append([]byte(nil), cached...), true
+	}
+	copy(scratch, cached)
+	return scratch[:len(cached):len(cached)], true
+}
+
+func startINEndpointWorker(streamDone <-chan struct{}, wg *sync.WaitGroup, run func(inJob, []byte)) *inEndpointWorker {
 	worker := &inEndpointWorker{jobs: make(chan inJob)}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		var report [64]byte
 		for {
 			select {
 			case job := <-worker.jobs:
-				run(job)
+				run(job, report[:])
 			case <-streamDone:
 				return
 			}
@@ -1045,8 +1066,9 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	var respMu sync.Mutex
 	lastInResp := map[uint32][]byte{}
 	endpoints := map[uint32]*inEndpointWorker{}
+	bufferDev, supportsBuffer := dev.(usb.InterruptInBufferDevice)
 
-	runIN := func(job inJob) {
+	runIN := func(job inJob, scratch []byte) {
 		defer job.cancel()
 		var respData []byte
 		for {
@@ -1054,7 +1076,11 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			if job.interval > 0 {
 				attemptCtx, attemptCancel = context.WithTimeout(job.ctx, job.interval)
 			}
-			respData = s.processSubmit(attemptCtx, dev, job.ep, usbip.DirIn, nil, nil)
+			if supportsBuffer {
+				respData = bufferDev.HandleInterruptIN(attemptCtx, job.ep, scratch)
+			} else {
+				respData = s.processSubmit(attemptCtx, dev, job.ep, usbip.DirIn, nil, nil)
+			}
 			expired := respData == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded)
 			attemptCancel()
 
@@ -1062,17 +1088,13 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 				return
 			}
 			if respData != nil {
-				respMu.Lock()
-				lastInResp[job.ep] = append([]byte(nil), respData...)
-				respMu.Unlock()
+				storeINResponse(&respMu, lastInResp, job.ep, respData)
 				break
 			}
 			if expired {
-				respMu.Lock()
-				cached, ok := lastInResp[job.ep]
-				respMu.Unlock()
+				var ok bool
+				respData, ok = copyCachedINResponse(&respMu, lastInResp, job.ep, scratch)
 				if ok {
-					respData = cached
 					break
 				}
 				time.Sleep(time.Millisecond)
@@ -1209,7 +1231,8 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 				workerWG.Add(1)
 				go func(job inJob) {
 					defer workerWG.Done()
-					runIN(job)
+					var report [64]byte
+					runIN(job, report[:])
 				}(job)
 			}
 			continue

@@ -166,27 +166,7 @@ func (d *SteamDeck) snapshotInputState() InputState {
 
 func (d *SteamDeck) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out []byte) []byte {
 	if dir == usbip.DirIn {
-		switch ep {
-		case mouseEndpointNumber:
-			return append([]byte(nil), zeroMouseReport...)
-		case keyboardEndpointNumber:
-			return append([]byte(nil), zeroKeyboardReport...)
-		case controllerEndpointNumber:
-			select {
-			case <-ctx.Done():
-				if ctx.Err() != context.DeadlineExceeded {
-					return nil
-				}
-				return d.currentInputReport()
-			case <-d.inputNotify:
-				if ctx.Err() == context.Canceled {
-					return nil
-				}
-				return d.currentInputReport()
-			}
-		default:
-			return nil
-		}
+		return d.handleIN(ctx, ep, nil)
 	}
 	if dir == usbip.DirOut && ep == controllerEndpointNumber {
 		d.handleHostCommand(normalizeHostCommand(out, 0))
@@ -194,9 +174,61 @@ func (d *SteamDeck) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 	return nil
 }
 
+// HandleInterruptIN implements usb.InterruptInBufferDevice for non-EP0 IN.
+func (d *SteamDeck) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	return d.handleIN(ctx, ep, dst)
+}
+
+func (d *SteamDeck) handleIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	switch ep {
+	case mouseEndpointNumber:
+		return copyINReport(dst, zeroMouseReport)
+	case keyboardEndpointNumber:
+		return copyINReport(dst, zeroKeyboardReport)
+	case controllerEndpointNumber:
+		select {
+		case <-ctx.Done():
+			if ctx.Err() != context.DeadlineExceeded {
+				return nil
+			}
+			return d.currentInputReportInto(dst)
+		case <-d.inputNotify:
+			if ctx.Err() == context.Canceled {
+				return nil
+			}
+			return d.currentInputReportInto(dst)
+		}
+	default:
+		return nil
+	}
+}
+
+func copyINReport(dst, report []byte) []byte {
+	if dst == nil {
+		return append([]byte(nil), report...)
+	}
+	if len(dst) < len(report) {
+		return nil
+	}
+	copy(dst, report)
+	return dst[:len(report):len(report)]
+}
+
 func (d *SteamDeck) currentInputReport() []byte {
 	st := d.snapshotInputState()
 	return st.buildReport(st.Frame)
+}
+
+func (d *SteamDeck) currentInputReportInto(dst []byte) []byte {
+	st := d.snapshotInputState()
+	if dst == nil {
+		return st.buildReport(st.Frame)
+	}
+	if len(dst) < InputReportLen {
+		return nil
+	}
+	st.writeReport(dst, st.Frame)
+	return dst[:InputReportLen:InputReportLen]
 }
 
 // InterruptINWaitBudget separates the Deck controller's expected report cadence

@@ -167,27 +167,7 @@ func (d *DualSense) GetDeviceSpecificArgs() map[string]any {
 
 func (d *DualSense) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out []byte) []byte {
 	if dir == usbip.DirIn {
-		switch ep {
-		case 4:
-			select {
-			case <-ctx.Done():
-				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-					d.mtx.Lock()
-					is := d.inputState
-					ms := *d.metaState
-					d.mtx.Unlock()
-					return d.buildUSBInputReport(is, &ms)
-				}
-				return nil
-			case is := <-d.inputCh:
-				d.mtx.Lock()
-				ms := *d.metaState
-				d.mtx.Unlock()
-				return d.buildUSBInputReport(is, &ms)
-			}
-		default:
-			return nil
-		}
+		return d.handleIN(ctx, ep, nil)
 	}
 
 	if dir == usbip.DirOut && ep == 3 {
@@ -204,6 +184,44 @@ func (d *DualSense) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 	}
 
 	return nil
+}
+
+// HandleInterruptIN implements usb.InterruptInBufferDevice for non-EP0 IN.
+func (d *DualSense) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	return d.handleIN(ctx, ep, dst)
+}
+
+func (d *DualSense) handleIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	if ep != 4 {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			d.mtx.Lock()
+			is := d.inputState
+			ms := *d.metaState
+			d.mtx.Unlock()
+			return d.inputReportInto(dst, is, &ms)
+		}
+		return nil
+	case is := <-d.inputCh:
+		d.mtx.Lock()
+		ms := *d.metaState
+		d.mtx.Unlock()
+		return d.inputReportInto(dst, is, &ms)
+	}
+}
+
+func (d *DualSense) inputReportInto(dst []byte, is *InputState, ms *MetaState) []byte {
+	if dst == nil {
+		return d.buildUSBInputReport(is, ms)
+	}
+	if len(dst) < InputReportSize {
+		return nil
+	}
+	d.writeUSBInputReport(dst, is, ms)
+	return dst[:InputReportSize:InputReportSize]
 }
 
 func (d *DualSense) HandleControl(bmRequestType, bRequest uint8, wValue, wIndex, wLength uint16, data []byte) ([]byte, bool) {
@@ -424,8 +442,11 @@ func (d *DualSense) writeUSBInputReport(dst []byte, s *InputState, m *MetaState)
 	b[5] = s.L2
 	b[6] = s.R2
 
+	d.mtx.Lock()
 	d.seqCounter++
-	b[7] = d.seqCounter
+	seq := d.seqCounter
+	d.mtx.Unlock()
+	b[7] = seq
 
 	usbDPad := uint8(DPadUSBNeutral)
 	switch {

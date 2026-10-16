@@ -421,6 +421,190 @@ func TestAsyncINReportCacheIsIndependentPerEndpoint(t *testing.T) {
 	}
 }
 
+type largeCachedReplayINDevice struct {
+	mu         sync.Mutex
+	calls      int
+	response   []byte
+	descriptor rootusb.Descriptor
+}
+
+func newLargeCachedReplayINDevice() *largeCachedReplayINDevice {
+	response := make([]byte, 100)
+	for i := range response {
+		response[i] = byte(i + 1)
+	}
+	return &largeCachedReplayINDevice{
+		response: response,
+		descriptor: rootusb.Descriptor{
+			Device: rootusb.DeviceDescriptor{BNumConfigurations: 1, Speed: 3},
+			Interfaces: []rootusb.InterfaceConfig{{
+				Descriptor: rootusb.InterfaceDescriptor{BInterfaceNumber: 0, BNumEndpoints: 1},
+				Endpoints:  []rootusb.EndpointDescriptor{{BEndpointAddress: 0x81, BMAttributes: 0x03, BInterval: 2}},
+			}},
+		},
+	}
+}
+
+func (d *largeCachedReplayINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, _ []byte) []byte {
+	if dir != usbip.DirIn || ep != 1 {
+		return nil
+	}
+	d.mu.Lock()
+	d.calls++
+	call := d.calls
+	d.mu.Unlock()
+	if call == 1 {
+		return append([]byte(nil), d.response...)
+	}
+	<-ctx.Done()
+	return nil
+}
+
+func (d *largeCachedReplayINDevice) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
+
+func (d *largeCachedReplayINDevice) GetDeviceSpecificArgs() map[string]any { return nil }
+
+func TestLegacyCustomDeviceLargeINPayloadAndCachedReplay(t *testing.T) {
+	dev := newLargeCachedReplayINDevice()
+	_, conn := startAsyncINTestSession(t, dev, 3062)
+	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
+	for _, seq := range []uint32{121, 122} {
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 128}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit legacy IN sequence %d: %v", seq, err)
+		}
+		var header [48]byte
+		if _, err := io.ReadFull(conn, header[:]); err != nil {
+			t.Fatalf("read legacy IN response %d: %v", seq, err)
+		}
+		if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+			t.Fatalf("response command = %#x, want RET_SUBMIT", got)
+		}
+		if got := binary.BigEndian.Uint32(header[4:8]); got != seq {
+			t.Fatalf("response sequence = %d, want %d", got, seq)
+		}
+		if got := binary.BigEndian.Uint32(header[24:28]); got != uint32(len(dev.response)) {
+			t.Fatalf("actual length = %d, want %d", got, len(dev.response))
+		}
+		payload := make([]byte, len(dev.response))
+		if _, err := io.ReadFull(conn, payload); err != nil {
+			t.Fatalf("read response payload %d: %v", seq, err)
+		}
+		if !bytes.Equal(payload, dev.response) {
+			t.Fatalf("response %d payload mismatch: got %d bytes", seq, len(payload))
+		}
+	}
+}
+
+type overlappingBufferedINDevice struct {
+	entered    chan []byte
+	release    chan struct{}
+	mu         sync.Mutex
+	next       byte
+	descriptor rootusb.Descriptor
+}
+
+func newOverlappingBufferedINDevice() *overlappingBufferedINDevice {
+	return &overlappingBufferedINDevice{
+		entered: make(chan []byte, 2),
+		release: make(chan struct{}),
+		descriptor: rootusb.Descriptor{
+			Device: rootusb.DeviceDescriptor{BNumConfigurations: 1, Speed: 3},
+			Interfaces: []rootusb.InterfaceConfig{{
+				Descriptor: rootusb.InterfaceDescriptor{BInterfaceNumber: 0, BNumEndpoints: 1},
+				Endpoints:  []rootusb.EndpointDescriptor{{BEndpointAddress: 0x81, BMAttributes: 0x03, BInterval: 0xff}},
+			}},
+		},
+	}
+}
+
+func (d *overlappingBufferedINDevice) HandleTransfer(context.Context, uint32, uint32, []byte) []byte {
+	return nil
+}
+
+func (d *overlappingBufferedINDevice) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	if ep != 1 {
+		return nil
+	}
+	d.entered <- dst
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-d.release:
+		d.mu.Lock()
+		d.next++
+		marker := d.next
+		d.mu.Unlock()
+		dst[0] = marker
+		return dst[:1]
+	}
+}
+
+func (d *overlappingBufferedINDevice) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
+
+func (d *overlappingBufferedINDevice) GetDeviceSpecificArgs() map[string]any { return nil }
+
+func TestOverlappingBufferedINRequestsUseIndependentWorkerAndFallbackScratch(t *testing.T) {
+	dev := newOverlappingBufferedINDevice()
+	_, conn := startAsyncINTestSession(t, dev, 3063)
+	for _, seq := range []uint32{131, 132} {
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 64}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit buffered IN sequence %d: %v", seq, err)
+		}
+	}
+	var first, second []byte
+	for i := 0; i < 2; i++ {
+		select {
+		case report := <-dev.entered:
+			if i == 0 {
+				first = report
+			} else {
+				second = report
+			}
+		case <-time.After(time.Second):
+			t.Fatal("overlapping optional IN method calls did not both start")
+		}
+	}
+	if len(first) < 64 || len(second) < 64 || &first[0] == &second[0] {
+		t.Fatal("overlapping worker and fallback calls did not receive independent 64-byte scratch buffers")
+	}
+	close(dev.release)
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	seenSeq := make(map[uint32]bool, 2)
+	seenMarkers := make(map[byte]bool, 2)
+	for range 2 {
+		var header [48]byte
+		if _, err := io.ReadFull(conn, header[:]); err != nil {
+			t.Fatalf("read buffered IN RET_SUBMIT: %v", err)
+		}
+		if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+			t.Fatalf("response command = %#x, want RET_SUBMIT", got)
+		}
+		seq := binary.BigEndian.Uint32(header[4:8])
+		if (seq != 131 && seq != 132) || seenSeq[seq] {
+			t.Fatalf("unexpected or duplicate response sequence %d", seq)
+		}
+		seenSeq[seq] = true
+		if got := binary.BigEndian.Uint32(header[24:28]); got != 1 {
+			t.Fatalf("response %d actual length = %d, want 1", seq, got)
+		}
+		var payload [1]byte
+		if _, err := io.ReadFull(conn, payload[:]); err != nil {
+			t.Fatalf("read response %d payload: %v", seq, err)
+		}
+		if payload[0] == 0 || seenMarkers[payload[0]] {
+			t.Fatalf("response %d marker = %d, want unique nonzero marker", seq, payload[0])
+		}
+		seenMarkers[payload[0]] = true
+	}
+}
+
 func TestAsyncINWorkersExitOnClientEOFWhileDeviceRemainsAttached(t *testing.T) {
 	dev := newOverlappingINDevice()
 	server, conn := startAsyncINTestSession(t, dev, 3060)
@@ -628,6 +812,16 @@ func (d *observedSteamDeckINDevice) HandleTransfer(ctx context.Context, ep uint3
 		}
 	}
 	return d.SteamDeck.HandleTransfer(ctx, ep, dir, out)
+}
+
+func (d *observedSteamDeckINDevice) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	if ep == 3 {
+		select {
+		case d.entered <- struct{}{}:
+		default:
+		}
+	}
+	return d.SteamDeck.HandleInterruptIN(ctx, ep, dst)
 }
 
 func readSteamDeckINResponse(t *testing.T, conn net.Conn, seq uint32) []byte {
