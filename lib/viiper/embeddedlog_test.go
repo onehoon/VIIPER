@@ -97,6 +97,7 @@ func TestEmbeddedFileHandlerPreservesStructuredAttributes(t *testing.T) {
 		"totalUs", int64(1234),
 		"lockWaitUs", int64(56),
 	)
+	logger.Debug("debug remains enabled")
 
 	out := buf.String()
 	for _, want := range []string{
@@ -106,6 +107,7 @@ func TestEmbeddedFileHandlerPreservesStructuredAttributes(t *testing.T) {
 		"backendCalled=true",
 		"totalUs=1234",
 		"lockWaitUs=56",
+		"level=DEBUG msg=\"debug remains enabled\"",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("file output missing %q; got: %s", want, out)
@@ -316,6 +318,9 @@ func TestInvalidHandleTimingGoesToOwnedLoggerNotDefaultNotAnyServerCallback(t *t
 		attrs := recordAttrs(r)
 		if attrs["result"] != "invalid" || attrs["layer"] != "canonical" {
 			t.Fatalf("unexpected invalid-handle record attrs: %+v", attrs)
+		}
+		if r.Level != slog.LevelDebug {
+			t.Fatalf("invalid-handle timing level = %s, want DEBUG", r.Level)
 		}
 	}
 	if len(serverACallback.records) != 0 {

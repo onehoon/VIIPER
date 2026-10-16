@@ -716,7 +716,6 @@ func (s *Server) handleConn(conn net.Conn) error {
 			s.logger.Info("OP_REQ_DEVLIST")
 			return s.handleDevList(conn)
 		case usbip.OpReqImport:
-			s.logger.Info("OP_REQ_IMPORT")
 			var dev usb.Device
 			var err error
 			if s.config.ManagedTransportLifecycle {
@@ -1213,7 +1212,7 @@ func isClientDisconnect(err error) bool {
 	if err == nil {
 		return false
 	}
-	if errors.Is(err, io.EOF) {
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 		return true
 	}
 	var opErr *net.OpError
