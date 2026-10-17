@@ -137,9 +137,13 @@ func waitForINTransfer(t *testing.T, dev *immediateINDevice) {
 }
 
 func assertNoAsyncINResponse(t *testing.T, conn net.Conn) {
+	assertNoAsyncINResponseFor(t, conn, 50*time.Millisecond)
+}
+
+func assertNoAsyncINResponseFor(t *testing.T, conn net.Conn, wait time.Duration) {
 	t.Helper()
 	var response [48]byte
-	if err := conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(wait)); err != nil {
 		t.Fatal(err)
 	}
 	n, err := io.ReadFull(conn, response[:])
@@ -152,6 +156,19 @@ func assertNoAsyncINResponse(t *testing.T, conn net.Conn) {
 	}
 	if err := conn.SetReadDeadline(time.Time{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func assertNoLateAsyncINResponse(t *testing.T, conn net.Conn) {
+	t.Helper()
+	if err := conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
+	var response [48]byte
+	n, err := io.ReadFull(conn, response[:])
+	if n != 0 || err == nil || (!errors.Is(err, io.EOF) && !isTimeoutError(err)) {
+		t.Fatalf("pending async IN produced a late response or unexpected stream result: bytes=%d err=%v", n, err)
 	}
 }
 
@@ -1164,6 +1181,104 @@ type observedSteamDeckINDevice struct {
 	deadlineReports chan struct{}
 }
 
+type observedSteamDeckAuxINDevice struct {
+	*steamdeck.SteamDeck
+	descriptor rootusb.Descriptor
+	entered    chan uint32
+	returned   chan uint32
+	deadlines  chan time.Time
+	waitBudget time.Duration
+}
+
+func newObservedSteamDeckAuxINDevice(t *testing.T, descriptorInterval uint8, waitBudget time.Duration) *observedSteamDeckAuxINDevice {
+	t.Helper()
+	deck, err := steamdeck.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptor := *deck.GetDescriptor()
+	descriptor.Interfaces = append([]rootusb.InterfaceConfig(nil), descriptor.Interfaces...)
+	found := map[uint8]bool{}
+	for i := range descriptor.Interfaces {
+		descriptor.Interfaces[i].Endpoints = append([]rootusb.EndpointDescriptor(nil), descriptor.Interfaces[i].Endpoints...)
+		for j := range descriptor.Interfaces[i].Endpoints {
+			address := descriptor.Interfaces[i].Endpoints[j].BEndpointAddress
+			if address == 0x81 || address == 0x82 {
+				descriptor.Interfaces[i].Endpoints[j].BInterval = descriptorInterval
+				found[address] = true
+			}
+		}
+	}
+	if !found[0x81] || !found[0x82] {
+		t.Fatalf("Steam Deck auxiliary endpoints missing from descriptor: %#v", found)
+	}
+	return &observedSteamDeckAuxINDevice{
+		SteamDeck:  deck,
+		descriptor: descriptor,
+		entered:    make(chan uint32, 4),
+		returned:   make(chan uint32, 4),
+		deadlines:  make(chan time.Time, 4),
+		waitBudget: waitBudget,
+	}
+}
+
+func (d *observedSteamDeckAuxINDevice) GetDescriptor() *rootusb.Descriptor {
+	return &d.descriptor
+}
+
+func (d *observedSteamDeckAuxINDevice) InterruptINWaitBudget(ep uint32) time.Duration {
+	if (ep == 1 || ep == 2) && d.waitBudget > 0 {
+		return d.waitBudget
+	}
+	return d.SteamDeck.InterruptINWaitBudget(ep)
+}
+
+func (d *observedSteamDeckAuxINDevice) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	if ep == 1 || ep == 2 {
+		if deadline, ok := ctx.Deadline(); ok {
+			select {
+			case d.deadlines <- deadline:
+			default:
+			}
+		}
+		select {
+		case d.entered <- ep:
+		default:
+		}
+	}
+	report := d.SteamDeck.HandleInterruptIN(ctx, ep, dst)
+	if ep == 1 || ep == 2 {
+		select {
+		case d.returned <- ep:
+		default:
+		}
+	}
+	return report
+}
+
+func waitForSteamDeckAuxIN(t *testing.T, events <-chan uint32, ep uint32, event string) {
+	t.Helper()
+	select {
+	case got := <-events:
+		if got != ep {
+			t.Fatalf("Steam Deck auxiliary %s endpoint = %d, want %d", event, got, ep)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("Steam Deck auxiliary endpoint %d did not %s", ep, event)
+	}
+}
+
+func waitForSteamDeckAuxINDeadline(t *testing.T, deadlines <-chan time.Time, ep uint32) time.Time {
+	t.Helper()
+	select {
+	case deadline := <-deadlines:
+		return deadline
+	case <-time.After(time.Second):
+		t.Fatalf("Steam Deck auxiliary endpoint %d did not receive a deadline context", ep)
+		return time.Time{}
+	}
+}
+
 func (d *observedSteamDeckINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out []byte) []byte {
 	if dir == usbip.DirIn && ep == 3 {
 		select {
@@ -1213,6 +1328,135 @@ func readAsyncINResponse(t *testing.T, conn net.Conn, seq uint32) []byte {
 		t.Fatalf("read RET_SUBMIT payload: %v", err)
 	}
 	return payload
+}
+
+func readAsyncINResponseWithLength(t *testing.T, conn net.Conn, seq uint32, wantLength uint32) []byte {
+	t.Helper()
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
+	var header [48]byte
+	if _, err := io.ReadFull(conn, header[:]); err != nil {
+		t.Fatalf("read RET_SUBMIT: %v", err)
+	}
+	if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
+		t.Fatalf("response command = %#x, want RET_SUBMIT", got)
+	}
+	if got := binary.BigEndian.Uint32(header[4:8]); got != seq {
+		t.Fatalf("RET_SUBMIT sequence = %d, want %d", got, seq)
+	}
+	if got := binary.BigEndian.Uint32(header[24:28]); got != wantLength {
+		t.Fatalf("RET_SUBMIT actual length = %d, want %d", got, wantLength)
+	}
+	payload := make([]byte, wantLength)
+	if _, err := io.ReadFull(conn, payload); err != nil {
+		t.Fatalf("read RET_SUBMIT payload: %v", err)
+	}
+	return payload
+}
+
+func TestSteamDeckAuxiliaryINWaitsForDescriptorDeadline(t *testing.T) {
+	endpoints := []struct {
+		name   string
+		ep     uint32
+		length uint32
+		seq    uint32
+		busID  uint32
+	}{
+		{name: "keyboard", ep: 1, length: 8, seq: 71, busID: 3070},
+		{name: "mouse", ep: 2, length: 4, seq: 72, busID: 3071},
+	}
+	for _, tt := range endpoints {
+		t.Run(tt.name, func(t *testing.T) {
+			dev := newObservedSteamDeckAuxINDevice(t, 200, 0)
+			_, conn := startAsyncINTestSession(t, dev, tt.busID)
+			cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: tt.seq, Dir: usbip.DirIn, Ep: tt.ep}, TransferBufferLen: tt.length}
+			if err := cmd.Write(conn); err != nil {
+				t.Fatalf("submit Steam Deck %s IN: %v", tt.name, err)
+			}
+			waitForSteamDeckAuxIN(t, dev.entered, tt.ep, "enter HandleInterruptIN")
+			deadline := waitForSteamDeckAuxINDeadline(t, dev.deadlines, tt.ep)
+			noResponseWindow := time.Until(deadline.Add(-20 * time.Millisecond))
+			if noResponseWindow <= 0 {
+				t.Fatalf("Steam Deck auxiliary endpoint %d deadline arrived before the integration check", tt.ep)
+			}
+			assertNoAsyncINResponseFor(t, conn, noResponseWindow)
+
+			payload := readAsyncINResponseWithLength(t, conn, tt.seq, tt.length)
+			if !bytes.Equal(payload, make([]byte, tt.length)) {
+				t.Fatalf("Steam Deck %s payload = % x, want %d zero bytes", tt.name, payload, tt.length)
+			}
+			waitForSteamDeckAuxIN(t, dev.returned, tt.ep, "return the deadline report")
+		})
+	}
+}
+
+func TestSteamDeckAuxiliaryINCanBeUnlinked(t *testing.T) {
+	endpoints := []struct {
+		name   string
+		ep     uint32
+		length uint32
+		seq    uint32
+		unlink uint32
+		busID  uint32
+	}{
+		{name: "keyboard", ep: 1, length: 8, seq: 81, unlink: 91, busID: 3072},
+		{name: "mouse", ep: 2, length: 4, seq: 82, unlink: 92, busID: 3073},
+	}
+	for _, tt := range endpoints {
+		t.Run(tt.name, func(t *testing.T) {
+			dev := newObservedSteamDeckAuxINDevice(t, 150, 5*time.Second)
+			_, conn := startAsyncINTestSession(t, dev, tt.busID)
+			submit := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: tt.seq, Dir: usbip.DirIn, Ep: tt.ep}, TransferBufferLen: tt.length}
+			if err := submit.Write(conn); err != nil {
+				t.Fatalf("submit Steam Deck %s IN: %v", tt.name, err)
+			}
+			waitForSteamDeckAuxIN(t, dev.entered, tt.ep, "enter HandleInterruptIN")
+			unlink := usbip.CmdUnlink{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: tt.unlink, Dir: usbip.DirIn, Ep: tt.ep}, UnlinkSeqnum: tt.seq}
+			if err := unlink.Write(conn); err != nil {
+				t.Fatalf("unlink Steam Deck %s IN: %v", tt.name, err)
+			}
+			assertAsyncINUnlinkResponses(t, conn, tt.unlink)
+			waitForSteamDeckAuxIN(t, dev.returned, tt.ep, "exit after unlink cancellation")
+			assertNoAsyncINResponse(t, conn)
+		})
+	}
+}
+
+func TestSteamDeckAuxiliaryINExitsOnManagedDrain(t *testing.T) {
+	endpoints := []struct {
+		name   string
+		ep     uint32
+		length uint32
+		seq    uint32
+		busID  uint32
+	}{
+		{name: "keyboard", ep: 1, length: 8, seq: 101, busID: 3074},
+		{name: "mouse", ep: 2, length: 4, seq: 102, busID: 3075},
+	}
+	for _, tt := range endpoints {
+		t.Run(tt.name, func(t *testing.T) {
+			dev := newObservedSteamDeckAuxINDevice(t, 150, 5*time.Second)
+			server, conn := startAsyncINTestSession(t, dev, tt.busID)
+			cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: tt.seq, Dir: usbip.DirIn, Ep: tt.ep}, TransferBufferLen: tt.length}
+			if err := cmd.Write(conn); err != nil {
+				t.Fatalf("submit Steam Deck %s IN: %v", tt.name, err)
+			}
+			waitForSteamDeckAuxIN(t, dev.entered, tt.ep, "enter HandleInterruptIN")
+
+			drain := server.BeginDeviceDrain(dev)
+			drainDone := make(chan struct{})
+			go func() { drain.Wait(); close(drainDone) }()
+			select {
+			case <-drainDone:
+			case <-time.After(time.Second):
+				t.Fatalf("managed drain did not release Steam Deck %s IN", tt.name)
+			}
+			waitForSteamDeckAuxIN(t, dev.returned, tt.ep, "exit after managed drain")
+			assertNoLateAsyncINResponse(t, conn)
+		})
+	}
 }
 
 func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
