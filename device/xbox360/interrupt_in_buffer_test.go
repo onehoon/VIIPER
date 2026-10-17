@@ -22,7 +22,7 @@ func TestInterruptINBufferReuseAndLegacyAllocation(t *testing.T) {
 
 	scratch := bytes.Repeat([]byte{0xcc}, 72)
 	suffix := append([]byte(nil), scratch[xbox360InputReportLen:]...)
-	checkBuffered := func(want []byte) []byte {
+	checkBuffered := func(want []byte) {
 		t.Helper()
 		got := buffered.HandleInterruptIN(context.Background(), 1, scratch)
 		if len(got) != xbox360InputReportLen || cap(got) != xbox360InputReportLen {
@@ -37,7 +37,6 @@ func TestInterruptINBufferReuseAndLegacyAllocation(t *testing.T) {
 		if !bytes.Equal(scratch[xbox360InputReportLen:], suffix) {
 			t.Fatal("buffer writer modified bytes after the report")
 		}
-		return got
 	}
 
 	neutral := []byte{0x00, 0x14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}

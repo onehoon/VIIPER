@@ -214,11 +214,6 @@ func copyINReport(dst, report []byte) []byte {
 	return dst[:len(report):len(report)]
 }
 
-func (d *SteamDeck) currentInputReport() []byte {
-	st := d.snapshotInputState()
-	return st.buildReport(st.Frame)
-}
-
 func (d *SteamDeck) currentInputReportInto(dst []byte) []byte {
 	st := d.snapshotInputState()
 	if dst == nil {

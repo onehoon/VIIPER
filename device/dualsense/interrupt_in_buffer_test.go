@@ -24,7 +24,7 @@ func TestInterruptINBufferReuseAndLegacyAndEP0Ownership(t *testing.T) {
 	}
 	scratch := bytes.Repeat([]byte{0xcc}, InputReportSize+5)
 	suffix := append([]byte(nil), scratch[InputReportSize:]...)
-	checkReport := func(want []byte, seq byte) []byte {
+	checkReport := func(want []byte, seq byte) {
 		t.Helper()
 		got := buffered.HandleInterruptIN(context.Background(), 4, scratch)
 		if len(got) != InputReportSize || cap(got) != InputReportSize {
@@ -41,7 +41,6 @@ func TestInterruptINBufferReuseAndLegacyAndEP0Ownership(t *testing.T) {
 		if !bytes.Equal(scratch[InputReportSize:], suffix) {
 			t.Fatal("report writer modified trailing sentinel")
 		}
-		return got
 	}
 
 	neutral := neutralInputGolden(1)
@@ -210,7 +209,7 @@ func TestEdgeInterruptINAndEP0SequenceNumbersAreDistinctUnderOverlap(t *testing.
 		if interruptReport[7] == controlReport[7] {
 			t.Fatalf("round %d concurrent report sequence numbers both equal %d", i, interruptReport[7])
 		}
-		if uint8(interruptReport[7]+1) != controlReport[7] && uint8(controlReport[7]+1) != interruptReport[7] {
+		if interruptReport[7]+1 != controlReport[7] && controlReport[7]+1 != interruptReport[7] {
 			t.Fatalf("round %d concurrent sequence numbers = %d/%d, want adjacent values", i, interruptReport[7], controlReport[7])
 		}
 	}
