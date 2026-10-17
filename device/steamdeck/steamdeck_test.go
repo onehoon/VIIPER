@@ -1263,9 +1263,22 @@ func TestAPIStreamAndUSBInput(t *testing.T) {
 	if !assert.NoError(t, stream.WriteBinary(&state)) {
 		return
 	}
-	got, err := readInputReport(750 * time.Millisecond)
-	if !assert.NoError(t, err) {
-		return
+	// The API input and USB/IP request use separate connections, so the first report may precede state delivery.
+	deadline := time.Now().Add(750 * time.Millisecond)
+	var got []byte
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			t.Fatalf("input state was not reflected in an IN report; last report: % x", got)
+		}
+		got, err = readInputReport(remaining)
+		if !assert.NoError(t, err) {
+			return
+		}
+		if len(got) >= 50 && got[8]&0x80 == 0x80 && got[14]&0x04 == 0x04 && binary.LittleEndian.Uint16(got[44:46]) == 222 && binary.LittleEndian.Uint16(got[48:50]) == 0xfb2e {
+			break
+		}
+		time.Sleep(time.Millisecond)
 	}
 	assert.Len(t, got, steamdeck.InputReportLen)
 	assert.Equal(t, byte(0x80), got[8]&0x80)

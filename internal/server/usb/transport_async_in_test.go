@@ -775,6 +775,52 @@ func TestAsyncINDataResponsePreservesSequenceLengthAndBytes(t *testing.T) {
 	}
 }
 
+func TestBufferedConsecutiveAsyncINSubmitsCompleteIndependently(t *testing.T) {
+	want := []byte{0x11, 0x22, 0x33}
+	dev := newImmediateINDevice(want)
+	_, conn := startAsyncINTestSession(t, dev, 3054)
+
+	var requests bytes.Buffer
+	for _, seq := range []uint32{41, 42} {
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 8}
+		if err := cmd.Write(&requests); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := conn.Write(requests.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := make(map[uint32]bool, 2)
+	for range 2 {
+		var response [48]byte
+		if _, err := io.ReadFull(conn, response[:]); err != nil {
+			t.Fatalf("read RET_SUBMIT: %v", err)
+		}
+		if got := binary.BigEndian.Uint32(response[0:4]); got != usbip.RetSubmitCode {
+			t.Fatalf("response command = %#x, want RET_SUBMIT", got)
+		}
+		seq := binary.BigEndian.Uint32(response[4:8])
+		if seq != 41 && seq != 42 {
+			t.Fatalf("RET_SUBMIT sequence = %d, want 41 or 42", seq)
+		}
+		if seen[seq] {
+			t.Fatalf("duplicate RET_SUBMIT sequence %d", seq)
+		}
+		seen[seq] = true
+		if got := binary.BigEndian.Uint32(response[24:28]); got != uint32(len(want)) {
+			t.Fatalf("RET_SUBMIT actual length = %d, want %d", got, len(want))
+		}
+		payload := make([]byte, len(want))
+		if _, err := io.ReadFull(conn, payload); err != nil {
+			t.Fatalf("read RET_SUBMIT payload: %v", err)
+		}
+		if !bytes.Equal(payload, want) {
+			t.Fatalf("RET_SUBMIT payload = % x, want % x", payload, want)
+		}
+	}
+}
+
 func TestXbox360AndDualSenseEdgeUSBIPINRegression(t *testing.T) {
 	xbox, err := xbox360.New(nil)
 	if err != nil {
