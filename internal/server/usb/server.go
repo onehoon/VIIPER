@@ -1099,6 +1099,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	var outPayloadScratch []byte
 
 	for {
+		// Check cancellation between URBs without delaying buffered requests.
 		select {
 		case <-ctx.Done():
 			s.logger.Info("device removed, closing URB stream")
@@ -1134,8 +1135,7 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 				}
 			}
 			return nil
-		case <-time.After(10 * time.Millisecond):
-			// Check for context cancellation periodically to prevent busy-wait
+		default:
 		}
 
 		var hdr [urbHdrSize]byte
