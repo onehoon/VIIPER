@@ -47,7 +47,7 @@ Do not mistake CTW's independently pinned/test-built DLL for the current fork ba
 
 ### 3.1 CTW measurement and proven fix
 
-CTW measured its Xbox360 virtual pad on Windows 11 / MSI Claw 8 AI+ / usbip-win2 0.9.8.1. Before its local patch: Windows `GetLastInputInfo` reset **69–108 times per five seconds** and XInput packet numbers increased approximately **95/s** with no state change. After removing **server-side idle replay**, measured idle resets were **0 over 30 seconds** and packet number stayed constant; buttons, sticks, rumble and automatic sleep were subsequently verified functional. These are **CTW hardware results**, not measurements from the Addon or the new fork revision.
+CTW's pre-fix Xbox360 measurements on Windows 11 / MSI Claw 8 AI+ were collected with usbip-win2 0.9.8.0: Windows `GetLastInputInfo` reset **69–108 times per five seconds** and XInput packet numbers increased approximately **95/s** with no state change. The locally patched A/B build was then validated with usbip-win2 0.9.8.1: after removing **server-side idle replay**, measured idle resets were **0 over 30 seconds** and packet number stayed constant; buttons, sticks, rumble and automatic sleep were subsequently verified functional. These are **CTW hardware results**, not measurements from the Addon or the new fork revision.
 
 CTW separately deduplicated repeated `SetXbox360DeviceState` calls in `SubmitToBackends`. This matters: its **consumer** sends only changed states, so a NAK-idle USB/IP path can genuinely be silent indefinitely while idle.
 
@@ -165,6 +165,8 @@ Do not introduce WSGM pacing, shared buffer pools, new per-endpoint ownership ta
 ### 5.2 Replace the transport tests which *require* replay
 
 `internal/server/usb/transport_async_in_test.go` currently has these tests/fakes that **must be updated**, not skipped:
+
+Every no-replay regression test must exercise the expired-attempt branch: the fake device must wait for `attemptCtx.Done()`, return nil only when `attemptCtx.Err() == context.DeadlineExceeded`, and expose evidence that the deadline was reached before the test asserts that no response arrived. An immediate-nil fake tests the separate anti-spin parking path and is not sufficient to prove removal of cached replay.
 
 1. `TestAsyncINReportCacheIsIndependentPerEndpoint` / `endpointCacheINDevice`:
    - Keep real two-endpoint coverage. Deliver an initial distinct report from both endpoints, then queue fresh requests for each with **no new input**.

@@ -931,26 +931,6 @@ type inEndpointWorker struct {
 	jobs chan inJob
 }
 
-func storeINResponse(respMu *sync.Mutex, responses map[uint32][]byte, ep uint32, report []byte) {
-	respMu.Lock()
-	responses[ep] = append(responses[ep][:0], report...)
-	respMu.Unlock()
-}
-
-func copyCachedINResponse(respMu *sync.Mutex, responses map[uint32][]byte, ep uint32, scratch []byte) ([]byte, bool) {
-	respMu.Lock()
-	defer respMu.Unlock()
-	cached, ok := responses[ep]
-	if !ok {
-		return nil, false
-	}
-	if len(cached) > len(scratch) {
-		return append([]byte(nil), cached...), true
-	}
-	copy(scratch, cached)
-	return scratch[:len(cached):len(cached)], true
-}
-
 func startINEndpointWorker(streamDone <-chan struct{}, wg *sync.WaitGroup, run func(inJob, []byte)) *inEndpointWorker {
 	worker := &inEndpointWorker{jobs: make(chan inJob)}
 	wg.Add(1)
@@ -1063,8 +1043,6 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 		workerWG.Wait()
 	}()
 
-	var respMu sync.Mutex
-	lastInResp := map[uint32][]byte{}
 	endpoints := map[uint32]*inEndpointWorker{}
 	bufferDev, supportsBuffer := dev.(usb.InterruptInBufferDevice)
 
@@ -1088,16 +1066,10 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 				return
 			}
 			if respData != nil {
-				storeINResponse(&respMu, lastInResp, job.ep, respData)
 				break
 			}
 			if expired {
-				var ok bool
-				respData, ok = copyCachedINResponse(&respMu, lastInResp, job.ep, scratch)
-				if ok {
-					break
-				}
-				time.Sleep(time.Millisecond)
+				// No new device data at this poll deadline: keep the original URB pending.
 				continue
 			}
 			// Device answered "no data" without blocking.
