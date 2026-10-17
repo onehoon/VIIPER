@@ -322,15 +322,17 @@ func TestOverlappingAsyncINRequestsUnlinkIndependently(t *testing.T) {
 	}
 }
 
-type endpointCacheINDevice struct {
+type noReplayEndpointINDevice struct {
 	mu         sync.Mutex
 	calls      map[uint32]int
+	timeouts   chan uint32
 	descriptor rootusb.Descriptor
 }
 
-func newEndpointCacheINDevice() *endpointCacheINDevice {
-	return &endpointCacheINDevice{
-		calls: make(map[uint32]int),
+func newNoReplayEndpointINDevice() *noReplayEndpointINDevice {
+	return &noReplayEndpointINDevice{
+		calls:    make(map[uint32]int),
+		timeouts: make(chan uint32, 64),
 		descriptor: rootusb.Descriptor{
 			Device: rootusb.DeviceDescriptor{BNumConfigurations: 1, Speed: 3},
 			Interfaces: []rootusb.InterfaceConfig{{
@@ -344,7 +346,7 @@ func newEndpointCacheINDevice() *endpointCacheINDevice {
 	}
 }
 
-func (d *endpointCacheINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, _ []byte) []byte {
+func (d *noReplayEndpointINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, _ []byte) []byte {
 	if dir != usbip.DirIn || ep < 1 || ep > 2 {
 		return nil
 	}
@@ -356,15 +358,21 @@ func (d *endpointCacheINDevice) HandleTransfer(ctx context.Context, ep uint32, d
 		return []byte{byte(0xa0 + ep)}
 	}
 	<-ctx.Done()
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		select {
+		case d.timeouts <- ep:
+		default:
+		}
+	}
 	return nil
 }
 
-func (d *endpointCacheINDevice) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
+func (d *noReplayEndpointINDevice) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
 
-func (d *endpointCacheINDevice) GetDeviceSpecificArgs() map[string]any { return nil }
+func (d *noReplayEndpointINDevice) GetDeviceSpecificArgs() map[string]any { return nil }
 
-func TestAsyncINReportCacheIsIndependentPerEndpoint(t *testing.T) {
-	dev := newEndpointCacheINDevice()
+func TestAsyncINDoesNotReplayReportsAcrossEndpointTimeouts(t *testing.T) {
+	dev := newNoReplayEndpointINDevice()
 	_, conn := startAsyncINTestSession(t, dev, 3059)
 	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
 		t.Fatal(err)
@@ -415,26 +423,58 @@ func TestAsyncINReportCacheIsIndependentPerEndpoint(t *testing.T) {
 
 	submit(103, 1)
 	submit(104, 2)
-	replayed := readPair([2]uint32{103, 104})
-	if !bytes.Equal(replayed[103], []byte{0xa1}) || !bytes.Equal(replayed[104], []byte{0xa2}) {
-		t.Fatalf("cached endpoint reports = % x / % x, want a1 / a2", replayed[103], replayed[104])
+	timeoutCounts := map[uint32]int{1: 0, 2: 0}
+	waitForEndpointTimeouts(t, dev.timeouts, timeoutCounts, 1)
+	assertNoAsyncINResponse(t, conn)
+	waitForEndpointTimeouts(t, dev.timeouts, timeoutCounts, 2)
+	assertNoAsyncINResponse(t, conn)
+
+	for _, unlink := range []usbip.CmdUnlink{
+		{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: 201, Dir: usbip.DirIn, Ep: 1}, UnlinkSeqnum: 103},
+		{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: 202, Dir: usbip.DirIn, Ep: 2}, UnlinkSeqnum: 104},
+	} {
+		if err := unlink.Write(conn); err != nil {
+			t.Fatalf("unlink pending IN request: %v", err)
+		}
+	}
+	assertAsyncINUnlinkResponses(t, conn, 201, 202)
+	assertNoAsyncINResponse(t, conn)
+}
+
+func waitForEndpointTimeouts(t *testing.T, timeouts <-chan uint32, counts map[uint32]int, want int) {
+	t.Helper()
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+	for counts[1] < want || counts[2] < want {
+		select {
+		case ep := <-timeouts:
+			if _, ok := counts[ep]; ok {
+				counts[ep]++
+			}
+		case <-timer.C:
+			t.Fatalf("timed out waiting for %d deadline expirations per endpoint; got %v", want, counts)
+		}
 	}
 }
 
-type largeCachedReplayINDevice struct {
+type largeINDeviceWithoutReplay struct {
 	mu         sync.Mutex
 	calls      int
 	response   []byte
+	fresh      chan []byte
+	timeouts   chan struct{}
 	descriptor rootusb.Descriptor
 }
 
-func newLargeCachedReplayINDevice() *largeCachedReplayINDevice {
+func newLargeINDeviceWithoutReplay() *largeINDeviceWithoutReplay {
 	response := make([]byte, 100)
 	for i := range response {
 		response[i] = byte(i + 1)
 	}
-	return &largeCachedReplayINDevice{
+	return &largeINDeviceWithoutReplay{
 		response: response,
+		fresh:    make(chan []byte, 1),
+		timeouts: make(chan struct{}, 64),
 		descriptor: rootusb.Descriptor{
 			Device: rootusb.DeviceDescriptor{BNumConfigurations: 1, Speed: 3},
 			Interfaces: []rootusb.InterfaceConfig{{
@@ -445,7 +485,7 @@ func newLargeCachedReplayINDevice() *largeCachedReplayINDevice {
 	}
 }
 
-func (d *largeCachedReplayINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, _ []byte) []byte {
+func (d *largeINDeviceWithoutReplay) HandleTransfer(ctx context.Context, ep uint32, dir uint32, _ []byte) []byte {
 	if dir != usbip.DirIn || ep != 1 {
 		return nil
 	}
@@ -456,46 +496,105 @@ func (d *largeCachedReplayINDevice) HandleTransfer(ctx context.Context, ep uint3
 	if call == 1 {
 		return append([]byte(nil), d.response...)
 	}
-	<-ctx.Done()
-	return nil
+	select {
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			select {
+			case d.timeouts <- struct{}{}:
+			default:
+			}
+		}
+		return nil
+	case report := <-d.fresh:
+		return report
+	}
 }
 
-func (d *largeCachedReplayINDevice) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
+func (d *largeINDeviceWithoutReplay) GetDescriptor() *rootusb.Descriptor { return &d.descriptor }
 
-func (d *largeCachedReplayINDevice) GetDeviceSpecificArgs() map[string]any { return nil }
+func (d *largeINDeviceWithoutReplay) GetDeviceSpecificArgs() map[string]any { return nil }
 
-func TestLegacyCustomDeviceLargeINPayloadAndCachedReplay(t *testing.T) {
-	dev := newLargeCachedReplayINDevice()
+func TestLegacyCustomDeviceLargeINPayloadWithoutIdleReplay(t *testing.T) {
+	dev := newLargeINDeviceWithoutReplay()
 	_, conn := startAsyncINTestSession(t, dev, 3062)
 	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	defer conn.SetReadDeadline(time.Time{})
-	for _, seq := range []uint32{121, 122} {
+	submit := func(seq uint32) {
+		t.Helper()
 		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 128}
 		if err := cmd.Write(conn); err != nil {
 			t.Fatalf("submit legacy IN sequence %d: %v", seq, err)
 		}
-		var header [48]byte
-		if _, err := io.ReadFull(conn, header[:]); err != nil {
-			t.Fatalf("read legacy IN response %d: %v", seq, err)
+	}
+	readReport := func(seq uint32, want []byte) {
+		t.Helper()
+		got := readAsyncINResponse(t, conn, seq)
+		if len(got) != len(want) || !bytes.Equal(got, want) {
+			t.Fatalf("response %d payload mismatch: got %d bytes, want %d", seq, len(got), len(want))
 		}
-		if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
-			t.Fatalf("response command = %#x, want RET_SUBMIT", got)
+	}
+
+	submit(121)
+	readReport(121, dev.response)
+
+	submit(122)
+	waitForDeadlineCount(t, dev.timeouts, 1)
+	assertNoAsyncINResponse(t, conn)
+	waitForDeadlineCount(t, dev.timeouts, 3)
+	assertNoAsyncINResponse(t, conn)
+
+	fresh := bytes.Repeat([]byte{0xd7}, 100)
+	dev.fresh <- fresh
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	readReport(122, fresh)
+}
+
+func waitForDeadlineCount(t *testing.T, deadlines <-chan struct{}, want int) {
+	t.Helper()
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+	for i := 0; i < want; i++ {
+		select {
+		case <-deadlines:
+		case <-timer.C:
+			t.Fatalf("timed out waiting for %d IN attempt deadline expirations", want)
 		}
-		if got := binary.BigEndian.Uint32(header[4:8]); got != seq {
-			t.Fatalf("response sequence = %d, want %d", got, seq)
+	}
+}
+
+func assertAsyncINUnlinkResponses(t *testing.T, conn net.Conn, unlinkSeqs ...uint32) {
+	t.Helper()
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
+	want := make(map[uint32]bool, len(unlinkSeqs))
+	for _, seq := range unlinkSeqs {
+		want[seq] = true
+	}
+	for range unlinkSeqs {
+		var response [48]byte
+		if _, err := io.ReadFull(conn, response[:]); err != nil {
+			t.Fatalf("read RET_UNLINK: %v", err)
 		}
-		if got := binary.BigEndian.Uint32(header[24:28]); got != uint32(len(dev.response)) {
-			t.Fatalf("actual length = %d, want %d", got, len(dev.response))
+		if got := binary.BigEndian.Uint32(response[0:4]); got != usbip.RetUnlinkCode {
+			t.Fatalf("response command = %#x, want RET_UNLINK", got)
 		}
-		payload := make([]byte, len(dev.response))
-		if _, err := io.ReadFull(conn, payload); err != nil {
-			t.Fatalf("read response payload %d: %v", seq, err)
+		seq := binary.BigEndian.Uint32(response[4:8])
+		if !want[seq] {
+			t.Fatalf("unexpected or duplicate RET_UNLINK sequence %d", seq)
 		}
-		if !bytes.Equal(payload, dev.response) {
-			t.Fatalf("response %d payload mismatch: got %d bytes", seq, len(payload))
+		delete(want, seq)
+		if got := int32(binary.BigEndian.Uint32(response[20:24])); got != -104 {
+			t.Fatalf("RET_UNLINK sequence %d status = %d, want -ECONNRESET (-104)", seq, got)
 		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing RET_UNLINK responses for sequences %v", want)
 	}
 }
 
@@ -767,7 +866,7 @@ func TestXbox360AndDualSenseEdgeUSBIPINRegression(t *testing.T) {
 			}
 			defer conn.SetReadDeadline(time.Time{})
 
-			read := func(seq uint32) []byte {
+			submit := func(seq uint32) {
 				t.Helper()
 				cmd := usbip.CmdSubmit{
 					Basic: usbip.HeaderBasic{
@@ -781,7 +880,11 @@ func TestXbox360AndDualSenseEdgeUSBIPINRegression(t *testing.T) {
 				if err := cmd.Write(conn); err != nil {
 					t.Fatal(err)
 				}
-				report := readSteamDeckINResponse(t, conn, seq)
+			}
+			read := func(seq uint32) []byte {
+				t.Helper()
+				submit(seq)
+				report := readAsyncINResponse(t, conn, seq)
 				if len(report) != tc.reportLen {
 					t.Fatalf("%s report length = %d, want %d", tc.name, len(report), tc.reportLen)
 				}
@@ -793,15 +896,226 @@ func TestXbox360AndDualSenseEdgeUSBIPINRegression(t *testing.T) {
 
 			tc.checkNeutral(t, read(1))
 			tc.update()
-			tc.check(t, read(2)) // Updated state reaches the host.
-			tc.check(t, read(3)) // No update: preserve each device's existing latest-state fallback.
+			updated := read(2)
+			tc.check(t, updated) // Updated state reaches the host.
+			if tc.name == "xbox360" {
+				submit(3)
+				assertNoAsyncINResponse(t, conn)
+			} else {
+				idle := read(3) // Devices with a timeout report preserve their own latest-state behavior.
+				tc.check(t, idle)
+				if tc.name == "dualsenseedge" {
+					if idle[7] != updated[7]+1 {
+						t.Fatalf("DualSense Edge timeout sequence = %d, want next after %d", idle[7], updated[7])
+					}
+					updatedTimestamp := binary.LittleEndian.Uint32(updated[28:32])
+					idleTimestamp := binary.LittleEndian.Uint32(idle[28:32])
+					if idleTimestamp <= updatedTimestamp {
+						t.Fatalf("DualSense Edge timeout timestamp = %d, want greater than %d", idleTimestamp, updatedTimestamp)
+					}
+				}
+			}
 		})
 	}
 }
 
+type observedXbox360INDevice struct {
+	*xbox360.Xbox360
+	waitBudget time.Duration
+	timeouts   chan struct{}
+	entered    chan struct{}
+	overlap    chan struct{}
+	mu         sync.Mutex
+	inFlight   int
+}
+
+func (d *observedXbox360INDevice) InterruptINWaitBudget(ep uint32) time.Duration {
+	if ep == 1 {
+		return d.waitBudget
+	}
+	return 0
+}
+
+func (d *observedXbox360INDevice) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	d.mu.Lock()
+	d.inFlight++
+	overlapping := d.inFlight > 1
+	d.mu.Unlock()
+	defer func() {
+		d.mu.Lock()
+		d.inFlight--
+		d.mu.Unlock()
+	}()
+
+	select {
+	case d.entered <- struct{}{}:
+	default:
+	}
+	if overlapping {
+		select {
+		case d.overlap <- struct{}{}:
+		default:
+		}
+	}
+
+	report := d.Xbox360.HandleInterruptIN(ctx, ep, dst)
+	if report == nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		select {
+		case d.timeouts <- struct{}{}:
+		default:
+		}
+	}
+	return report
+}
+
+func TestXbox360NAKIdleWireBehavior(t *testing.T) {
+	xbox, err := xbox360.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev := &observedXbox360INDevice{
+		Xbox360:    xbox,
+		waitBudget: 4 * time.Millisecond,
+		timeouts:   make(chan struct{}, 128),
+		entered:    make(chan struct{}, 128),
+		overlap:    make(chan struct{}, 1),
+	}
+	_, conn := startAsyncINTestSession(t, dev, 3063)
+	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
+
+	submit := func(seq uint32) {
+		t.Helper()
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 20}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit Xbox360 IN sequence %d: %v", seq, err)
+		}
+	}
+	readReport := func(seq uint32) []byte {
+		t.Helper()
+		return readAsyncINResponse(t, conn, seq)
+	}
+	assertNeutral := func(report []byte) {
+		t.Helper()
+		if len(report) != 20 {
+			t.Fatalf("Xbox360 report length = %d, want 20", len(report))
+		}
+		if report[2] != 0 || report[3] != 0 {
+			t.Fatalf("Xbox360 button bytes = %02x %02x, want neutral", report[2], report[3])
+		}
+	}
+	discardTimeouts := func() {
+		t.Helper()
+		for {
+			select {
+			case <-dev.timeouts:
+			default:
+				return
+			}
+		}
+	}
+
+	submit(41)
+	assertNeutral(readReport(41))
+
+	discardTimeouts()
+	submit(42)
+	waitForDeadlineCount(t, dev.timeouts, 3)
+	assertNoAsyncINResponse(t, conn)
+	xbox.UpdateInputState(xbox360.InputState{}) // An identical state submission remains fresh input.
+	assertNeutral(readReport(42))
+
+	discardTimeouts()
+	submit(43)
+	waitForDeadlineCount(t, dev.timeouts, 3)
+	assertNoAsyncINResponse(t, conn)
+	xbox.UpdateInputState(xbox360.InputState{Buttons: xbox360.ButtonA})
+	pressed := readReport(43)
+	if len(pressed) != 20 || pressed[3]&0x10 == 0 {
+		t.Fatalf("Xbox360 A-button report = % x, want A pressed", pressed)
+	}
+
+	discardTimeouts()
+	submit(44)
+	xbox.UpdateInputState(xbox360.InputState{})
+	released := readReport(44)
+	if len(released) != 20 || released[3]&0x10 != 0 {
+		t.Fatalf("Xbox360 A-button release report = % x, want A released", released)
+	}
+
+	discardTimeouts()
+	submit(45)
+	waitForDeadlineCount(t, dev.timeouts, 3)
+	assertNoAsyncINResponse(t, conn)
+	unlink := usbip.CmdUnlink{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: 46, Dir: usbip.DirIn, Ep: 1}, UnlinkSeqnum: 45}
+	if err := unlink.Write(conn); err != nil {
+		t.Fatalf("unlink idle Xbox360 IN: %v", err)
+	}
+	assertAsyncINUnlinkResponses(t, conn, 46)
+	assertNoAsyncINResponse(t, conn)
+}
+
+func TestXbox360PendingFallbackINCanBeUnlinkedIndependently(t *testing.T) {
+	xbox, err := xbox360.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev := &observedXbox360INDevice{
+		Xbox360:    xbox,
+		waitBudget: 250 * time.Millisecond,
+		timeouts:   make(chan struct{}, 16),
+		entered:    make(chan struct{}, 16),
+		overlap:    make(chan struct{}, 1),
+	}
+	_, conn := startAsyncINTestSession(t, dev, 3064)
+	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
+
+	submit := func(seq uint32) {
+		t.Helper()
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 1}, TransferBufferLen: 20}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit Xbox360 IN sequence %d: %v", seq, err)
+		}
+	}
+	unlink := func(unlinkSeq, requestSeq uint32) {
+		t.Helper()
+		cmd := usbip.CmdUnlink{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: unlinkSeq, Dir: usbip.DirIn, Ep: 1}, UnlinkSeqnum: requestSeq}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("unlink Xbox360 IN sequence %d: %v", requestSeq, err)
+		}
+		assertAsyncINUnlinkResponses(t, conn, unlinkSeq)
+		assertNoAsyncINResponse(t, conn)
+	}
+
+	submit(51)
+	readAsyncINResponse(t, conn, 51)
+	<-dev.entered
+	submit(52)
+	select {
+	case <-dev.entered:
+	case <-time.After(time.Second):
+		t.Fatal("persistent-worker Xbox360 request did not enter the device")
+	}
+	submit(53)
+	select {
+	case <-dev.overlap:
+	case <-time.After(time.Second):
+		t.Fatal("overlapping Xbox360 request did not enter the independent fallback")
+	}
+
+	unlink(54, 53)
+	unlink(55, 52)
+}
+
 type observedSteamDeckINDevice struct {
 	*steamdeck.SteamDeck
-	entered chan struct{}
+	entered         chan struct{}
+	deadlineReports chan struct{}
 }
 
 func (d *observedSteamDeckINDevice) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out []byte) []byte {
@@ -821,14 +1135,25 @@ func (d *observedSteamDeckINDevice) HandleInterruptIN(ctx context.Context, ep ui
 		default:
 		}
 	}
-	return d.SteamDeck.HandleInterruptIN(ctx, ep, dst)
+	report := d.SteamDeck.HandleInterruptIN(ctx, ep, dst)
+	if ep == 3 && report != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		select {
+		case d.deadlineReports <- struct{}{}:
+		default:
+		}
+	}
+	return report
 }
 
-func readSteamDeckINResponse(t *testing.T, conn net.Conn, seq uint32) []byte {
+func readAsyncINResponse(t *testing.T, conn net.Conn, seq uint32) []byte {
 	t.Helper()
+	if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	defer conn.SetReadDeadline(time.Time{})
 	var header [48]byte
 	if _, err := io.ReadFull(conn, header[:]); err != nil {
-		t.Fatalf("read Steam Deck RET_SUBMIT: %v", err)
+		t.Fatalf("read RET_SUBMIT: %v", err)
 	}
 	if got := binary.BigEndian.Uint32(header[0:4]); got != usbip.RetSubmitCode {
 		t.Fatalf("response command = %#x, want RET_SUBMIT", got)
@@ -839,7 +1164,7 @@ func readSteamDeckINResponse(t *testing.T, conn net.Conn, seq uint32) []byte {
 	payloadLen := binary.BigEndian.Uint32(header[24:28])
 	payload := make([]byte, payloadLen)
 	if _, err := io.ReadFull(conn, payload); err != nil {
-		t.Fatalf("read Steam Deck RET_SUBMIT payload: %v", err)
+		t.Fatalf("read RET_SUBMIT payload: %v", err)
 	}
 	return payload
 }
@@ -849,7 +1174,11 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dev := &observedSteamDeckINDevice{SteamDeck: deck, entered: make(chan struct{}, 4)}
+	dev := &observedSteamDeckINDevice{
+		SteamDeck:       deck,
+		entered:         make(chan struct{}, 4),
+		deadlineReports: make(chan struct{}, 4),
+	}
 	_, conn := startAsyncINTestSession(t, dev, 3054)
 
 	first := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 31, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
@@ -861,7 +1190,7 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Steam Deck async IN worker did not reach the device")
 	}
-	initial := readSteamDeckINResponse(t, conn, 31)
+	initial := readAsyncINResponse(t, conn, 31)
 	if len(initial) != steamdeck.InputReportLen {
 		t.Fatalf("initial report length = %d, want %d", len(initial), steamdeck.InputReportLen)
 	}
@@ -880,7 +1209,7 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	}
 	dev.UpdateInputState(&steamdeck.InputState{Pitch: 1234, LStickX: -2345})
 
-	latest := readSteamDeckINResponse(t, conn, 32)
+	latest := readAsyncINResponse(t, conn, 32)
 	if len(latest) != steamdeck.InputReportLen {
 		t.Fatalf("updated report length = %d, want %d", len(latest), steamdeck.InputReportLen)
 	}
@@ -892,6 +1221,30 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	}
 	if got := int16(binary.LittleEndian.Uint16(latest[48:50])); got != -2345 {
 		t.Fatalf("updated stick X = %d, want -2345", got)
+	}
+
+	third := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 33, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
+	if err := third.Write(conn); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-dev.entered:
+	case <-time.After(time.Second):
+		t.Fatal("idle Steam Deck IN did not reach the device")
+	}
+	waitForDeadlineCount(t, dev.deadlineReports, 1)
+	idle := readAsyncINResponse(t, conn, 33)
+	if len(idle) != steamdeck.InputReportLen {
+		t.Fatalf("idle report length = %d, want %d", len(idle), steamdeck.InputReportLen)
+	}
+	if got := binary.LittleEndian.Uint32(idle[4:8]); got != 1 {
+		t.Fatalf("idle frame = %d, want latest state frame 1", got)
+	}
+	if got := int16(binary.LittleEndian.Uint16(idle[30:32])); got != 1234 {
+		t.Fatalf("idle gyro pitch = %d, want 1234", got)
+	}
+	if got := int16(binary.LittleEndian.Uint16(idle[48:50])); got != -2345 {
+		t.Fatalf("idle stick X = %d, want -2345", got)
 	}
 }
 
@@ -912,7 +1265,7 @@ func TestManagedDrainCancelsPendingSteamDeckINWithoutLateCompletion(t *testing.T
 	case <-time.After(time.Second):
 		t.Fatal("initial Steam Deck IN did not reach device")
 	}
-	readSteamDeckINResponse(t, conn, 41)
+	readAsyncINResponse(t, conn, 41)
 
 	second := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 42, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
 	if err := second.Write(conn); err != nil {
