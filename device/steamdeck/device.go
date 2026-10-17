@@ -181,9 +181,14 @@ func (d *SteamDeck) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte
 
 func (d *SteamDeck) handleIN(ctx context.Context, ep uint32, dst []byte) []byte {
 	switch ep {
-	case mouseEndpointNumber:
-		return copyINReport(dst, zeroMouseReport)
-	case keyboardEndpointNumber:
+	case mouseEndpointNumber, keyboardEndpointNumber:
+		<-ctx.Done()
+		if ctx.Err() != context.DeadlineExceeded {
+			return nil
+		}
+		if ep == mouseEndpointNumber {
+			return copyINReport(dst, zeroMouseReport)
+		}
 		return copyINReport(dst, zeroKeyboardReport)
 	case controllerEndpointNumber:
 		select {

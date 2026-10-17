@@ -25,7 +25,13 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 	suffix := append([]byte(nil), scratch[InputReportLen:]...)
 	checkReport := func(ep uint32, want []byte) []byte {
 		t.Helper()
-		got := buffered.HandleInterruptIN(context.Background(), ep, scratch)
+		ctx := context.Background()
+		cancel := func() {}
+		if ep == mouseEndpointNumber || ep == keyboardEndpointNumber {
+			ctx, cancel = context.WithTimeout(ctx, 20*time.Millisecond)
+		}
+		defer cancel()
+		got := buffered.HandleInterruptIN(ctx, ep, scratch)
 		if len(got) != len(want) || cap(got) != len(want) {
 			t.Fatalf("endpoint %d report len/cap = %d/%d, want %d/%d", ep, len(got), cap(got), len(want), len(want))
 		}
@@ -134,6 +140,113 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 	}
 	if got := buffered.HandleInterruptIN(context.Background(), 4, scratch); got != nil {
 		t.Fatalf("unknown endpoint returned % x, want nil", got)
+	}
+}
+
+type doneObservedContext struct {
+	context.Context
+	doneCalled chan struct{}
+}
+
+func (c *doneObservedContext) Done() <-chan struct{} {
+	select {
+	case c.doneCalled <- struct{}{}:
+	default:
+	}
+	return c.Context.Done()
+}
+
+func TestAuxiliaryINWaitsForDeadlineOnBothHandlerPaths(t *testing.T) {
+	tests := []struct {
+		name string
+		ep   uint32
+		want []byte
+	}{
+		{name: "mouse", ep: mouseEndpointNumber, want: zeroMouseReport},
+		{name: "keyboard", ep: keyboardEndpointNumber, want: zeroKeyboardReport},
+	}
+
+	for _, tt := range tests {
+		for _, useBuffer := range []bool{false, true} {
+			path := "HandleTransfer"
+			if useBuffer {
+				path = "HandleInterruptIN"
+			}
+			t.Run(tt.name+"/"+path, func(t *testing.T) {
+				d, err := New((*device.CreateOptions)(nil))
+				if err != nil {
+					t.Fatal(err)
+				}
+				baseCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				defer cancel()
+				started := time.Now()
+				var got []byte
+				if useBuffer {
+					got = d.HandleInterruptIN(baseCtx, tt.ep, bytes.Repeat([]byte{0xcc}, 64))
+				} else {
+					got = d.HandleTransfer(baseCtx, tt.ep, usbip.DirIn, nil)
+				}
+				if elapsed := time.Since(started); elapsed < 50*time.Millisecond {
+					t.Fatalf("endpoint %d completed after %v, want it to wait for its context deadline", tt.ep, elapsed)
+				}
+				if !bytes.Equal(got, tt.want) {
+					t.Fatalf("endpoint %d report = % x, want % x", tt.ep, got, tt.want)
+				}
+			})
+		}
+	}
+}
+
+func TestAuxiliaryINCancellationReturnsNoReportOnBothHandlerPaths(t *testing.T) {
+	tests := []struct {
+		name string
+		ep   uint32
+	}{
+		{name: "mouse", ep: mouseEndpointNumber},
+		{name: "keyboard", ep: keyboardEndpointNumber},
+	}
+
+	for _, tt := range tests {
+		for _, useBuffer := range []bool{false, true} {
+			path := "HandleTransfer"
+			if useBuffer {
+				path = "HandleInterruptIN"
+			}
+			t.Run(tt.name+"/"+path, func(t *testing.T) {
+				d, err := New((*device.CreateOptions)(nil))
+				if err != nil {
+					t.Fatal(err)
+				}
+				baseCtx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				ctx := &doneObservedContext{Context: baseCtx, doneCalled: make(chan struct{}, 1)}
+				result := make(chan []byte, 1)
+				go func() {
+					if useBuffer {
+						result <- d.HandleInterruptIN(ctx, tt.ep, bytes.Repeat([]byte{0xcc}, 64))
+						return
+					}
+					result <- d.HandleTransfer(ctx, tt.ep, usbip.DirIn, nil)
+				}()
+
+				select {
+				case <-ctx.doneCalled:
+				case got := <-result:
+					t.Fatalf("endpoint %d returned before waiting for cancellation: % x", tt.ep, got)
+				case <-time.After(time.Second):
+					t.Fatalf("endpoint %d handler did not begin waiting on its context", tt.ep)
+				}
+				cancel()
+				select {
+				case got := <-result:
+					if got != nil {
+						t.Fatalf("cancelled endpoint %d returned report % x, want nil", tt.ep, got)
+					}
+				case <-time.After(time.Second):
+					t.Fatalf("cancelled endpoint %d handler did not exit", tt.ep)
+				}
+			})
+		}
 	}
 }
 
