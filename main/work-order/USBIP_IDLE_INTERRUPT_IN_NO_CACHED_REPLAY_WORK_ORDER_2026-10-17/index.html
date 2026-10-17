@@ -1,0 +1,2213 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — USB/IP Interrupt-IN: Remove Idle Cached-Report Replay (CTW Sleep Fix) - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-usbip-interrupt-in-remove-idle-cached-report-replay-ctw-sleep-fix" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — USB/IP Interrupt-IN: Remove Idle Cached-Report Replay (CTW Sleep Fix)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Decision
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-required-reference-review-read-live-head-before-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Required reference review (read live HEAD before coding)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Required reference review (read live HEAD before coding)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fork" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fork
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#independently-maintained-consumers-compatibility-references-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Independently maintained consumers (compatibility references only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-verified-bug-and-scope-specific-semantics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Verified bug and scope-specific semantics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Verified bug and scope-specific semantics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-ctw-measurement-and-proven-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 CTW measurement and proven fix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-the-current-forks-exact-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 The current fork's exact code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-three-device-behavior-after-the-cache-is-removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Three-device behavior after the cache is removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-addon-compatibility-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Addon compatibility boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-implementation-one-server-source-file-focused-test-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Implementation (one server source file, focused test updates)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Implementation (one server source file, focused test updates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-remove-the-common-cached-replay-and-no-longer-needed-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Remove the common cached replay and no-longer-needed helpers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-preserve-prs-6164-transport-and-device-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Preserve PRs #61–#64 transport and device improvements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-tests-revise-the-expected-behavior-do-not-only-delete-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Tests — revise the expected behavior, do not only delete tests
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Tests — revise the expected behavior, do not only delete tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-replace-cache-specific-unit-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Replace cache-specific unit tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-replace-the-transport-tests-which-require-replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Replace the transport tests which require replay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-protect-teardown-protocol-and-buffer-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Protect teardown, protocol and buffer behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-minimal-example-no-replay-is-not-no-future-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 Minimal example: no replay is not no future input
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-validation-by-local-codex-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Validation by local Codex / CI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-explicit-exclusions-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Explicit exclusions / guardrails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-acceptance-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Acceptance checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-deliberately-separate-follow-ups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Deliberately separate follow-ups
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-usbip-interrupt-in-remove-idle-cached-report-replay-ctw-sleep-fix">Work Order — USB/IP Interrupt-IN: Remove Idle Cached-Report Replay (CTW Sleep Fix)</h1>
+<p><strong>Date:</strong> 2026-10-17<br />
+<strong>Repository / branch:</strong> <code>onehoon/VIIPER</code> / <code>main</code><br />
+<strong>Verified source baseline:</strong> <code>28a77c122856eba3b166a123b556482ea29decab</code> (PR #64 squash-merged, after PRs #61–#63)<br />
+<strong>Implementer:</strong> Local Codex<br />
+<strong>Expected PR size:</strong> One focused VIIPER PR; make a single coherent code/test change.<br />
+<strong>Consumer adoption:</strong> <strong>Not in this PR.</strong> The standalone Full1902 Addon and the separate CTW-dev application are both consumers of the fork; neither application integrates the other.<br />
+<strong>Hardware testing:</strong> The user performs real-device validation <strong>after merge</strong>. It is not a local Codex requirement, required CI gate, or PR blocker.</p>
+<h2 id="1-decision">1. Decision</h2>
+<p>Implement the <strong>already hardware-proven CTW idle-sleep fix</strong> in the latest fork USB/IP server:</p>
+<ul>
+<li>An interrupt-IN request that has <strong>no new device-produced report</strong> when its poll/wait deadline expires <strong>must stay pending</strong>, rather than complete with the previous report held by the USB/IP connection.</li>
+<li>Remove the common interrupt-IN replay cache (<code>lastInResp</code>), its mutex (<code>respMu</code>), and the two cache maintenance helpers introduced/refined in PR #64.</li>
+<li>Preserve all report production rules <strong>inside the three supported device implementations</strong>: Xbox360, Steam Deck, and DualSense Edge (the Edge and ordinary DualSense share <code>device/dualsense</code>).</li>
+<li>Do not introduce WSGM's configuration system (<code>IdleMode</code>, <code>NaksWhenIdle</code>, <code>IdleKeepaliveInterval</code>, hardware pacing) or a substitute replay state machine. The common no-data semantics are enough for this change.</li>
+</ul>
+<p><strong>Critical distinction:</strong> The new policy says <strong>no USB/IP server-generated duplicate on timeout</strong>. It does <strong>not</strong> suppress a report returned by the device (even if its <em>bytes</em> match the last report). A consumer's new <code>SetXbox360DeviceState</code> call is a genuine new state <em>submission</em>, even if the supplied value is unchanged. No native setter deduplication is in this VIIPER work order.</p>
+<p>This scope is intentionally restricted to the <strong>three controller presentations used by the Addon and the Xbox360 presentation used by CTW-dev</strong>. The USB/IP transport implementation is shared, so its semantics change globally, but do not broaden the PR to redesign unconsumed controller families or invent policies for hypothetical clients.</p>
+<h2 id="2-required-reference-review-read-live-head-before-coding">2. Required reference review (read live HEAD before coding)</h2>
+<h3 id="fork">Fork</h3>
+<ul>
+<li><code>FORK_ARCHITECTURE.md</code>; <code>docs/libviiper/fork-api.md</code>.</li>
+<li><code>docs/work-order/PR_A_DEVICE_INPUT_REPORT_BUFFER_ENCODING_WORK_ORDER_2026-10-17.md</code> and PR #63.</li>
+<li><code>docs/work-order/PR_B_USBIP_INTERRUPT_IN_BUFFER_REUSE_WORK_ORDER_2026-10-17.md</code> and merged PR #64. <strong>Its cached replay/storage requirements are superseded <em>only</em> where the present work order deliberately removes the cache.</strong> Retain its caller-owned buffers and report encoders.</li>
+<li><code>docs/work-order/USBIP_PERSISTENT_INTERRUPT_IN_ENDPOINT_WORKERS_WORK_ORDER_2026-10-17.md</code> and PR #62.</li>
+<li><code>docs/work-order/USBIP_RET_SUBMIT_DIRECT_ENCODING_SINGLE_WRITE_OPTIMIZATION_WORK_ORDER_2026-10-16.md</code> and PR #61.</li>
+<li><code>docs/work-order/USBIP_NO_DATA_IN_URB_CPU_SPIN_BACKPORT_WORK_ORDER_2026-10-01.md</code> for the separate immediate-nil/no-data anti-spin contract.</li>
+<li><code>internal/server/usb/server.go</code>, <code>usb/device.go</code> and the relevant <code>internal/server/usb/*_test.go</code> tests.</li>
+<li><code>device/xbox360/device.go</code>, <code>device/steamdeck/device.go</code>, <code>device/dualsense/device.go</code> and their existing encoder tests.</li>
+</ul>
+<h3 id="independently-maintained-consumers-compatibility-references-only">Independently maintained consumers (compatibility references only)</h3>
+<ul>
+<li>Addon: <code>onehoon/SteamAddonforClaw/docs/Full 1902 Implementation/README.md</code>; <code>FULL_1902_IMPLEMENTATION_ARCHITECTURE.md</code>, <code>docs/VIIPER_INTEGRATION.md</code>, <code>docs/VIIPER_IMPLEMENTATION_RULES.md</code>.</li>
+<li>Addon: <code>src/SteamInputAddonforClaw/VirtualOutput/Viiper/CanonicalXbox360InputPublisher.cs</code> (4 ms / 250 Hz active, 8 ms / 125 Hz idle, and an unchanged-state refresh at least every 250 ms while idle). Also review the Steam Deck and DualSense Edge typed publishers, the one canonical VIIPER Runtime owner and <code>MsiClawAddonPresentation</code>.</li>
+<li>CTW: <code>onehoon/ClawTweaks-Dev</code> branch <code>release/v0.3.98.0</code>, <code>Doku/VIIPER_IdleInput_Repeat_Report_2026-10-15.md</code>, <code>XboxGamingBarHelper/Native/VIIPER/ctw-no-idle-in-repeat.patch</code>, <code>XboxGamingBarHelper/Native/VIIPER/viiper-artifact.json</code>, and <code>XboxGamingBarHelper/Labs/ClawButtonMonitor.cs</code> <code>SubmitToBackends</code>.</li>
+<li>WSGM comparison, <strong>not a dependency or a transplant target:</strong> <code>KillerPixelCrew/VIIPER</code> branch <code>wsgm</code> (device-specific NAK vs continuous gyro/sensor reporting).</li>
+</ul>
+<p>Do not mistake CTW's independently pinned/test-built DLL for the current fork baseline. CTW validated the fix against an older fork revision (<code>8902b53</code> + local patch), whereas this PR applies <strong>the equivalent behavior to main after PR #64</strong>, which has different buffer/cache helpers and persistent/fallback workers.</p>
+<h2 id="3-verified-bug-and-scope-specific-semantics">3. Verified bug and scope-specific semantics</h2>
+<h3 id="31-ctw-measurement-and-proven-fix">3.1 CTW measurement and proven fix</h3>
+<p>CTW measured its Xbox360 virtual pad on Windows 11 / MSI Claw 8 AI+ / usbip-win2 0.9.8.1. Before its local patch: Windows <code>GetLastInputInfo</code> reset <strong>69–108 times per five seconds</strong> and XInput packet numbers increased approximately <strong>95/s</strong> with no state change. After removing <strong>server-side idle replay</strong>, measured idle resets were <strong>0 over 30 seconds</strong> and packet number stayed constant; buttons, sticks, rumble and automatic sleep were subsequently verified functional. These are <strong>CTW hardware results</strong>, not measurements from the Addon or the new fork revision.</p>
+<p>CTW separately deduplicated repeated <code>SetXbox360DeviceState</code> calls in <code>SubmitToBackends</code>. This matters: its <strong>consumer</strong> sends only changed states, so a NAK-idle USB/IP path can genuinely be silent indefinitely while idle.</p>
+<h3 id="32-the-current-forks-exact-code">3.2 The current fork's exact code</h3>
+<p><code>internal/server/usb/server.go</code> at current main:</p>
+<ul>
+<li><code>runIN(job, scratch)</code> serves both PR #62's persistent per-endpoint worker and its independent overlapping fallback goroutines.</li>
+<li>With <code>job.interval &gt; 0</code>, each attempt uses <code>context.WithTimeout(job.ctx, job.interval)</code> and calls either <code>usb.InterruptInBufferDevice.HandleInterruptIN</code> (20/64-byte buffered reports) or legacy <code>s.processSubmit</code>.</li>
+<li>If the device returns non-nil <code>respData</code>, it calls <code>storeINResponse(&amp;respMu, lastInResp, job.ep, respData)</code> and later <code>writeRet</code>.</li>
+<li>If the attempt deadline expires with nil <code>respData</code>, it calls <code>copyCachedINResponse</code> and completes with the last report if one exists. That is the proven source of synthetic Xbox360 idle completions.</li>
+<li>If the device returns nil <strong>without</strong> an expired attempt deadline, the existing code parks on <code>&lt;-job.ctx.Done()</code> to prevent a USB/IP no-data request spin.</li>
+<li><code>writeRet</code> uses <code>writeMu</code> and a per-stream reusable <code>retOut</code>; it encodes a 48-byte <code>RET_SUBMIT</code> header plus payload, then one synchronous <code>writer.Write</code>. <code>CMD_UNLINK</code> removes/cancels the job from <code>pending</code> and sends <code>RET_UNLINK/-ECONNRESET</code> where appropriate.</li>
+<li>Request-specific <code>job.ctx</code> is canceled on UNLINK, managed device drain, stream teardown/EOF, server Close, and parent device removal. <code>workerWG.Wait()</code> joins persistent and fallback workers before closing the batching writer.</li>
+</ul>
+<p><strong>Keep the latter contracts entirely unchanged.</strong></p>
+<h3 id="33-three-device-behavior-after-the-cache-is-removed">3.3 Three-device behavior <em>after</em> the cache is removed</h3>
+<table>
+<thead>
+<tr>
+<th>Presented controller</th>
+<th>Input IN endpoint</th>
+<th>When device has no newly submitted state</th>
+<th>Required behavior in this PR</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Xbox360</td>
+<td>EP1 (<code>0x81</code>), 20 bytes</td>
+<td><code>handleIN</code> blocks on its one-slot <code>inputCh</code> until a <code>SetXbox360DeviceState</code> call or context expiry</td>
+<td><strong>No <code>RET_SUBMIT</code> on timeout.</strong> Leave the URB pending for another attempt. A new submitted report must complete promptly.</td>
+</tr>
+<tr>
+<td>Steam Deck</td>
+<td>controller EP3 (<code>0x83</code>), 64 bytes</td>
+<td><code>handleIN</code> returns a <em>new latest-state report</em> at its existing <strong>4 ms software wait budget</strong></td>
+<td>Continue completing reports. Preserve report bytes, frame-on-<code>UpdateInputState</code> rule, IMU fields and gyro continuity.</td>
+</tr>
+<tr>
+<td>DualSense / DualSense Edge</td>
+<td>EP4 (<code>0x84</code>), 64 bytes</td>
+<td><code>handleIN</code> returns a <em>new latest-state report</em> at endpoint timeout</td>
+<td>Continue completing reports. Preserve sequence increment for each report, sensor timestamp, metadata, Edge mapping and EP0 behavior.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Steam Deck's other IN endpoints:</strong> its keyboard EP1 (8-byte zero report) and mouse EP2 (4-byte zero report) currently return immediate, fresh reports. The shared cache deletion does <strong>not</strong> make them NAK; do not change their behavior or descriptors in this PR. WSGM's different placeholder-endpoint policy is separate work.</p>
+<p>The actual program does not use all other VIIPER controller types, and this PR must not spend effort expanding their functional specifications. Keep the preexisting generic <code>usb.Device</code> fallback path and protocol sound, including legacy large reports; do not delete other device types.</p>
+<h3 id="34-addon-compatibility-boundary">3.4 Addon compatibility boundary</h3>
+<p><strong>Keep Addon unchanged in this PR.</strong> Its current Xbox360 publisher still sends an unchanged neutral state approximately once every 250 ms when the Runtime is in the healthy 125-Hz desktop-idle regime, and still submits <strong>once per 4 ms tick</strong> in the active 250-Hz regime. With idle cached replay removed:</p>
+<ul>
+<li>USB/IP should report on <strong>each native setter submission</strong>, even if the submitted bytes equal the preceding value.</li>
+<li>Therefore <strong>Addon XInput packet numbers may still increase around 4/s while idle</strong>, or more in active mode. Neither the CTW 0/s nor Windows idle-timer 0-resets result is a guaranteed outcome for the Addon from this change alone.</li>
+<li>The Addon's 250-ms refresh is an <strong>intentional reconnect/resume safety policy</strong>: a new USB/IP imported stream has no per-stream cache and the logical device's input channel might have been consumed on an earlier import. Do <strong>not</strong> remove this refresh, lower its cadence, or change the Addon publisher in the VIIPER PR.</li>
+<li>A separate future Addon review may evaluate a genuinely changed-only state publisher <strong>together with its legitimate reimport first-report guarantee</strong>. Do not invent a native USB/IP reimport callback, another authority, or changed ABI as a prerequisite to the present fix.</li>
+</ul>
+<p><strong>CTW compatibility boundary:</strong> CTW's changed-state-only path must still allow the Xbox360 virtual pad to stay silent while neutral; there must not be another VIIPER-generated repeated <code>RET_SUBMIT</code>. CTW's legacy local patch is therefore no longer required <strong>when it eventually adopts a DLL built from this completed VIIPER revision</strong>. Do not touch CTW pins, packaged DLL, header, SHA, native build process or release version here.</p>
+<h2 id="4-implementation-one-server-source-file-focused-test-updates">4. Implementation (one server source file, focused test updates)</h2>
+<h3 id="41-remove-the-common-cached-replay-and-no-longer-needed-helpers">4.1 Remove the common cached replay and no-longer-needed helpers</h3>
+<p>File: <code>internal/server/usb/server.go</code>.</p>
+<p>Remove:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">storeINResponse</span><span class="p">(</span><span class="nx">respMu</span><span class="w"> </span><span class="o">*</span><span class="nx">sync</span><span class="p">.</span><span class="nx">Mutex</span><span class="p">,</span><span class="w"> </span><span class="nx">responses</span><span class="w"> </span><span class="kt">map</span><span class="p">[</span><span class="kt">uint32</span><span class="p">][]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">ep</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span><span class="w"> </span><span class="nx">report</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kd">func</span><span class="w"> </span><span class="nx">copyCachedINResponse</span><span class="p">(</span><span class="nx">respMu</span><span class="w"> </span><span class="o">*</span><span class="nx">sync</span><span class="p">.</span><span class="nx">Mutex</span><span class="p">,</span><span class="w"> </span><span class="nx">responses</span><span class="w"> </span><span class="kt">map</span><span class="p">[</span><span class="kt">uint32</span><span class="p">][]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="nx">ep</span><span class="w"> </span><span class="kt">uint32</span><span class="p">,</span><span class="w"> </span><span class="nx">scratch</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>Also delete the local <code>var respMu sync.Mutex</code> and <code>lastInResp := map[uint32][]byte{}</code> inside <code>handleUrbStream</code>, plus <strong>all only-for-cache uses</strong>. Leave <code>writeMu</code>, <code>pendingMu</code>, their map/state, and the existing <code>sync</code> import as required by unaffected transport synchronization.</p>
+<p>Change <strong>only the fresh / expired decision in <code>runIN</code></strong> to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nx">respData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cm">/* existing optional buffered or legacy device call */</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nx">expired</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">respData</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">errors</span><span class="p">.</span><span class="nx">Is</span><span class="p">(</span><span class="nx">attemptCtx</span><span class="p">.</span><span class="nx">Err</span><span class="p">(),</span><span class="w"> </span><span class="nx">context</span><span class="p">.</span><span class="nx">DeadlineExceeded</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nx">attemptCancel</span><span class="p">()</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">if</span><span class="w"> </span><span class="nx">job</span><span class="p">.</span><span class="nx">ctx</span><span class="p">.</span><span class="nx">Err</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="k">return</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">}</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">if</span><span class="w"> </span><span class="nx">respData</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">break</span><span class="w"> </span><span class="c1">// complete the device-produced report; no cache write</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">}</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">if</span><span class="w"> </span><span class="nx">expired</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="c1">// No device data at this poll deadline: keep the same URB pending.</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="c1">// Only a later real device-produced report can complete it.</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="k">continue</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">}</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1">// Preserve the preexisting immediate-nil/no-data anti-spin behavior.</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="c1">// No timeout occurred, so looping immediately would spin.</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="o">&lt;-</span><span class="nx">job</span><span class="p">.</span><span class="nx">ctx</span><span class="p">.</span><span class="nx">Done</span><span class="p">()</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="k">return</span>
+</code></pre></div>
+<p><strong>This is illustrative.</strong> Preserve the existing named variables and call order; do not duplicate the device call or create a new function, interface, policy flag or branch for Xbox360.</p>
+<ul>
+<li>Remove the cache-only <code>time.Sleep(time.Millisecond)</code> in the <strong>expired</strong> path. Each new timed attempt already waits for the device input or deadline. Keep unrelated timing and <code>time</code> uses throughout the server unchanged.</li>
+<li><strong>Do not collapse the <code>expired</code> branch and the non-expired immediate-nil branch.</strong> The latter's parking is the real anti-spin protection for unsupported endpoints/immediately nil fake devices.</li>
+<li>If <code>job.interval == 0</code> and a device immediately returns nil, the existing non-expired path still waits until UNLINK/teardown. Do not create a busy loop.</li>
+<li>Do not unconditionally block forever after <strong>any</strong> nil result: Xbox360 needs the per-<code>bInterval</code> retry to catch a subsequent input after an attempt's timeout while the original URB stays pending.</li>
+<li>On expired timeout, do <strong>not</strong> issue <code>RET_SUBMIT</code> with zero data/status or synthesize a new neutral input report. That would complete the host URB and defeat NAK-idle.</li>
+<li>Preserve <code>job.ctx</code> checks after each attempt, and the current pending-map/one-time completion/later writer path so UNLINK wins consistently without late responses.</li>
+</ul>
+<h3 id="42-preserve-prs-6164-transport-and-device-improvements">4.2 Preserve PRs #61–#64 transport and device improvements</h3>
+<p>Must remain untouched unless a demonstrable relevant defect is discovered:</p>
+<ul>
+<li><code>usb.InterruptInBufferDevice</code> and <code>HandleInterruptIN</code> for the three devices; the private PR-A <code>writeReport</code> encoders and old allocation-owning <code>HandleTransfer</code> wrappers.</li>
+<li>PR #62 unbuffered per-endpoint worker, nonblocking dispatch to independent concurrent fallback goroutine, correct per-URB <code>context.WithCancel</code> and teardown/join.</li>
+<li>PR #64's <strong>worker-local 64-byte scratch</strong> and independently owned fallback scratch. The device report is consumed by <code>writeRet</code> synchronously before scratch reuse.</li>
+<li><code>RET_SUBMIT</code> single header/body write, 48-byte header framing, correct sequence and actual payload length, full 20/64 bytes, accurate OUT completion (<code>ActualLength</code> = consumed request bytes, no OUT response body).</li>
+<li>Two live writer configurations: <code>WriteBatchFlushInterval == 0</code> (Addon) and <code>&gt; 0</code> (CTW uses a 1 ms config). Pending no-data URBs must not prevent flush, EP0 requests, OUT reports, rumble, or <code>CMD_UNLINK</code> from being processed.</li>
+<li>Existing per-device control transfers, descriptors, endpoint intervals and report mappings; <strong>Steam Deck 4 ms report wait budget</strong> and <strong>DualSense sequence/timestamp locking</strong> stay unchanged.</li>
+<li>Native ABI, typed handles, 0.9.8.0/0.9.8.1 usbip-win2 support, import/detach/port ownership, managed drain, closed/unsafe fail-close transitions and native logging stay unchanged.</li>
+</ul>
+<p>Do not introduce WSGM pacing, shared buffer pools, new per-endpoint ownership tables, caches, mutexes, epochs, state machines, per-consumer toggles, or idle timers. <strong>Removing</strong> <code>lastInResp</code> also removes its allocations and synchronization; this should be a net deletion in production code.</p>
+<h2 id="5-tests-revise-the-expected-behavior-do-not-only-delete-tests">5. Tests — revise the expected behavior, do not only delete tests</h2>
+<h3 id="51-replace-cache-specific-unit-tests">5.1 Replace cache-specific unit tests</h3>
+<p><code>internal/server/usb/in_response_cache_test.go</code> currently tests three helpers which will no longer exist:</p>
+<ul>
+<li><code>TestCachedINResponseSnapshotSurvivesOverwriteBeforeConsumption</code></li>
+<li><code>TestCachedINResponseLargerThanScratchIsCopiedWithoutTruncation</code></li>
+<li><code>TestStoreINResponseReusesCacheCapacity</code></li>
+</ul>
+<p><strong>Delete this entire test file</strong> along with the removed helpers. Its correctness expectations are <em>obsolete</em> after cache deletion. The USB/IP transport tests below must establish the replacement semantics at the real request/response boundary instead; do not maintain a duplicate no-op helper just to keep old tests green.</p>
+<h3 id="52-replace-the-transport-tests-which-require-replay">5.2 Replace the transport tests which <em>require</em> replay</h3>
+<p><code>internal/server/usb/transport_async_in_test.go</code> currently has these tests/fakes that <strong>must be updated</strong>, not skipped:</p>
+<ol>
+<li><code>TestAsyncINReportCacheIsIndependentPerEndpoint</code> / <code>endpointCacheINDevice</code>:</li>
+<li>Keep real two-endpoint coverage. Deliver an initial distinct report from both endpoints, then queue fresh requests for each with <strong>no new input</strong>.</li>
+<li>Verify <strong>no cached completion</strong> on either endpoint, even though each endpoint previously sent a report. UNLINK both requests (or submit independent fresh data to each after the no-replay assertion) and verify correct sequence, no late <code>RET_SUBMIT</code>, and no cross-endpoint confusion.</li>
+<li>Rename test and device fixture to convey <strong>no idle replay</strong>, not cache independence. Channel synchronization for fresh state and cancellation is preferable to long sleeps.</li>
+<li><code>TestLegacyCustomDeviceLargeINPayloadAndCachedReplay</code> / <code>largeCachedReplayINDevice</code>:</li>
+<li>Preserve the important generic <code>usb.Device</code> fallback test that sends a <strong>100-byte report without implementing <code>InterruptInBufferDevice</code></strong>, proving the new 64-byte scratch optimization never truncates legacy data.</li>
+<li><strong>Remove the expectation that a second request replays those 100 bytes.</strong> Instead, confirm the second request remains pending without new data and can be UNLINKed or completed by a second <strong>explicitly newly produced</strong> 100-byte report.</li>
+<li>Rename to <code>TestLegacyCustomDeviceLargeINPayloadWithoutIdleReplay</code> or similar.</li>
+<li><code>TestXbox360AndDualSenseEdgeUSBIPINRegression</code>:</li>
+<li>Preserve initial neutral and changed-report assertions for both types.</li>
+<li>Currently <code>read(3)</code> expects a report without an update <strong>for both devices</strong>. That is no longer correct for Xbox360; factor the test's third step by device:<ul>
+<li>Xbox360: after consuming its submitted report, issue another EP1 IN URB, assert no reply across at least one polling deadline, and then (a) call <code>UpdateInputState</code> with a deliberately equal state to confirm a <em>new native submission</em> still completes the URB, <strong>and/or</strong> (b) issue UNLINK and assert <code>RET_UNLINK/-ECONNRESET</code> and no late <code>RET_SUBMIT</code>. Cover both behaviors across tests.</li>
+<li>DualSense Edge: unchanged new-report-on-timeout behavior remains; the third read must still return a 64-byte report with correct sensor fields and advancing sequence/timestamp semantics.</li>
+</ul>
+</li>
+<li>Do not attempt an exact XInput packet number or <code>GetLastInputInfo</code> assertion in the pure-Go USB/IP unit tests: these are Windows driver/kernel observations not reproduced by this fake TCP host harness.</li>
+<li>Add a focused <strong>Xbox360 NAK-idle wire test</strong>, preferably reusing the existing imported-session helper:</li>
+<li>Fresh neutral -&gt; one <code>RET_SUBMIT</code>.</li>
+<li>No new setter call -&gt; a subsequent same-endpoint IN URB <strong>stays pending</strong> over multiple 4-ms attempt deadlines; no stale replay.</li>
+<li>New button press -&gt; one timely <code>RET_SUBMIT</code> with the right bit; unchanged value submitted again is still a <em>new</em> report (not suppressed by VIIPER).</li>
+<li>Button release -&gt; next newly submitted state produces an immediate release report.</li>
+<li>Another unsubmitted idle -&gt; no completion; UNLINK -&gt; correct <code>RET_UNLINK</code> and **no late <code>RET_SUBMIT</code>.</li>
+<li>Repeat the pending+UNLINK scenario for the <strong>concurrent fallback</strong> in addition to the active worker when naturally supported by existing harness.</li>
+<li>Keep Steam Deck EP3 continuous behavior and IMU/frame fields covered by <code>TestSteamDeckAsyncINReturnsFreshStateForPendingRequest</code>. Add a cheap repeated-no-new-state USB/IP test <strong>only if current coverage does not already prove</strong> its fresh timeout report survives removal of the <em>transport</em> cache. Same principle for DualSense Edge EP4 and EP0 sequence tests.</li>
+<li>Steam Deck keyboard/mouse endpoint behavior is intentionally unchanged: do <strong>not</strong> convert their existing 8/4-byte neutral reports to NAK or alter descriptors in this PR.</li>
+</ol>
+<h3 id="53-protect-teardown-protocol-and-buffer-behavior">5.3 Protect teardown, protocol and buffer behavior</h3>
+<p>Run the existing tests (fix only tests whose old cache-replay contract was removed):</p>
+<ul>
+<li><code>TestNoDataAsyncINWaitsForUnlink</code>: a device returning immediate nil must <strong>park</strong>, without busy-spinning or unsolicited empty <code>RET_SUBMIT</code>.</li>
+<li><code>TestAsyncINUnlinkCancelsActiveRequest</code>; <code>TestOverlappingAsyncINRequestsUnlinkIndependently</code>: active and fallback URBs are independently cancellable, no late completions.</li>
+<li><code>TestOverlappingBufferedINRequestsUseIndependentWorkerAndFallbackScratch</code> and <code>in_endpoint_worker_test.go</code>: each concurrent request retains independent 64-byte scratch.</li>
+<li><code>TestAsyncINWorkersExitOnClientEOFWhileDeviceRemainsAttached</code>: close the stream with pending IN; worker(s) exit/join.</li>
+<li><code>TestManagedDrainCancelsPendingSteamDeckINWithoutLateCompletion</code>, <code>TestManagedDeviceDrainReleasesParkedNoDataAsyncINWorker</code>, <code>TestManagedDeviceDrainWaitsForAsyncINWorker</code>: real drain/Close waits for workers and no late response.</li>
+<li><code>transport_out_test.go</code>, <code>transport_import_test.go</code>, <code>transport_cleanup_test.go</code>, <code>transport_lifecycle_test.go</code> and batching-related tests: EP0, OUT/rumble, attachment, device loss/reimport, positive/zero flush behavior and teardown unchanged.</li>
+<li>All existing <code>device/{xbox360,steamdeck,dualsense}</code> encoder and concurrency tests: byte-for-byte report correctness, independent old API output, Steam Deck frame semantics and DualSense/Edge sequence safety.</li>
+</ul>
+<p><strong>Pay attention to tests with read deadlines:</strong> restore <code>conn.SetReadDeadline(time.Time{})</code> after an intentional no-response assertion so subsequent legitimate replies or UNLINK can be read. Do not depend on a fixed response order when worker and fallback requests are concurrent. Use bounded waits and existing channels, not scheduler-interleaving stunts.</p>
+<h3 id="54-minimal-example-no-replay-is-not-no-future-input">5.4 Minimal example: no replay is <em>not</em> no future input</h3>
+<p>Conceptual test structure (adjust to the existing imported USB/IP harness and helper names):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// 1. Seed and consume a report.</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nx">sendIN</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nx">expectReport</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="nx">neutral20</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">// 2. Do not submit another native state. The next URB stays pending.</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nx">sendIN</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nx">assertNoRETSubmitWithinBoundedPollWindow</span><span class="p">(</span><span class="nx">conn</span><span class="p">)</span><span class="w"> </span><span class="c1">// reset read deadline afterward</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1">// 3. A fresh setter call (even with unchanged bytes) must wake the pending URB.</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nx">xbox</span><span class="p">.</span><span class="nx">UpdateInputState</span><span class="p">(</span><span class="nx">neutralState</span><span class="p">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nx">expectReport</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="nx">neutral20</span><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1">// 4. Following no-data URBs still wait and are cancellable.</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nx">sendIN</span><span class="p">(</span><span class="mi">102</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="nx">assertNoRETSubmitWithinBoundedPollWindow</span><span class="p">(</span><span class="nx">conn</span><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nx">sendUNLINK</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="mi">102</span><span class="p">)</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="nx">expectRETUnlink</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="mi">104</span><span class="p">)</span><span class="w"> </span><span class="c1">// -ECONNRESET</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="nx">assertNoLateRETSubmit</span><span class="p">(</span><span class="mi">102</span><span class="p">)</span>
+</code></pre></div>
+<p>The tests above establish <strong>behavior</strong>, not an exact 4ms scheduler performance target. Avoid assertions tied to pathological timing boundaries.</p>
+<h2 id="6-validation-by-local-codex-ci">6. Validation by local Codex / CI</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gofmt<span class="w"> </span>-w<span class="w"> </span>internal/server/usb/server.go<span class="w"> </span>internal/server/usb/transport_async_in_test.go
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./internal/server/usb<span class="w"> </span>./device/xbox360<span class="w"> </span>./device/steamdeck<span class="w"> </span>./device/dualsense<span class="w"> </span>./lib/viiper
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./...
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-race<span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./internal/server/usb<span class="w"> </span>./device/xbox360<span class="w"> </span>./device/steamdeck<span class="w"> </span>./device/dualsense<span class="w"> </span>./lib/viiper
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>go<span class="w"> </span>vet<span class="w"> </span>./...
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>git<span class="w"> </span>diff<span class="w"> </span>--check
+</code></pre></div>
+<p>Add any existing repository-specific static checks/CI. Confirm any now-unused imports or obsolete cache-only fixtures are gone, and all CI jobs pass. If there are local toolchain limitations, report them accurately. No Windows device, <code>usbip-win2</code> driver, user sleep study, controller rumble, XInput packet number probe or on-handheld timing proof is required to merge this <strong>code-only</strong> PR.</p>
+<h2 id="7-explicit-exclusions-guardrails">7. Explicit exclusions / guardrails</h2>
+<ul>
+<li>No change to <code>onehoon/SteamAddonforClaw</code> source, publisher cadence/idle 250-ms refresh, UI/overlay, HidHide, PID1901/PID1902, Game Bar/WING policy, Windows scheduled tasks, routing ownership, native pins or DLLs.</li>
+<li>No change to <code>onehoon/ClawTweaks-Dev</code> source, state dedup, its pinned local patched DLL, manifest or release packaging.</li>
+<li>No attempt to make the Addon's idle <code>GetLastInputInfo</code> resets <strong>zero</strong> while it still sends equal Xbox360 states periodically; distinguish measured CTW behavior from a possible future Addon consumer work order.</li>
+<li>No change to Xbox360 <code>UpdateInputState</code> channel semantics or native setter behavior, and do not change anything related to output rumble, feedback, Xbox buttons, Guide, or auxiliary mappings.</li>
+<li>No changes to Steam Deck frame/gyro/IMU, report interval, EP1/EP2 zero-report behavior, Steam input quirk handling or DualSense/Edge timestamp/sequence semantics.</li>
+<li>No write-batching or USB/IP timing optimization beyond removing the <strong>cache-only</strong> 1ms sleep. The controller can still receive a fresh report on every driver-defined request once the device produces one.</li>
+<li>No broad tests for unrelated controllers or unsupported environments, and no theoretical timing race defense that requires new states/locks/managers.</li>
+<li>Do not delete <code>usb.InterruptInBufferDevice</code>, PR #64 worker-owned scratch or <code>writeRet</code> in the name of cache cleanup.</li>
+<li>Do not remove the <strong>immediate-nil request parking</strong> behavior: this protects against a real no-data CPU spin, separately from timeout handling.</li>
+</ul>
+<h2 id="8-acceptance-checklist">8. Acceptance checklist</h2>
+<ul>
+<li>[ ] Common USB/IP idle replay is gone: no <code>lastInResp</code>, <code>respMu</code> cache mutex, <code>storeINResponse</code>, <code>copyCachedINResponse</code> or cache-only 1ms sleep.</li>
+<li>[ ] A timed-out IN attempt with no data leaves <strong>the original URB pending</strong>, and later new device data produces exactly one correct <code>RET_SUBMIT</code>.</li>
+<li>[ ] An immediate-nil result with no deadline expiry continues to park safely and does not spin/emit empty replies.</li>
+<li>[ ] Xbox360 idle after its last setter call is silent; a new setter call, <strong>including identical content</strong>, can complete its pending URB. Correct neutral, press, release, rumble and guide mapping are preserved.</li>
+<li>[ ] Steam Deck EP3 and DualSense Edge EP4 still emit their own existing timeout reports; 64-byte payloads, sensors, counters and timestamps preserve current behavior. Steam Deck EP1/EP2 are unchanged.</li>
+<li>[ ] Positive/zero batching configurations, 20/64-byte buffered reports, independent worker/fallback scratch and &gt;64-byte legacy device reports remain correct.</li>
+<li>[ ] UNLINK active/fallback, EOF, device loss/reimport, managed drain/Close and native teardown remain safe; no late <code>RET_SUBMIT</code> or blocked shutdown.</li>
+<li>[ ] The obsolete replay-cache tests are <strong>rewritten or removed and replaced</strong> with no-replay protocol tests, never silently skipped. Other functional regressions must keep meaningful assertions.</li>
+<li>[ ] Fork ABI, generated header, native exports, typed handle ownership, exact attachment APIs and consumer binary pins unchanged.</li>
+<li>[ ] Full relevant Go unit tests, race tests, static checks and CI pass. Hardware validation is performed later by the user, not required for PR approval/merge.</li>
+</ul>
+<h2 id="9-deliberately-separate-follow-ups">9. Deliberately separate follow-ups</h2>
+<p><strong>Addon (later; different repository/PR):</strong> Re-evaluate its current <strong>250-ms idle identical-state refresh</strong> and 250-Hz active submissions, alongside a concrete plan for first report after a legitimate USB/IP reimport/reconnect. Do not simply copy CTW's dedup without this safety proof. The user has authorized a future Addon adjustment if needed, but <strong>not in this VIIPER PR</strong>.</p>
+<p><strong>CTW (later; different consumer update):</strong> After VIIPER library changes pass CI, CTW may replace its locally patched <code>8902b53</code>-based DLL with the verified fork CI artifact at the chosen revision, preserving its own manifest/export ABI and ownership checks. No CTW consumer work is part of this implementation.</p>
+<p><strong>Future idle efficiency (only if warranted):</strong> In this PR an Xbox360 NAK-idle URB still performs a timed attempt every endpoint <code>bInterval</code>. WSGM avoids those idle timer wakeups with a data-driven input source and different worker design, but that is <strong>not required to fix the reported Windows idle/sleep bug</strong> and should not be silently bundled into this focused PR. Performance optimization can follow measured evidence.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
