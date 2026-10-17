@@ -72,18 +72,7 @@ func (x *Xbox360) UpdateInputState(state InputState) {
 // HandleTransfer implements interrupt IN/OUT for Xbox360.
 func (x *Xbox360) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out []byte) []byte {
 	if dir == usbip.DirIn {
-		switch ep {
-		case 1: // 0x81 - main input reports
-			atomic.AddUint64(&x.tick, 1)
-			select {
-			case <-ctx.Done():
-				return nil
-			case st := <-x.inputCh:
-				return st.BuildReport()
-			}
-		default:
-			return nil
-		}
+		return x.handleIN(ctx, ep, nil)
 	}
 	if dir == usbip.DirOut && ep == 1 {
 		// Host->Device output reports used by the wired Xbox 360 controller include
@@ -105,6 +94,31 @@ func (x *Xbox360) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out
 		}
 	}
 	return nil
+}
+
+// HandleInterruptIN implements usb.InterruptInBufferDevice for non-EP0 IN.
+func (x *Xbox360) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	return x.handleIN(ctx, ep, dst)
+}
+
+func (x *Xbox360) handleIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	if ep != 1 { // 0x81 - main input reports
+		return nil
+	}
+	atomic.AddUint64(&x.tick, 1)
+	select {
+	case <-ctx.Done():
+		return nil
+	case st := <-x.inputCh:
+		if dst == nil {
+			return st.BuildReport()
+		}
+		if len(dst) < xbox360InputReportLen {
+			return nil
+		}
+		st.writeReport(dst)
+		return dst[:xbox360InputReportLen:xbox360InputReportLen]
+	}
 }
 
 func MakeDescriptor() usb.Descriptor {

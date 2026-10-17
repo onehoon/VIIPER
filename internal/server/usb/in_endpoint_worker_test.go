@@ -13,7 +13,9 @@ func TestINEndpointWorkerReusesReceiverAndCancelsActiveJob(t *testing.T) {
 	var workerWG sync.WaitGroup
 	entered := make(chan uint32, 2)
 	exited := make(chan uint32, 2)
-	run := func(job inJob) {
+	buffers := make(chan []byte, 2)
+	run := func(job inJob, report []byte) {
+		buffers <- report
 		entered <- job.seq
 		<-job.ctx.Done()
 		exited <- job.seq
@@ -34,6 +36,7 @@ func TestINEndpointWorkerReusesReceiverAndCancelsActiveJob(t *testing.T) {
 		t.Fatal("first request was not accepted by the persistent worker")
 	}
 	waitINJob(t, entered, first.seq)
+	firstBuffer := <-buffers
 	cancel1()
 	waitINJob(t, exited, first.seq)
 
@@ -42,6 +45,10 @@ func TestINEndpointWorkerReusesReceiverAndCancelsActiveJob(t *testing.T) {
 		t.Fatal("persistent worker did not accept a later sequential request")
 	}
 	waitINJob(t, entered, second.seq)
+	secondBuffer := <-buffers
+	if &firstBuffer[0] != &secondBuffer[0] {
+		t.Fatal("persistent worker did not reuse its endpoint-owned scratch")
+	}
 	cancel2()
 	waitINJob(t, exited, second.seq)
 }
@@ -52,7 +59,9 @@ func TestINEndpointWorkerFallsBackWhileBusy(t *testing.T) {
 	var fallbackWG sync.WaitGroup
 	entered := make(chan uint32, 2)
 	exited := make(chan uint32, 2)
-	run := func(job inJob) {
+	buffers := make(chan []byte, 2)
+	run := func(job inJob, report []byte) {
+		buffers <- report
 		entered <- job.seq
 		<-job.ctx.Done()
 		exited <- job.seq
@@ -74,6 +83,7 @@ func TestINEndpointWorkerFallsBackWhileBusy(t *testing.T) {
 		t.Fatal("first request was not accepted by the persistent worker")
 	}
 	waitINJob(t, entered, first.seq)
+	workerBuffer := <-buffers
 
 	second := inJob{seq: 2, ctx: ctx2, cancel: cancel2}
 	if worker.tryDispatch(second) {
@@ -82,9 +92,14 @@ func TestINEndpointWorkerFallsBackWhileBusy(t *testing.T) {
 	fallbackWG.Add(1)
 	go func() {
 		defer fallbackWG.Done()
-		run(second)
+		var report [64]byte
+		run(second, report[:])
 	}()
 	waitINJob(t, entered, second.seq)
+	fallbackBuffer := <-buffers
+	if &workerBuffer[0] == &fallbackBuffer[0] {
+		t.Fatal("overlapping fallback shared mutable scratch with persistent worker")
+	}
 
 	cancel2()
 	waitINJob(t, exited, second.seq)

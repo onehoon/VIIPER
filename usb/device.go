@@ -14,6 +14,15 @@ type Device interface {
 	GetDeviceSpecificArgs() map[string]any
 }
 
+// InterruptInBufferDevice is an optional interface for devices that can encode
+// non-EP0 IN reports into caller-owned storage. Implementations must return nil
+// or a prefix of dst, must not retain dst, and must not return reports larger
+// than the 64-byte USB/IP scratch buffer. Callers provide at least 64 bytes;
+// devices with larger reports should continue to use Device.HandleTransfer.
+type InterruptInBufferDevice interface {
+	HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte
+}
+
 // ControlDevice is an optional interface for devices that need to handle
 // control transfers on endpoint 0 (EP0).
 //
