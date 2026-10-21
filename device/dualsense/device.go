@@ -23,9 +23,11 @@ type DualSense struct {
 	inputState *InputState
 	metaState  *MetaState
 
-	outputFunc func(OutputState)
-	descriptor usb.Descriptor
-	callbackMu sync.RWMutex
+	outputFunc       func(OutputState)
+	descriptor       usb.Descriptor
+	callbackMu       sync.RWMutex
+	rumbleActive     bool // guarded by callbackMu; set only when a nonzero rumble callback is forwarded
+	outputDispatchMu sync.Mutex
 
 	subcommand [2]byte
 
@@ -131,6 +133,7 @@ func (d *DualSense) SetMetaState(meta MetaState) {
 func (d *DualSense) SetOutputCallback(f func(OutputState)) {
 	d.callbackMu.Lock()
 	d.outputFunc = f
+	d.rumbleActive = false
 	d.callbackMu.Unlock()
 }
 
@@ -171,16 +174,7 @@ func (d *DualSense) HandleTransfer(ctx context.Context, ep uint32, dir uint32, o
 	}
 
 	if dir == usbip.DirOut && ep == 3 {
-		if len(out) >= 48 && out[0] == ReportIDOutput {
-			if feedback, hasRumble := parseRumbleOutputReport(out); hasRumble {
-				d.callbackMu.RLock()
-				callback := d.outputFunc
-				d.callbackMu.RUnlock()
-				if callback != nil {
-					callback(feedback)
-				}
-			}
-		}
+		d.handleOutputReport(out)
 	}
 
 	return nil
@@ -267,14 +261,7 @@ func (d *DualSense) HandleControl(bmRequestType, bRequest uint8, wValue, wIndex,
 			case reportType == reportTypeFeature:
 				return nil, true
 			case reportType == reportTypeOutput && reportID == ReportIDOutput && len(data) >= 48:
-				if feedback, hasRumble := parseRumbleOutputReport(data); hasRumble {
-					d.callbackMu.RLock()
-					callback := d.outputFunc
-					d.callbackMu.RUnlock()
-					if callback != nil {
-						callback(feedback)
-					}
-				}
+				d.handleOutputReport(data)
 				return nil, true
 			}
 		}
@@ -299,11 +286,65 @@ var featureGetHandlers = map[byte]func(*DualSense) []byte{
 	featureIDCommandResponse: (*DualSense).featureReportCommandResponse,
 }
 
+const (
+	outputFlag0CompatibleRumble = 0x01
+	outputFlag0HapticsSelect    = 0x02
+	outputFlag2CompatibleRumble = 0x04
+)
+
+func (d *DualSense) handleOutputReport(out []byte) {
+	if len(out) < 48 || out[0] != ReportIDOutput {
+		return
+	}
+
+	// USB/IP imports can concurrently target one device. Keep interpretation and
+	// callback completion ordered across interrupt OUT and HID SET_REPORT.
+	d.outputDispatchMu.Lock()
+	defer d.outputDispatchMu.Unlock()
+
+	feedback, hasRumble := parseRumbleOutputReport(out)
+	neutralTermination := isNeutralRumbleTerminationReport(out)
+	if !hasRumble && !neutralTermination {
+		return
+	}
+
+	d.callbackMu.Lock()
+	callback := d.outputFunc
+	if callback == nil {
+		d.callbackMu.Unlock()
+		return
+	}
+
+	switch {
+	case hasRumble:
+		d.rumbleActive = feedback.RumbleSmall != 0 || feedback.RumbleLarge != 0
+	case d.rumbleActive:
+		feedback = OutputState{}
+		d.rumbleActive = false
+	default:
+		d.callbackMu.Unlock()
+		return
+	}
+	d.callbackMu.Unlock()
+
+	callback(feedback)
+}
+
+// isNeutralRumbleTerminationReport recognizes a narrow bridge-compatibility
+// STOP pattern; it is not a claim that this packet is a protocol-defined Sony
+// rumble command.
+func isNeutralRumbleTerminationReport(out []byte) bool {
+	return len(out) >= 48 &&
+		out[0] == ReportIDOutput &&
+		out[1] == 0 && out[2] == 0 && out[39] == 0 &&
+		out[3] == 0 && out[4] == 0
+}
+
 func parseRumbleOutputReport(out []byte) (OutputState, bool) {
 	if len(out) < 48 || out[0] != ReportIDOutput {
 		return OutputState{}, false
 	}
-	if out[1]&0x01 == 0 && out[39]&0x04 == 0 {
+	if out[1]&outputFlag0CompatibleRumble == 0 && out[39]&outputFlag2CompatibleRumble == 0 {
 		return OutputState{}, false
 	}
 	return OutputState{
