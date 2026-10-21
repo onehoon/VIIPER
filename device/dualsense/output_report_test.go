@@ -3,6 +3,7 @@ package dualsense
 import (
 	"context"
 	"encoding/binary"
+	"reflect"
 	"testing"
 
 	"github.com/Alia5/VIIPER/usbip"
@@ -17,6 +18,265 @@ func makeUSBOutputReport(flag0, flag1, flag2, motorRight, motorLeft byte) []byte
 	report[4] = motorLeft
 	report[39] = flag2
 	return report
+}
+
+type outputReportPath struct {
+	name    string
+	control bool
+	send    func(*DualSense, []byte) ([]byte, bool)
+}
+
+func outputReportPaths() []outputReportPath {
+	return []outputReportPath{
+		{
+			name: "interrupt OUT",
+			send: func(d *DualSense, report []byte) ([]byte, bool) {
+				d.HandleTransfer(context.Background(), EndpointOut, usbip.DirOut, report)
+				return nil, false
+			},
+		},
+		{
+			name:    "HID SET_REPORT",
+			control: true,
+			send: func(d *DualSense, report []byte) ([]byte, bool) {
+				return d.HandleControl(hidClassOUT, hidSetReport, 0x0202, 0, uint16(len(report)), report)
+			},
+		},
+	}
+}
+
+type outputReportDeviceModel struct {
+	name string
+	new  func(*testing.T) *DualSense
+}
+
+func outputReportDeviceModels() []outputReportDeviceModel {
+	return []outputReportDeviceModel{
+		{
+			name: "DualSense",
+			new: func(t *testing.T) *DualSense {
+				t.Helper()
+				dev, err := New(nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return dev
+			},
+		},
+		{
+			name: "DualSense Edge",
+			new: func(t *testing.T) *DualSense {
+				t.Helper()
+				dev, err := NewEdge(nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return dev
+			},
+		},
+	}
+}
+
+func sendOutputReport(t *testing.T, path outputReportPath, dev *DualSense, report []byte) {
+	t.Helper()
+	response, handled := path.send(dev, report)
+	if path.control && (!handled || response != nil) {
+		t.Fatalf("HID SET_REPORT response = (%v, %v), want (nil, true)", response, handled)
+	}
+}
+
+func sendMalformedOutputReport(t *testing.T, path outputReportPath, dev *DualSense, report []byte) {
+	t.Helper()
+	response, handled := path.send(dev, report)
+	if path.control && (handled || response != nil) {
+		t.Fatalf("short HID SET_REPORT response = (%v, %v), want (nil, false)", response, handled)
+	}
+}
+
+func assertOutputStates(t *testing.T, got, want []OutputState) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("output callbacks = %+v, want %+v", got, want)
+	}
+}
+
+func TestNeutralRumbleTerminationCompatibility(t *testing.T) {
+	for _, model := range outputReportDeviceModels() {
+		t.Run(model.name, func(t *testing.T) {
+			for _, path := range outputReportPaths() {
+				t.Run(path.name, func(t *testing.T) {
+					for _, version := range []struct {
+						name  string
+						flag0 byte
+						flag2 byte
+					}{
+						{name: "v1", flag0: outputFlag0CompatibleRumble},
+						{name: "v2", flag2: outputFlag2CompatibleRumble},
+					} {
+						t.Run(version.name, func(t *testing.T) {
+							dev := model.new(t)
+							var got []OutputState
+							dev.SetOutputCallback(func(state OutputState) { got = append(got, state) })
+
+							start := makeUSBOutputReport(version.flag0, 0, version.flag2, 0x12, 0x34)
+							neutral := makeUSBOutputReport(0, 0, 0, 0, 0)
+							sendOutputReport(t, path, dev, neutral)
+							assertOutputStates(t, got, nil)
+
+							sendOutputReport(t, path, dev, start)
+							assertOutputStates(t, got, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}})
+
+							sendOutputReport(t, path, dev, neutral)
+							assertOutputStates(t, got, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}, {}})
+
+							sendOutputReport(t, path, dev, neutral)
+							assertOutputStates(t, got, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}, {}})
+
+							start = makeUSBOutputReport(version.flag0, 0, version.flag2, 0x56, 0x78)
+							sendOutputReport(t, path, dev, start)
+							assertOutputStates(t, got, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}, {}, {RumbleSmall: 0x56, RumbleLarge: 0x78}})
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestFeatureOnlyReportsDoNotStopActiveRumble(t *testing.T) {
+	for _, model := range outputReportDeviceModels() {
+		t.Run(model.name, func(t *testing.T) {
+			for _, path := range outputReportPaths() {
+				t.Run(path.name, func(t *testing.T) {
+					dev := model.new(t)
+					var got []OutputState
+					dev.SetOutputCallback(func(state OutputState) { got = append(got, state) })
+
+					start := makeUSBOutputReport(outputFlag0CompatibleRumble, 0, 0, 0x12, 0x34)
+					sendOutputReport(t, path, dev, start)
+					want := []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}}
+					assertOutputStates(t, got, want)
+
+					featureReports := [][]byte{
+						makeUSBOutputReport(0, 0x04, 0, 0, 0),
+						makeUSBOutputReport(0, 0x10, 0, 0x7F, 0xFE),
+						makeUSBOutputReport(0x04, 0, 0, 0, 0),
+						makeUSBOutputReport(0x08, 0, 0, 0, 0),
+						makeUSBOutputReport(outputFlag0HapticsSelect, 0, 0, 0x91, 0x92),
+						makeUSBOutputReport(0, 0, 0, 0xA1, 0xA2),
+						makeUSBOutputReport(0, 0x04, 0, 0xB1, 0xB2),
+					}
+					for i, report := range featureReports {
+						sendOutputReport(t, path, dev, report)
+						assertOutputStates(t, got, want)
+						if len(got) != 1 {
+							t.Fatalf("feature-only report %d emitted a callback", i)
+						}
+					}
+
+					neutral := makeUSBOutputReport(0, 0, 0, 0, 0)
+					sendOutputReport(t, path, dev, neutral)
+					want = append(want, OutputState{})
+					sendOutputReport(t, path, dev, neutral)
+					assertOutputStates(t, got, want)
+				})
+			}
+		})
+	}
+}
+
+func TestRumbleStateIsScopedToCallbackSessionAndDevice(t *testing.T) {
+	for _, model := range outputReportDeviceModels() {
+		t.Run(model.name, func(t *testing.T) {
+			for _, path := range outputReportPaths() {
+				t.Run(path.name, func(t *testing.T) {
+					first := model.new(t)
+					second := model.new(t)
+					var firstSession, replacementSession, secondDevice []OutputState
+					first.SetOutputCallback(func(state OutputState) { firstSession = append(firstSession, state) })
+					second.SetOutputCallback(func(state OutputState) { secondDevice = append(secondDevice, state) })
+
+					start := makeUSBOutputReport(outputFlag0CompatibleRumble, 0, 0, 0x12, 0x34)
+					neutral := makeUSBOutputReport(0, 0, 0, 0, 0)
+					sendOutputReport(t, path, first, start)
+					assertOutputStates(t, firstSession, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}})
+
+					// An active device must not make another device emit a compatibility STOP.
+					sendOutputReport(t, path, second, neutral)
+					assertOutputStates(t, secondDevice, nil)
+
+					// Replacing the callback starts a fresh rumble-state session.
+					first.SetOutputCallback(func(state OutputState) { replacementSession = append(replacementSession, state) })
+					sendOutputReport(t, path, first, neutral)
+					assertOutputStates(t, replacementSession, nil)
+
+					sendOutputReport(t, path, first, start)
+					sendOutputReport(t, path, first, neutral)
+					assertOutputStates(t, replacementSession, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}, {}})
+
+					first.SetOutputCallback(nil)
+					var rearmedSession []OutputState
+					first.SetOutputCallback(func(state OutputState) { rearmedSession = append(rearmedSession, state) })
+					sendOutputReport(t, path, first, neutral)
+					assertOutputStates(t, rearmedSession, nil)
+					sendOutputReport(t, path, first, start)
+					sendOutputReport(t, path, first, neutral)
+					assertOutputStates(t, rearmedSession, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}, {}})
+				})
+			}
+		})
+	}
+}
+
+func TestMalformedAndWrongIngressReportsDoNotChangeRumbleState(t *testing.T) {
+	for _, model := range outputReportDeviceModels() {
+		t.Run(model.name, func(t *testing.T) {
+			for _, path := range outputReportPaths() {
+				t.Run(path.name, func(t *testing.T) {
+					dev := model.new(t)
+					var got []OutputState
+					dev.SetOutputCallback(func(state OutputState) { got = append(got, state) })
+
+					start := makeUSBOutputReport(outputFlag0CompatibleRumble, 0, 0, 0x12, 0x34)
+					neutral := makeUSBOutputReport(0, 0, 0, 0, 0)
+					wrongEndpointStart := makeUSBOutputReport(outputFlag0CompatibleRumble, 0, 0, 0x56, 0x78)
+					dev.HandleTransfer(context.Background(), EndpointOut+1, usbip.DirOut, wrongEndpointStart)
+					dev.HandleTransfer(context.Background(), EndpointOut, usbip.DirIn, wrongEndpointStart)
+					sendOutputReport(t, path, dev, neutral)
+					assertOutputStates(t, got, nil)
+
+					short := append([]byte(nil), start[:47]...)
+					wrongID := append([]byte(nil), start...)
+					wrongID[0]++
+					sendMalformedOutputReport(t, path, dev, short)
+					sendOutputReport(t, path, dev, wrongID)
+					assertOutputStates(t, got, nil)
+					sendOutputReport(t, path, dev, neutral)
+					assertOutputStates(t, got, nil)
+
+					// The established parser accepts full 64-byte reports.
+					full := make([]byte, 64)
+					copy(full, start)
+					sendOutputReport(t, path, dev, full)
+					want := []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}}
+					assertOutputStates(t, got, want)
+
+					malformedNeutral := append([]byte(nil), neutral[:47]...)
+					wrongNeutralID := append([]byte(nil), neutral...)
+					wrongNeutralID[0]++
+					sendMalformedOutputReport(t, path, dev, malformedNeutral)
+					sendOutputReport(t, path, dev, wrongNeutralID)
+					dev.HandleTransfer(context.Background(), EndpointOut+1, usbip.DirOut, neutral)
+					dev.HandleTransfer(context.Background(), EndpointOut, usbip.DirIn, neutral)
+					assertOutputStates(t, got, want)
+
+					sendOutputReport(t, path, dev, neutral)
+					want = append(want, OutputState{})
+					assertOutputStates(t, got, want)
+				})
+			}
+		})
+	}
 }
 
 func TestOutputReportRumbleValidityAcrossInputPaths(t *testing.T) {
@@ -84,6 +344,11 @@ func TestOutputReportRumbleValidityAcrossInputPaths(t *testing.T) {
 			name:   "v1 explicit zero stops motors",
 			report: makeUSBOutputReport(0x01, 0, 0, 0, 0),
 			state:  &OutputState{},
+		},
+		{
+			name:   "v2 compatible vibration updates motors again",
+			report: makeUSBOutputReport(0, 0, 0x04, 0x55, 0x66),
+			state:  &OutputState{RumbleSmall: 0x55, RumbleLarge: 0x66},
 		},
 		{
 			name:   "v2 explicit zero stops motors",

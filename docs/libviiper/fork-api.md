@@ -339,13 +339,18 @@ The canonical wrappers currently include:
 
 The DualSense and DualSense Edge output callback deliberately delivers rumble
 events only in this fork, despite retaining the legacy native callback
-signature's LED arguments. A callback is invoked only when a valid classic
-rumble update is present (v1 or v2); a flagged `0,0` remains an explicit stop.
-LED-only, player-LED-only, haptics-select-only, and other unflagged reports do
-not invoke the application callback, and the legacy LED output arguments are
-always zero. Otherwise-valid HID output reports remain acknowledged. This is
-an intentional behavioral reduction for the supported consumer, not upstream
-behavioral parity.
+signature's LED arguments. A valid classic rumble update (v1 or v2) is
+forwarded, and a flagged `0,0` remains an explicit stop. As a narrow bridge
+compatibility behavior, an all-flags-zero/all-motors-zero report emits one
+STOP only after a nonzero rumble callback was forwarded in the current
+callback session. This stateful neutral-STOP rule supports a host termination
+pattern; it is not a claim that the packet is a Sony protocol-defined STOP.
+LED-only, player-LED-only, haptics-select-only, trigger-only, and other reports
+without a valid rumble update remain ignored, as do unflagged reports carrying
+nonzero motor bytes. The legacy LED output arguments are always zero.
+Otherwise-valid HID output reports remain acknowledged. This is an intentional
+behavioral reduction for the supported consumer, not upstream behavioral
+parity.
 
 `lib/viiper` exposes the Steam Deck (`28DE:1205` by default) through a typed
 wrapper: `CreateSteamDeckDevice`, `SetSteamDeckDeviceState`,
