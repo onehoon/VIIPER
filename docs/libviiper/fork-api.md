@@ -527,11 +527,24 @@ normalized payload is bounded to 64 bytes. The callback receives the exact
 stored length, and its temporary C-owned buffer is valid only during the
 synchronous callback. Callers must copy retained data.
 
+DualSense and DualSense Edge output reports are additionally dispatched under
+a per-device ordering lock across interrupt OUT and HID `SET_REPORT`; this is
+needed because multiple USB/IP imports can target the same logical device.
+The ordering lock remains held for the synchronous callback, while the device
+callback lock does not. Callback replacement or clearing may therefore be
+called reentrantly from the callback. A report dispatch that captured a
+callback before a clear/replacement is already in flight and may complete
+after the setter returns; subsequent dispatches use the new callback (or none).
+
 During typed removal and bus/server teardown, callback clearing occurs before
 detach and logical removal. Already-running callback invocations are allowed
-to finish, but no later dispatch may capture the cleared callback. The public
-remove/close operation returns only after managed USB/IP transport work and
-async non-EP0 IN workers have drained.
+to finish. A dispatch that captured a callback before clear/replacement is
+already in flight and may enter or finish the callback after the setter
+returns; no later dispatch may capture the cleared callback. Callback clearing
+alone does not drain in-flight work, so callers must keep native callback
+targets alive until the owning typed remove/close operation returns. The
+public remove/close operation returns only after managed USB/IP transport work
+and async non-EP0 IN workers have drained.
 
 Applications should keep callback code short and avoid blocking unrelated
 application threads. If a callback must wait for application work, ensure the

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/binary"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Alia5/VIIPER/usbip"
 )
@@ -139,6 +141,107 @@ func TestNeutralRumbleTerminationCompatibility(t *testing.T) {
 					}
 				})
 			}
+		})
+	}
+}
+
+func TestConcurrentOutputReportsPreserveCallbackOrder(t *testing.T) {
+	paths := outputReportPaths()
+	start := makeUSBOutputReport(outputFlag0CompatibleRumble, 0, 0, 0x12, 0x34)
+	neutral := makeUSBOutputReport(0, 0, 0, 0, 0)
+
+	for _, model := range outputReportDeviceModels() {
+		t.Run(model.name, func(t *testing.T) {
+			for _, ingress := range []struct {
+				name        string
+				start, stop outputReportPath
+			}{
+				{name: "interrupt OUT then HID SET_REPORT", start: paths[0], stop: paths[1]},
+				{name: "HID SET_REPORT then interrupt OUT", start: paths[1], stop: paths[0]},
+			} {
+				t.Run(ingress.name, func(t *testing.T) {
+					dev := model.new(t)
+					startEntered := make(chan struct{})
+					releaseStart := make(chan struct{})
+					var releaseOnce sync.Once
+					var got []OutputState
+					var gotMu sync.Mutex
+					dev.SetOutputCallback(func(state OutputState) {
+						if state.RumbleSmall != 0 || state.RumbleLarge != 0 {
+							close(startEntered)
+							<-releaseStart
+						}
+						gotMu.Lock()
+						got = append(got, state)
+						gotMu.Unlock()
+					})
+
+					startDone := make(chan struct{})
+					go func() {
+						ingress.start.send(dev, start)
+						close(startDone)
+					}()
+					<-startEntered
+
+					// Keep START's callback in flight while the opposing ingress handles STOP.
+					// This timer only releases the test gate; it is not a timing assertion.
+					timer := time.AfterFunc(100*time.Millisecond, func() {
+						releaseOnce.Do(func() { close(releaseStart) })
+					})
+					ingress.stop.send(dev, neutral)
+					timer.Stop()
+					releaseOnce.Do(func() { close(releaseStart) })
+					<-startDone
+
+					gotMu.Lock()
+					defer gotMu.Unlock()
+					assertOutputStates(t, got, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}, {}})
+				})
+			}
+		})
+	}
+}
+
+func TestOutputCallbackReplacementDuringDispatch(t *testing.T) {
+	paths := outputReportPaths()
+	start := makeUSBOutputReport(outputFlag0CompatibleRumble, 0, 0, 0x12, 0x34)
+	neutral := makeUSBOutputReport(0, 0, 0, 0, 0)
+
+	for _, model := range outputReportDeviceModels() {
+		t.Run(model.name, func(t *testing.T) {
+			dev := model.new(t)
+			oldEntered := make(chan struct{})
+			releaseOld := make(chan struct{})
+			var oldOnce sync.Once
+			var oldCalls, newCalls []OutputState
+			dev.SetOutputCallback(func(state OutputState) {
+				oldOnce.Do(func() {
+					close(oldEntered)
+					<-releaseOld
+				})
+				oldCalls = append(oldCalls, state)
+			})
+
+			startDone := make(chan struct{})
+			go func() {
+				paths[0].send(dev, start)
+				close(startDone)
+			}()
+			<-oldEntered
+
+			// Clearing/replacing the registration does not wait for the already
+			// captured callback; it resets the rumble session for later reports.
+			dev.SetOutputCallback(nil)
+			dev.SetOutputCallback(func(state OutputState) { newCalls = append(newCalls, state) })
+			close(releaseOld)
+			<-startDone
+			paths[1].send(dev, neutral)
+			assertOutputStates(t, oldCalls, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}})
+			assertOutputStates(t, newCalls, nil)
+
+			paths[1].send(dev, start)
+			paths[0].send(dev, neutral)
+			assertOutputStates(t, newCalls, []OutputState{{RumbleSmall: 0x12, RumbleLarge: 0x34}, {}})
 		})
 	}
 }

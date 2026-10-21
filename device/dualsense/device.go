@@ -23,10 +23,11 @@ type DualSense struct {
 	inputState *InputState
 	metaState  *MetaState
 
-	outputFunc   func(OutputState)
-	descriptor   usb.Descriptor
-	callbackMu   sync.RWMutex
-	rumbleActive bool // guarded by callbackMu; set only when a nonzero rumble callback is forwarded
+	outputFunc       func(OutputState)
+	descriptor       usb.Descriptor
+	callbackMu       sync.RWMutex
+	rumbleActive     bool // guarded by callbackMu; set only when a nonzero rumble callback is forwarded
+	outputDispatchMu sync.Mutex
 
 	subcommand [2]byte
 
@@ -295,6 +296,11 @@ func (d *DualSense) handleOutputReport(out []byte) {
 	if len(out) < 48 || out[0] != ReportIDOutput {
 		return
 	}
+
+	// USB/IP imports can concurrently target one device. Keep interpretation and
+	// callback completion ordered across interrupt OUT and HID SET_REPORT.
+	d.outputDispatchMu.Lock()
+	defer d.outputDispatchMu.Unlock()
 
 	feedback, hasRumble := parseRumbleOutputReport(out)
 	neutralTermination := isNeutralRumbleTerminationReport(out)
