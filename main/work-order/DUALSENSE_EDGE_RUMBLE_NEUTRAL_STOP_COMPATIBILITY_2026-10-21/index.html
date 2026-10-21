@@ -1,0 +1,2014 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — DualSense / DualSense Edge Rumble Stop Compatibility - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-dualsense-dualsense-edge-rumble-stop-compatibility" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — DualSense / DualSense Edge Rumble Stop Compatibility
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective-and-observed-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Objective and observed behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-audit-current-behavior-and-missing-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code audit: current behavior and missing case
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verified-external-references-and-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified external references and limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-implementation-one-small-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required implementation: one small PR
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required implementation: one small PR">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#decision-matrix-mandatory-test-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision matrix (mandatory test contract)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-criteria-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance criteria and non-goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-review-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation review checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source links
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-dualsense-dualsense-edge-rumble-stop-compatibility">Work Order — DualSense / DualSense Edge Rumble Stop Compatibility</h1>
+<p>Date: 2026-10-21<br />
+Repository: onehoon/VIIPER<br />
+Target: main (implementation via one focused PR; this document is the instruction only)<br />
+Baseline reviewed: 6e952500165673c2c27e1b4723aab49e81133e2c</p>
+<h2 id="objective-and-observed-behavior">Objective and observed behavior</h2>
+<p>Fix the VIIPER fork's <strong>rumble-only DualSense / DualSense Edge output callback</strong> so a host-generated zero-strength <em>neutral rumble termination report</em> can stop a previously forwarded nonzero motor command instead of leaving the physical MSI Claw motors active until the Addon's five-second safety timer expires.</p>
+<p>Observed on 2026-10-21: Ghost of Tsushima Director's Cut produces appropriately brief vibration with the Steam Controller presentation but anomalously long vibration with the virtual DualSense Edge presentation on the same MSI Claw. The Addon log shows last nonzero physical motor writes followed roughly five seconds later by zero output. This is consistent with (but does not alone prove) expiration of <code>DualSenseEdgeRumbleFeedbackAdapter.DefaultSafetyStop = 5s</code>.</p>
+<p>This is a <strong>targeted compatibility correction</strong>, <strong>not</strong> a request to emulate native DualSense USB-audio haptics, adaptive triggers, LED output, or to shorten the Addon's safety timer. Do not add mandatory packet-tracing logs as a prerequisite for this deterministic parser/test correction.</p>
+<h2 id="code-audit-current-behavior-and-missing-case">Code audit: current behavior and missing case</h2>
+<ol>
+<li><code>device/dualsense/device.go</code>: <code>HandleTransfer</code> (interrupt OUT, endpoint 3) and <code>HandleControl</code> (HID SET_REPORT) both call <code>parseRumbleOutputReport</code>.</li>
+<li><code>parseRumbleOutputReport</code> accepts a report of at least 48 bytes with <code>ReportIDOutput</code> and <strong>only</strong> forwards it if <code>out[1]&amp;0x01 != 0 || out[39]&amp;0x04 != 0</code>.</li>
+<li><code>out[3]</code> is the small/right motor, and <code>out[4]</code> is the large/left motor. The current offsets and v1/v2 update-flag bit positions are correct.</li>
+<li>A flagged <code>0/0</code> explicitly stops both motors and is already covered by tests. <strong>Missing case:</strong> after a forwarded nonzero command, an unflagged, zero-motor, zero-control-bit report is dropped. The consumer therefore cannot clear the physical motor until its independent timeout.</li>
+<li><code>device/dualsense/output_report_test.go</code> tests valid v1/v2 motor updates, flagged zero stops, LED-only filtering, and callbacks across rearm, but not a preceding nonzero command followed by an unflagged <em>neutral termination</em> report.</li>
+<li><code>lib/viiper/dualsense.go</code> exposes a stable six-argument output callback and currently forwards the parsed two motor bytes (legacy LED arguments are zero). Keep that ABI untouched. <code>docs/libviiper/fork-api.md</code> explicitly documents the current rumble-only contract.</li>
+<li>The Addon's consumer (<code>onehoon/SteamAddonforClaw/src/SteamInputAddonforClaw/Feedback/PresentationRumbleFeedback.cs</code>) maps those bytes directly to the physical sink and schedules a five-second dead-man stop. There is no requirement to modify that separate repository for this PR.</li>
+</ol>
+<h2 id="verified-external-references-and-limits">Verified external references and limits</h2>
+<ul>
+<li><strong>SDL3, <code>src/joystick/hidapi/SDL_hidapi_ps5.c</code></strong>, <code>HIDAPI_DriverPS5_UpdateEffects</code> and <code>HIDAPI_DriverPS5_RumbleJoystick</code>: builds an initially zeroed effect state; a <strong>nonzero</strong> rumble enables either legacy <code>0x01</code> or improved <code>flag2 0x04</code>, with haptics-select <code>0x02</code>. When both stored rumble magnitudes are zero, SDL deliberately leaves the emulated-rumble enable bits <strong>off</strong> to return to audio haptics. A rumble stop update can therefore be represented by a valid USB report containing all-zero flags and all-zero motor bytes. See https://github.com/libsdl-org/SDL/blob/main/src/joystick/hidapi/SDL_hidapi_ps5.c#L706-L746 and https://github.com/libsdl-org/SDL/blob/main/src/joystick/hidapi/SDL_hidapi_ps5.c#L1011-L1026.</li>
+<li><strong>Linux hid-playstation</strong>, flag definitions: <code>flag0 0x01</code> compatible rumble, <code>flag0 0x02</code> haptics select, <code>flag2 0x04</code> improved rumble; lightbar uses a <em>separate</em> <code>flag1 0x04</code>. The unflagged motor data alone does <strong>not</strong> constitute a protocol-mandated STOP. See https://github.com/torvalds/linux/blob/master/drivers/hid/hid-playstation.c#L153-L170.</li>
+<li><strong>HHD</strong>, <code>src/hhd/controller/virtual/dualsense/__init__.py</code>: preserves <code>self.rumble</code> and emits an explicit zero force-feedback event when a following report lacks either classic-rumble flag. This demonstrates a stateful compatibility policy, <strong>not</strong> a normative Sony interpretation; it can also stop on an unrelated LED-only report. See https://github.com/hhd-dev/hhd/blob/master/src/hhd/controller/virtual/dualsense/<strong>init</strong>.py#L325-L358.</li>
+<li><strong>InputPlumber</strong>, <code>src/input/target/dualsense.rs</code>: distinguishes 48-byte short and 63-byte full USB output reports and implements an explicit Steam Input compatibility workaround for selected short reports lacking rumble enable bits. Do <strong>not</strong> port its flag injection wholesale; it is a separate policy with different hardware transport. See https://github.com/ShadowBlip/InputPlumber/blob/main/src/input/target/dualsense.rs#L663-L702.</li>
+<li><strong>VIIPER upstream</strong>, <code>device/dualsense/device.go</code>, <code>parseOutputReport</code>: unconditionally forwards motor bytes for each accepted report, ignoring validity when deciding whether to emit a motor callback. This can clear latched rumble but can also spuriously stop it on LED-only writes; <strong>do not revert to upstream's unconditional behavior</strong>. See https://github.com/Alia5/VIIPER/blob/main/device/dualsense/device.go#L269-L286.</li>
+<li><strong>DualSenseClient</strong>, <code>ValidFlags.cs</code>: validity bits mark which output fields should be applied; a zero-valued field with no corresponding valid bit should not automatically overwrite hardware state. See https://github.com/DualSenseClient/DualSenseClient/blob/main/source/DualSenseClient.Controllers/DualSense/Output/ValidFlags.cs.</li>
+<li><strong>Legion Go ROGueENEMY port</strong>, <code>virt_ds5.c</code>, has additional haptics-select gating and is <strong>not</strong> the preferred model for this fix: https://github.com/corando98/ROGueENEMY/blob/master/virt_ds5.c.</li>
+</ul>
+<p>Crucial distinction: the proposed extra STOP is a <strong>stateful two-motor bridge compatibility behavior</strong> to support an observed SDL-style neutral termination pattern. It is <strong>not</strong> a claim that an all-zero HID packet is universally a Sony-defined STOP. Ghost of Tsushima's exact incoming report sequence has not yet been captured.</p>
+<h2 id="required-implementation-one-small-pr">Required implementation: one small PR</h2>
+<p><strong>Files in scope:</strong> <code>device/dualsense/device.go</code>, <code>device/dualsense/output_report_test.go</code>, and the existing API contract document <code>docs/libviiper/fork-api.md</code> (plus <code>docs/devices/dualsense.md</code> only if needed for consistent documentation).</p>
+<ol>
+<li>Define named, local bit constants for the three relevant fields to remove magic numbers: valid flag0 compatible vibration (<code>0x01</code>), flag0 haptics select (<code>0x02</code>), valid flag2 compatible vibration2 (<code>0x04</code>). Keep report offsets stable; do not undertake a general protocol rewrite.</li>
+<li>Keep the existing handling of flagged v1/v2 updates <strong>identical</strong>, including nonzero updates, flagged <code>0/0</code> STOPs, motor order, returned callback struct, and the lack of LED emission.</li>
+<li>Add the smallest possible <strong>per-device/per-armed-callback nonzero-rumble state</strong>. Update it only for actual emitted motor callbacks. Reset it on callback clearing/replacement and new device creation, to avoid treating a later session's neutral packet as an old session's STOP. Prefer a tiny helper shared by interrupt OUT and HID SET_REPORT, not two diverging copies of state logic.</li>
+<li>Add a conservative <em>neutral termination</em> compatibility path: if (a) a nonzero command was previously forwarded in this active callback session, (b) both raw motor bytes are exactly zero, (c) neither v1 nor v2 rumble-valid bit is set, and (d) <strong>all three valid-flag bytes are exactly zero</strong> (<code>out[1] == 0 &amp;&amp; out[2] == 0 &amp;&amp; out[39] == 0</code>), emit <strong>one</strong> zero-strength <code>OutputState</code> to the existing callback and clear active state. Subsequent identical neutral packets when already stopped must not emit additional callbacks.</li>
+<li>Preserve the existing <strong>ignore</strong> behavior for reports carrying non-rumble feature flags when there is no valid classic rumble update. In particular, LED-only (<code>flag1 0x04</code>), player LEDs (<code>flag1 0x10</code>), trigger FFB-only (<code>flag0 0x04/0x08</code>), haptics-select-only (<code>flag0 0x02</code>), and no-rumble reports with <strong>nonzero</strong> arbitrary motor bytes must not cause unsolicited motor changes. This conservative filter deliberately does <strong>not</strong> make HHD's broader "any unflagged report stops rumble" assumption.</li>
+<li>Keep all accepted original report lengths/paths intact (<code>len &gt;= 48</code>, including full USB output reports); malformed/short/wrong report ID must not mutate rumble state. Keep USB/IP OUT acknowledgement/control transfer behavior intact.</li>
+<li>Keep the existing callback mutex and callback lifecycle guarantees. Ensure state transitions do not inadvertently invoke callbacks while holding a lock that allows callback reentrancy/deadlock. No new background workers, native exports, ABI field additions, transport changes, or logging flood.</li>
+<li>Clarify the fork API docs: valid v1/v2 <code>0/0</code> is an explicit STOP; an <strong>all-flags-zero/all-motors-zero</strong> report may emit a one-shot compatibility STOP <strong>only after a forwarded nonzero rumble</strong>; unrelated feature-only reports remain ignored. Mark this explicitly as fork compatibility behavior rather than Sony protocol truth.</li>
+</ol>
+<h3 id="decision-matrix-mandatory-test-contract">Decision matrix (mandatory test contract)</h3>
+<table>
+<thead>
+<tr>
+<th>Previous forwarded state</th>
+<th><code>flag0</code></th>
+<th><code>flag1</code></th>
+<th><code>flag2</code></th>
+<th>motor small/large</th>
+<th>Expected callback</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>stopped</td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td>stopped</td>
+<td><code>01</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>12/34</code></td>
+<td>nonzero 12/34</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td><strong>one STOP</strong></td>
+</tr>
+<tr>
+<td>stopped after STOP</td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>01</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td>flagged STOP (existing)</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>04</code></td>
+<td><code>00/00</code></td>
+<td>flagged STOP (existing)</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>00</code></td>
+<td><code>04</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td>none (LED only)</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>00</code></td>
+<td><code>10</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td>none (player LED only)</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>04</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td>none (trigger only)</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>02</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00/00</code></td>
+<td>none (haptics select only)</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>12/34</code></td>
+<td>none (unflagged motor bytes)</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>00</code></td>
+<td><code>04</code></td>
+<td><code>00</code></td>
+<td><code>12/34</code></td>
+<td>none (stale motor bytes on LED update)</td>
+</tr>
+<tr>
+<td>stopped</td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>04</code></td>
+<td><code>56/78</code></td>
+<td>nonzero 56/78</td>
+</tr>
+<tr>
+<td>active</td>
+<td><code>00</code></td>
+<td><code>00</code></td>
+<td><code>04</code></td>
+<td><code>00/00</code></td>
+<td>flagged STOP</td>
+</tr>
+</tbody>
+</table>
+<p>This matrix is a deliberate <em>conservative first repair</em>. If the actual game requires stopping on combined LED + neutral reports, do <strong>not</strong> silently broaden the semantics: first report the newly demonstrated ambiguity and propose a separately tested policy.</p>
+<h2 id="test-changes">Test changes</h2>
+<p>Extend existing <code>device/dualsense/output_report_test.go</code> with clear, independent sequences:</p>
+<ul>
+<li><strong>SDL-like v1 and v2:</strong> nonzero START -&gt; unflagged all-zero neutral STOP -&gt; repeated neutral ignored -&gt; new nonzero START works.</li>
+<li><strong>Both transports:</strong> execute the same test matrix through <code>HandleTransfer</code> interrupt OUT and <code>HandleControl</code> HID SET_REPORT.</li>
+<li><strong>Both virtual models:</strong> <code>New(nil)</code> and <code>NewEdge(nil)</code>; ensure behavior is identical.</li>
+<li><strong>Feature-only isolation:</strong> nonzero START -&gt; LED/player-LED/trigger-only/haptics-select-only writes (with zero or stale nonzero motor bytes) -&gt; no STOP -&gt; neutral all-zero report -&gt; one STOP.</li>
+<li><strong>ABI/callback lifecycle:</strong> nonzero -&gt; <code>SetOutputCallback(nil)</code> -&gt; next session callback registration -&gt; unflagged neutral must not replay old STOP; new START -&gt; new neutral -&gt; exactly one STOP. Two device instances must not share active state.</li>
+<li><strong>Malformed:</strong> length 47, wrong report ID, wrong OUT endpoint or direction; no callback and no erroneous state transitions. Also exercise 64-byte input length when accepted by existing path.</li>
+<li><strong>Existing cases:</strong> all current v1/v2 and explicit-zero tests, LED ignored tests, callback rearm tests continue passing.</li>
+</ul>
+<p>Test commands: <code>go test ./device/dualsense</code>, <code>go test -race ./device/dualsense</code> where supported, <code>go test ./...</code>, and <code>just test</code> if available in the developer environment. Confirm build/API compatibility of <code>lib/viiper</code> without changing exported headers.</p>
+<h2 id="acceptance-criteria-and-non-goals">Acceptance criteria and non-goals</h2>
+<ul>
+<li>No additional five-second latched vibration <strong>for the SDL-style neutral termination sequence</strong>; unit tests prove delivery of STOP before Addon dead-man timeout would be needed.</li>
+<li>No extra STOP from unrelated LED, player-LED, trigger-only, or haptics-select-only report as specified above.</li>
+<li>Shared parser/classification behavior on interrupt OUT and HID SET_REPORT; ordinary valid rumble callbacks unchanged.</li>
+<li>No new exported API, generated header changes, USB audio endpoint/device interfaces, adaptive-trigger emulation, physical rumble scaling adjustments, or changes to Steam Deck / Xbox360 implementations.</li>
+<li>No changes in <code>onehoon/SteamAddonforClaw</code> as part of this PR. User will independently rebuild/re-pin VIIPER and conduct the Ghost of Tsushima manual A/B test.</li>
+<li>Describe precisely in the PR what is <strong>proven by deterministic source/tests</strong> versus what still needs <strong>actual game validation</strong>. Do not claim the exact Ghost of Tsushima output bytes were captured or that this test proves all DualSense haptic compatibility.</li>
+</ul>
+<h2 id="implementation-review-checklist">Implementation review checklist</h2>
+<ol>
+<li>State lifetime follows the currently registered callback/session, not a global singleton.</li>
+<li>A callback of <code>OutputState{}</code> means stopped (not LED control); motor mapping is unchanged.</li>
+<li>Only one emitted compatibility STOP per active-to-stopped transition.</li>
+<li>The event classifier handles one incoming report exactly once; both host ingress routes use it.</li>
+<li>Respect preexisting callback reentrancy/lifetime contracts; avoid nested callback invocation under the new state lock.</li>
+<li>Keep modifications small and focused. No speculative generic HID engine, packet-cache subsystem, new diagnostics pipeline, or timers.</li>
+</ol>
+<h2 id="source-links">Source links</h2>
+<ul>
+<li>Fork code: https://github.com/onehoon/VIIPER/blob/6e952500165673c2c27e1b4723aab49e81133e2c/device/dualsense/device.go</li>
+<li>Fork tests: https://github.com/onehoon/VIIPER/blob/6e952500165673c2c27e1b4723aab49e81133e2c/device/dualsense/output_report_test.go</li>
+<li>Fork API: https://github.com/onehoon/VIIPER/blob/6e952500165673c2c27e1b4723aab49e81133e2c/docs/libviiper/fork-api.md</li>
+<li>Addon adapter: https://github.com/onehoon/SteamAddonforClaw/blob/main/src/SteamInputAddonforClaw/Feedback/PresentationRumbleFeedback.cs</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
