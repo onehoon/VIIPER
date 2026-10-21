@@ -2623,13 +2623,18 @@ legacy error-only attachment with typed ownership records.</p>
 </table>
 <p>The DualSense and DualSense Edge output callback deliberately delivers rumble
 events only in this fork, despite retaining the legacy native callback
-signature's LED arguments. A callback is invoked only when a valid classic
-rumble update is present (v1 or v2); a flagged <code>0,0</code> remains an explicit stop.
-LED-only, player-LED-only, haptics-select-only, and other unflagged reports do
-not invoke the application callback, and the legacy LED output arguments are
-always zero. Otherwise-valid HID output reports remain acknowledged. This is
-an intentional behavioral reduction for the supported consumer, not upstream
-behavioral parity.</p>
+signature's LED arguments. A valid classic rumble update (v1 or v2) is
+forwarded, and a flagged <code>0,0</code> remains an explicit stop. As a narrow bridge
+compatibility behavior, an all-flags-zero/all-motors-zero report emits one
+STOP only after a nonzero rumble callback was forwarded in the current
+callback session. This stateful neutral-STOP rule supports a host termination
+pattern; it is not a claim that the packet is a Sony protocol-defined STOP.
+LED-only, player-LED-only, haptics-select-only, trigger-only, and other reports
+without a valid rumble update remain ignored, as do unflagged reports carrying
+nonzero motor bytes. The legacy LED output arguments are always zero.
+Otherwise-valid HID output reports remain acknowledged. This is an intentional
+behavioral reduction for the supported consumer, not upstream behavioral
+parity.</p>
 <p><code>lib/viiper</code> exposes the Steam Deck (<code>28DE:1205</code> by default) through a typed
 wrapper: <code>CreateSteamDeckDevice</code>, <code>SetSteamDeckDeviceState</code>,
 <code>SetSteamDeckOutputCallback</code>, <code>RemoveSteamDeckDevice</code>, and the classified
@@ -2809,11 +2814,23 @@ with a nonzero report ID is synthesized before normalization; a leading
 normalized payload is bounded to 64 bytes. The callback receives the exact
 stored length, and its temporary C-owned buffer is valid only during the
 synchronous callback. Callers must copy retained data.</p>
+<p>DualSense and DualSense Edge output reports are additionally dispatched under
+a per-device ordering lock across interrupt OUT and HID <code>SET_REPORT</code>; this is
+needed because multiple USB/IP imports can target the same logical device.
+The ordering lock remains held for the synchronous callback, while the device
+callback lock does not. Callback replacement or clearing may therefore be
+called reentrantly from the callback. A report dispatch that captured a
+callback before a clear/replacement is already in flight and may complete
+after the setter returns; subsequent dispatches use the new callback (or none).</p>
 <p>During typed removal and bus/server teardown, callback clearing occurs before
 detach and logical removal. Already-running callback invocations are allowed
-to finish, but no later dispatch may capture the cleared callback. The public
-remove/close operation returns only after managed USB/IP transport work and
-async non-EP0 IN workers have drained.</p>
+to finish. A dispatch that captured a callback before clear/replacement is
+already in flight and may enter or finish the callback after the setter
+returns; no later dispatch may capture the cleared callback. Callback clearing
+alone does not drain in-flight work, so callers must keep native callback
+targets alive until the owning typed remove/close operation returns. The
+public remove/close operation returns only after managed USB/IP transport work
+and async non-EP0 IN workers have drained.</p>
 <p>Applications should keep callback code short and avoid blocking unrelated
 application threads. If a callback must wait for application work, ensure the
 application can release it during device removal or server shutdown.</p>
