@@ -86,7 +86,7 @@ func TestControllerReportClockMatchesSDLFourMillisecondIntegrationStep(t *testin
 	const gyroDegreesPerSecond = 250.0
 	const reportsPerSecond = 250
 	for _, submitRate := range []int{1000, 250, 125} {
-		t.Run(time.Duration(time.Second/time.Duration(submitRate)).String(), func(t *testing.T) {
+		t.Run((time.Second / time.Duration(submitRate)).String(), func(t *testing.T) {
 			producerPeriod := time.Second / time.Duration(submitRate)
 			var submissions int
 			var integratedDegrees float64
