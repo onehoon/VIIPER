@@ -1,0 +1,2025 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Virtual Input over IP EmulatoR - Documentation">
+      
+      
+        <meta name="author" content="Peter Repukat">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Work Order — Steam Deck EP3 Output Diagnostics with One Build-Time Switch - VIIPER Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#work-order-steam-deck-ep3-output-diagnostics-with-one-build-time-switch" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="VIIPER Documentation" class="md-header__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            VIIPER Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Work Order — Steam Deck EP3 Output Diagnostics with One Build-Time Switch
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/overview/" class="md-tabs__link">
+          
+  
+  
+  CLI Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/overview/" class="md-tabs__link">
+          
+  
+  
+  API & Clients
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../libviiper/overview/" class="md-tabs__link">
+          
+  
+  
+  libVIIPER
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../devices/xbox360/" class="md-tabs__link">
+          
+  
+  
+  Devices
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../misc/support/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Community & Support
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="VIIPER Documentation" class="md-nav__button md-logo" aria-label="VIIPER Documentation" data-md-component="logo">
+      
+  <img src="../../viiper.svg" alt="logo">
+
+    </a>
+    VIIPER Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Alia5/VIIPER" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Alia5/VIIPER
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Command
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API & Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API & Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/cpp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++ Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/csharp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C# Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/rust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rust Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/typescript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeScript Client Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    libVIIPER
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    libVIIPER
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libviiper/fork-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fork API and Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Devices
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Devices
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/xbox360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Xbox 360 Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualshock4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualShock 4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/dualsense/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DualSense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/ns2pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch 2 Pro Controller
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../devices/mouse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mouse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../misc/support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Community & Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-feasibility-decision-confirmed-from-current-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Feasibility decision (confirmed from current source)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-goal-and-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Goal and scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-proposed-surgical-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Proposed surgical implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Proposed surgical implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-one-toggle-and-steam-deck-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 One toggle and Steam Deck filtering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-exact-event-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Exact event definitions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-cadence-measurement-and-reporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Cadence measurement and reporting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-keep-the-transports-existing-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Keep the transport's existing behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-test-plan-fully-automatedlocal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Test plan — fully automated/local
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-post-merge-user-run-verification-informational-not-a-codexpr-blocker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Post-merge user-run verification (informational; NOT a Codex/PR blocker)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-acceptance-criteria-pr-boundaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Acceptance criteria / PR boundaries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-source-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Source references
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="work-order-steam-deck-ep3-output-diagnostics-with-one-build-time-switch">Work Order — Steam Deck EP3 Output Diagnostics with One Build-Time Switch</h1>
+<p>Date: 2026-10-22
+Repository: onehoon/VIIPER
+Target branch/baseline: <code>main</code> at <code>5ef921e99f41d76b18b6e6eddf4f0e2ee1a6b222</code> (PR #71 merged)
+Target implementation: one small, reviewable diagnostics PR
+Owner: local Codex implements and performs automated code tests. Real MSI Claw/Steam hardware verification belongs to the user <strong>after merge</strong> and is not a PR or CI blocker.</p>
+<h2 id="1-feasibility-decision-confirmed-from-current-source">1. Feasibility decision (confirmed from current source)</h2>
+<p><strong>Yes. One constant is sufficient.</strong> The report-production and USB/IP completion facts required for this diagnostic are already observable together from <code>internal/server/usb/server.go</code> without changing the Steam Deck device-clock implementation or adding a second diagnostic owner:</p>
+<ul>
+<li><code>device/steamdeck/device.go</code>: <code>clockedControllerInputReport</code> independently claims the 4 ms slot and increments its report-owned <code>Frame</code>; <code>HandleInterruptIN</code> then returns the encoded controller report.</li>
+<li><code>device/steamdeck/inputstate.go</code>: the returned 64-byte report includes Frame at bytes 4..7 (LE uint32), accel at 24..29 (LE int16 x3) and gyro at 30..35 (LE int16 x3).</li>
+<li><code>device/steamdeck/const.go</code>: Steam Deck report ID is <code>0x09</code> and report size is 64.</li>
+<li><code>internal/server/usb/server.go</code>: <code>runIN</code> sees the actual result of <code>HandleInterruptIN</code>, checks cancellation, competes with <code>CMD_UNLINK</code> through the existing <code>pendingMu</code> ownership boundary, and calls <code>writeRet</code> to serialize/flush <code>RET_SUBMIT</code>.</li>
+<li><code>DeviceOwnsInterruptINWait(ep)</code> already identifies the Deck-owned controller endpoint (EP3). Reuse this existing interface to constrain the observer; no new device API, C ABI, runtime setting, framework, tracing service or inter-package dependency is required.</li>
+<li><code>s.logger.Info</code> already routes ordinary USB server diagnostics through VIIPER's existing logger. Do not create a new log sink or a separate file.</li>
+</ul>
+<p>A single compile-time constant in the USB server package should default to <strong>false</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// internal/server/usb/steamdeck_output_diagnostics.go</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1">// Change this ONE value to true for a diagnostic VIIPER build.</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1">// Return it to false for the normal release build.</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">const</span><span class="w"> </span><span class="nx">enableSteamDeckOutputDiagnostics</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+</code></pre></div>
+<p>When false, the observer is not constructed; it must perform no clocks, packet decoding, locks, memory allocation, per-report logging, goroutine creation or timer work. A cheap nil/constant-gated check is acceptable. Go's compile-time constant permits dead-code elimination of the enabling branch.</p>
+<p><strong>Operational consequence:</strong> This is a build-time switch, NOT a live UI toggle. Flipping it requires rebuilding <code>libVIIPER.dll</code> and then adopting the matching verified artifact/hash in SteamAddonforClaw through its existing dependency pinning workflow. Do <strong>not</strong> bypass its DLL hash/preflight gate or hot-swap the loaded library. The code can remain committed indefinitely with <code>false</code>; turning it on for a future targeted diagnostic build requires editing only this constant. Do not add an environment variable or a second runtime knob unless separately requested.</p>
+<h2 id="2-goal-and-scope">2. Goal and scope</h2>
+<p>Provide an evidence-based, low-perturbation summary of what VIIPER's Steam Deck controller EP3 actually <strong>generated</strong> and what VIIPER's USB/IP server successfully <strong>wrote/flushed</strong> as <code>RET_SUBMIT</code>. This bridges the existing Addon physical sensor Probe and Addon's ~250 Hz <code>SetSteamDeckDeviceState</code> publisher diagnostics.</p>
+<p>Goals:
+1. Observe real Steam Deck controller <strong>EP3 interrupt-IN</strong> reports, not <code>SetState</code> calls, non-Deck endpoints, or <code>GET_REPORT</code> EP0 replies.
+2. Account separately for report construction versus USB/IP submission, so an UNLINK/cancelled request is not incorrectly counted as delivered.
+3. Summarize the report-owned Frame stream, output cadence, gyro/accel payloads, and cancellations/write errors without logging individual 4 ms reports.
+4. Keep the ordinary production build <strong>off by default</strong> and leave existing routing, latency, cleanup, and native ABI untouched.</p>
+<p>Non-goals:
+- Do not alter PR #70/#71's Frame, slot, phase, lock, timer, last-state sampling, or deadline semantics.
+- Do not attempt to guarantee 250 successful Steam reads/s; polling, OS scheduling and USB/IP conditions are external.
+- Do not introduce a separate synthetic gyro producer, per-report averaging, interpolation, filter, PnP recovery, owner, thread, scheduler, service, GUI or Addon Probe modification.
+- Do not claim that a successful <code>RET_SUBMIT</code> socket write proves usbip-win2/SDL/Steam actually consumed the report.
+- Do not make hardware execution mandatory for the Codex PR, automated CI, or merge.</p>
+<h2 id="3-proposed-surgical-implementation">3. Proposed surgical implementation</h2>
+<p><strong>Preferred files</strong>
+- NEW: <code>internal/server/usb/steamdeck_output_diagnostics.go</code> — the one constant, small bounded collector, report decoder, summary and support functions.
+- NEW: <code>internal/server/usb/steamdeck_output_diagnostics_test.go</code> — pure, deterministic collector and parser tests.
+- EDIT: <code>internal/server/usb/server.go</code> — narrowly scoped observer initialization and calls in <code>HandleUrbStream</code> / <code>runIN</code>, plus an optional final summary after workers drain.
+- Edit no <code>device/steamdeck</code>, <code>lib/viiper</code>, <code>usbip</code>, Addon code, generated headers or DLL in this PR unless a concrete implementation constraint requires a very small change; document any such necessity in the PR.</p>
+<h3 id="31-one-toggle-and-steam-deck-filtering">3.1 One toggle and Steam Deck filtering</h3>
+<p>Inside the USB/IP stream handler, allocate a collector only when the constant is enabled <strong>and</strong> the device exposes <code>deviceOwnedInterruptINWait</code> with <code>DeviceOwnsInterruptINWait(3) == true</code>. At observation time further require:
+- IN endpoint == <code>3</code>;
+- returned data length == exactly <code>64</code>;
+- byte 0 == <code>0x01</code>, byte 2 == <code>0x09</code> and byte 3 == <code>64</code>.</p>
+<p>The Deck implementation currently uniquely provides this combination. Do not require a fixed VID/PID because the typed Steam Deck device may permit identity overrides. Never tag Xbox360, DualSense Edge, keyboard/mouse endpoints, EP0, or unrelated USB/IP traffic as Deck gyro reports.</p>
+<p>Sketch (adapt to existing code structure; it is guidance, not a demand for more abstraction):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">// One collector per active USB/IP stream; nil in normal builds.</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kd">var</span><span class="w"> </span><span class="nx">deckDiag</span><span class="w"> </span><span class="o">*</span><span class="nx">steamDeckOutputDiagnostics</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">if</span><span class="w"> </span><span class="nx">enableSteamDeckOutputDiagnostics</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nx">clockOwner</span><span class="p">,</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">dev</span><span class="p">.(</span><span class="nx">deviceOwnedInterruptINWait</span><span class="p">);</span><span class="w"> </span><span class="nx">ok</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">        </span><span class="nx">clockOwner</span><span class="p">.</span><span class="nx">DeviceOwnsInterruptINWait</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="nx">deckDiag</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">newSteamDeckOutputDiagnostics</span><span class="p">(</span><span class="nx">s</span><span class="p">.</span><span class="nx">logger</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1">// runIN: only after HandleInterruptIN has returned a valid EP3 report,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1">// and BEFORE the cancellation/pending ownership checks.</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="k">if</span><span class="w"> </span><span class="nx">deckDiag</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">isDeckEP3Report</span><span class="p">(</span><span class="nx">job</span><span class="p">.</span><span class="nx">ep</span><span class="p">,</span><span class="w"> </span><span class="nx">respData</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nx">deckDiag</span><span class="p">.</span><span class="nx">observeGenerated</span><span class="p">(</span><span class="nx">time</span><span class="p">.</span><span class="nx">Now</span><span class="p">(),</span><span class="w"> </span><span class="nx">respData</span><span class="p">)</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">}</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1">// If cancellation/UNLINK suppresses an already-generated response:</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="c1">// record the suppression, do not record a successful RET_SUBMIT.</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1">// Record write outcome only AFTER writeRet(...) has returned; its true</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="c1">// success includes the existing buffered-writer flush behavior.</span>
+</code></pre></div>
+<p>Avoid logging under <code>pendingMu</code>, <code>writeMu</code>, a device mutex, or a collector mutex. Do not change which party wins an existing IN-vs-UNLINK race.</p>
+<h3 id="32-exact-event-definitions">3.2 Exact event definitions</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Generated</code></td>
+<td>Valid Deck EP3 64-byte report returned from <code>HandleInterruptIN</code> (record before an already-cancelled job is discarded).</td>
+</tr>
+<tr>
+<td><code>SubmitAttempted</code></td>
+<td>A generated report whose job won <code>pendingMu</code> ownership and is about to call <code>writeRet</code>.</td>
+</tr>
+<tr>
+<td><code>RetSubmitWriteSucceeded</code></td>
+<td>Existing <code>writeRet</code> returned nil after <code>writer.Write</code> and (where configured) <code>bw.Flush</code>. This is a host-stream write success, <strong>not</strong> proof of Steam consumption.</td>
+</tr>
+<tr>
+<td><code>RetSubmitWriteFailed</code></td>
+<td>Existing <code>writeRet</code> returned an error. Preserve existing error/disconnect logging.</td>
+</tr>
+<tr>
+<td><code>GeneratedButSuppressed</code></td>
+<td>A generated response that is not submitted because its original job context was cancelled or the UNLINK/teardown side already removed its <code>pending</code> entry. Count once per response. Do not claim all such events were specifically UNLINK: they may also be detach/disconnect.</td>
+</tr>
+<tr>
+<td><code>GeneratedFrameJump / Duplicate</code></td>
+<td>Relative to the previous <strong>observed generated</strong> report's uint32 Frame. Success stream Frame discontinuities are tracked separately; use uint32 modular delta for natural wrap.</td>
+</tr>
+<tr>
+<td><code>SuccessfulFrameJump / Duplicate</code></td>
+<td>Relative to previous successful <code>RET_SUBMIT</code> report; gaps can legitimately reflect cancelled generated reports and are not automatically a defect.</td>
+</tr>
+<tr>
+<td><code>GyroNonZeroCount</code></td>
+<td>Count valid EP3 reports whose signed gyro Pitch/Yaw/Roll raw int16 fields are not all zero.</td>
+</tr>
+<tr>
+<td><code>GyroSamePayloadAsPreviousCount</code></td>
+<td>Consecutive valid EP3 reports carry identical raw Pitch/Yaw/Roll values. <strong>Do not</strong> label this an unchanged physical sample: two distinct sensor reads may numerically match.</td>
+</tr>
+<tr>
+<td><code>AccelNonZeroCount</code></td>
+<td>Count valid reports whose accel raw int16 x3 are not all zero.</td>
+</tr>
+</tbody>
+</table>
+<p>For a generated report, parse uint32 LE <code>[4:8]</code>, int16 LE gyro <code>[30:32]</code>, <code>[32:34]</code>, <code>[34:36]</code> and accel <code>[24:30]</code>. Keep the meaningful first/last gyro triplet or bounded component min/max for comparison with Addon values. Aggregate integers only. <strong>Do not emit raw 64-byte packets every 4 ms.</strong> Avoid logging physical device paths, user identifiers, controller serials, game names or unneeded payload fields.</p>
+<p>The report-owned <code>Frame</code> is incremented before the device hands data to the server. Consequently a generated-but-suppressed report may create a gap in the successful write stream. This is allowed by PR #71's contract; <strong>do not roll back Frame</strong>.</p>
+<p>A Frame gap is <strong>not</strong> a direct measurement of skipped 4 ms slots: Frame advances on generated reports, not on missed slot deadlines. Do not invent an exact <code>SkippedSlotCount</code> by treating Frame jumps or wall-clock gaps as device-slot losses. If useful, record <code>LongWriteIntervalCount</code> above a documented diagnostic threshold as an approximate symptom, never a normative missed-slot metric.</p>
+<h3 id="33-cadence-measurement-and-reporting">3.3 Cadence measurement and reporting</h3>
+<ul>
+<li>Emit one structured <code>Info</code> diagnostic under event name <code>SteamDeckOutputDiagnosticsSummary</code> approximately every <strong>10 seconds of observed EP3 activity</strong>, using the existing <code>s.logger</code> and hence the existing <code>libVIIPER.log</code> pipeline.</li>
+<li>Window fields: <code>WindowMs</code>, <code>Generated</code>, <code>GeneratedHz</code>, <code>SubmitAttempted</code>, <code>RetSubmitWriteSucceeded</code>, <code>RetSubmitWriteHz</code>, <code>RetSubmitWriteFailed</code>, <code>GeneratedButSuppressed</code>, <code>GeneratedFrameJumpCount</code>, <code>SuccessfulFrameJumpCount</code>, <code>DuplicateFrameCount</code>, <code>GyroNonZeroCount</code>, <code>GyroSamePayloadAsPreviousCount</code>, <code>AccelNonZeroCount</code>.</li>
+<li>Include successful write-completion interval <code>MeanMs</code> and <code>MaxMs</code>. If adding <code>P95Ms</code> is straightforward with a bounded bucket histogram or a small fixed window sample buffer, include it; otherwise prefer an accurate mean/max to an inaccurately calculated percentile. Do not add dependencies for percentile computation.</li>
+<li>Log output identifiers/keys clearly: name the time measurement <code>WriteCompletionInterval</code> to avoid claiming actual kernel/Steam-read timestamps.</li>
+<li>Construct a bounded summary outside any transport or collector lock. Do not create a new 4 ms logging task, background manager or dedicated timer.</li>
+<li>If a stream is closed before the next 10 s boundary, optionally flush its nonempty final partial-window summary <strong>after its IN workers have drained</strong>; preserve the existing defer ordering. Avoid creating a new teardown hazard just for logging.</li>
+<li>When no EP3 report arrived, do not fabricate a rate or a periodic heartbeat. The current device may simply not be polled.</li>
+</ul>
+<p>Diagnostic ON path may use one small mutex for a <strong>per-stream</strong> collector because <code>runIN</code> can execute on the endpoint worker and fallbacks concurrently. Reuse the existing stream's lifetime; do not add global ownership state or synchronization to the Steam Deck device clock. Log the summary after releasing the diagnostics mutex.</p>
+<h3 id="34-keep-the-transports-existing-behavior">3.4 Keep the transport's existing behavior</h3>
+<p><code>runIN</code> currently:
+1. Calls <code>HandleInterruptIN</code> (or the fallback).
+2. Checks the original job context.
+3. Claims/removes <code>pending[job.seq]</code> under <code>pendingMu</code>.
+4. On success, invokes <code>writeRet</code>; the latter serializes writes with <code>writeMu</code>.</p>
+<p>Preserve this exact ownership sequence and the current USB/IP backpressure/flush behavior. Place only observational callbacks before/after these existing operations. No extra retry, cancellation, barrier, lock order or report generation is permitted.</p>
+<p>Avoid adding a pointer/list of all URBs merely to count exact <code>CMD_UNLINK</code> events by endpoint. <code>GeneratedButSuppressed</code> plus the existing USB/IP UNLINK logs and the completed/failed counters are sufficient for the stated purpose.</p>
+<h2 id="4-test-plan-fully-automatedlocal">4. Test plan — fully automated/local</h2>
+<p>Use existing Go tests and deterministic fake timestamps/report buffers. No Claw, Steam client, usbip-win2 installation, Addon, or real hardware is needed for PR completion.</p>
+<ol>
+<li><strong>Flag-off default:</strong> assert the source default is <code>false</code> and the normal stream path creates no observer; avoid alloc/time/log work on disabled path. Source/benchmark evidence is sufficient; do not require impossible absolute performance guarantees.</li>
+<li><strong>Filtering:</strong> valid 64-byte Deck EP3 report accepted; non-EP3, other 64-byte packets, wrong header/report ID, truncated and oversized packets ignored without panic.</li>
+<li><strong>Fields:</strong> golden raw Frame, positive/negative Pitch/Yaw/Roll and accel vectors decode exactly with little endian, including negative int16.</li>
+<li><strong>Report vs SetState:</strong> diagnostic collector is called on an actual returned EP3 IN report; producer <code>SetState</code> and <code>GET_REPORT</code> alone cannot increment generated/submitted counters.</li>
+<li><strong>Generated vs completed:</strong> report generated and successfully written increments Generated, Attempted, Succeeded once; synthetic write failure increments Failed but not Succeeded.</li>
+<li><strong>Cancellation:</strong> after report generation but before pending completion ownership, a job cancelled or UNLINK-owned increments GeneratedButSuppressed; no Succeeded or Failed. Cancellation before generating a report increments none of the report counters. Do not require pathological instruction-level interleavings.</li>
+<li><strong>Frame continuity:</strong> 1→2→3, repeated, gap 4→7, and wrap <code>0xFFFFFFFF→0</code> behave correctly on both generated and successful streams. A cancelled generated Frame may create a legitimate successful stream gap.</li>
+<li><strong>Independent gyro repetition:</strong> identical gyro payload with different Frames counts as repeated payload, not duplicate Frame; changed gyro values update summary. All-zero gyro is not counted as nonzero, and accel is independent.</li>
+<li><strong>Window math:</strong> use injected/fake time for deterministic 10s boundary, rates, zero-sample interval fields and summary rollover; final partial summary does not duplicate a full-window emission. Keep clock injection local to the diagnostic helper; do not modify production device-clock code.</li>
+<li><strong>Concurrency:</strong> a small deterministic concurrent test of the collector if the implementation allows more than one <code>runIN</code> observer; no test-only timing-race complexity in product code.</li>
+<li><strong>Regression:</strong> existing <code>device/steamdeck</code> clock/Frame suite, <code>internal/server/usb</code> pending-URB/UNLINK tests, and Xbox360/DualSense Edge tests remain green.</li>
+</ol>
+<p>Suggested commands:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>go test ./device/steamdeck ./internal/server/usb
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>go test ./...
+</code></pre></div></p>
+<p>If an existing Windows/c-shared CI job builds <code>libVIIPER</code>, ensure the default-off binary still builds. Do not require a hardware log attachment to merge this diagnostic PR.</p>
+<h2 id="5-post-merge-user-run-verification-informational-not-a-codexpr-blocker">5. Post-merge user-run verification (informational; NOT a Codex/PR blocker)</h2>
+<ol>
+<li>Build an explicitly diagnostic-enabled VIIPER by changing the <strong>one constant</strong> to <code>true</code>. Adopt the built DLL/header and all matching pins/hashes through SteamAddonforClaw's existing verified dependency workflow; the running Go DLL cannot be hot-swapped.</li>
+<li>Use an actual Steam Deck presentation under Steam/BPM with gyro enabled. Compare the existing Addon <code>MotionReaderDiagnosticsSummary</code>, <code>MotionImuPublishDiagnosticsSummary</code>, and new <code>SteamDeckOutputDiagnosticsSummary</code> over corresponding windows.</li>
+<li>Observe idle, steady rotation and faster hand motion. In steady polling, successful EP3 reports should generally approach ~250/s. Expected rates are observational, not a strict CI invariant.</li>
+<li>Interpret differences: sensor unique-receive ≠ SetState published ≠ EP3 generated ≠ successful RET_SUBMIT writes ≠ Steam consumed. Check Frame continuity, intervals and signed payloads before attributing jitter to the device clock.</li>
+<li>For actual angular integration accuracy, use a separate SDL/Steam consumer measurement if desired. Neither a successful socket write nor the synthetic clock test proves Steam integrated 0.998–1.001x on Claw hardware.</li>
+<li>When finished, change the same constant back to <code>false</code> for normal shipping builds and repeat the verified DLL dependency adoption. Keep the diagnostic code in place.</li>
+</ol>
+<h2 id="6-acceptance-criteria-pr-boundaries">6. Acceptance criteria / PR boundaries</h2>
+<ul>
+<li>One clearly documented <strong>single</strong> <code>const</code> switch; <strong>false by default</strong>.</li>
+<li>Only Steam Deck EP3 observed. Existing 64-byte wire report and C ABI untouched.</li>
+<li>Honest and separately named generated / attempted / write-succeeded / suppressed / failed counters.</li>
+<li>Frame and IMU raw fields decoded from outgoing bytes, not reconstructed from sensor snapshots.</li>
+<li>Log at most about once per 10 seconds of EP3 activity, to existing <code>libVIIPER.log</code>; no per-report messages.</li>
+<li>OFF path does not acquire diagnostic locks, timestamps, allocate collectors, or emit diagnostic summaries.</li>
+<li>No changes to report timing, pending-map authority, Unlink behavior, output bytes, Windows routing, physical ownership, fail-close or teardown.</li>
+<li>Relevant automated tests pass. <strong>Do not require real-device validation before merge</strong>.</li>
+</ul>
+<h2 id="7-source-references">7. Source references</h2>
+<ul>
+<li><a href="https://github.com/onehoon/VIIPER/pull/70">VIIPER PR #70 — report-owned Frame</a></li>
+<li><a href="https://github.com/onehoon/VIIPER/pull/71">VIIPER PR #71 — device-owned 4 ms grid</a></li>
+<li><a href="https://github.com/onehoon/VIIPER/blob/5ef921e99f41d76b18b6e6eddf4f0e2ee1a6b222/device/steamdeck/device.go">VIIPER Steam Deck device/clock</a></li>
+<li><a href="https://github.com/onehoon/VIIPER/blob/5ef921e99f41d76b18b6e6eddf4f0e2ee1a6b222/device/steamdeck/inputstate.go">VIIPER Steam Deck report encoding</a></li>
+<li><a href="https://github.com/onehoon/VIIPER/blob/5ef921e99f41d76b18b6e6eddf4f0e2ee1a6b222/internal/server/usb/server.go">VIIPER USB/IP runIN, pending, UNLINK and RET_SUBMIT</a></li>
+<li><a href="https://github.com/hifihedgehog/HIDMaestro/issues/72#issuecomment-6327520811">HIDMaestro #72 author report, confirmed device-clock motivation</a></li>
+<li><a href="https://github.com/onehoon/SteamAddonforClaw/blob/4720a70e57692579a6b8eb3cf4ead093a479c5d4/src/SteamInputAddonforClaw/VirtualOutput/Viiper/CanonicalSteamDeckInputPublisher.cs">Addon existing publisher/physical source</a></li>
+<li><a href="https://github.com/onehoon/SteamAddonforClaw/blob/4720a70e57692579a6b8eb3cf4ead093a479c5d4/docs/VIIPER_INTEGRATION.md">Addon VIIPER pin and adoption policy</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
