@@ -1227,7 +1227,14 @@ type interruptINWaitBudget interface {
 	InterruptINWaitBudget(ep uint32) time.Duration
 }
 
+type deviceOwnedInterruptINWait interface {
+	DeviceOwnsInterruptINWait(ep uint32) bool
+}
+
 func interruptINWaitDuration(dev usb.Device, ep uint32) time.Duration {
+	if d, ok := dev.(deviceOwnedInterruptINWait); ok && d.DeviceOwnsInterruptINWait(ep) {
+		return 0
+	}
 	if d, ok := dev.(interruptINWaitBudget); ok {
 		if wait := d.InterruptINWaitBudget(ep); wait > 0 {
 			return wait

@@ -21,7 +21,7 @@ const (
 	mouseEndpointNumber      = 0x02
 	controllerEndpointNumber = 0x03
 	genericEndpointNumber    = 0x01
-	controllerReportWait     = 4 * time.Millisecond
+	controllerReportPeriod   = 4 * time.Millisecond
 )
 
 var zeroMouseReport = []byte{0x00, 0x00, 0x00, 0x00}
@@ -30,8 +30,9 @@ var zeroKeyboardReport = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 type SteamDeck struct {
 	inputState          *InputState
-	inputNotify         chan struct{}
 	mtx                 sync.Mutex
+	reportClockOrigin   time.Time
+	reportClockLastSlot uint64
 	featureMtx          sync.Mutex
 	callbackMu          sync.RWMutex
 	stateMu             sync.RWMutex
@@ -114,12 +115,10 @@ func cloneDescriptor() usb.Descriptor {
 
 func New(o *device.CreateOptions) (*SteamDeck, error) {
 	d := &SteamDeck{
-		descriptor:  cloneDescriptor(),
-		inputState:  &InputState{},
-		inputNotify: make(chan struct{}, 1),
-		controller:  newControllerState(),
+		descriptor: cloneDescriptor(),
+		inputState: &InputState{},
+		controller: newControllerState(),
 	}
-	d.inputNotify <- struct{}{}
 	if o != nil {
 		if o.IDVendor != nil {
 			d.descriptor.Device.IDVendor = *o.IDVendor
@@ -151,11 +150,6 @@ func (d *SteamDeck) setInputState(state *InputState) {
 	updated.Frame = d.frame
 	d.inputState = &updated
 	d.mtx.Unlock()
-	select {
-	case d.inputNotify <- struct{}{}:
-	default:
-		// Coalesce updates: the reader always snapshots the newest state.
-	}
 }
 
 func (d *SteamDeck) snapshotInputState() InputState {
@@ -193,18 +187,7 @@ func (d *SteamDeck) handleIN(ctx context.Context, ep uint32, dst []byte) []byte 
 		}
 		return copyINReport(dst, zeroKeyboardReport)
 	case controllerEndpointNumber:
-		select {
-		case <-ctx.Done():
-			if ctx.Err() != context.DeadlineExceeded {
-				return nil
-			}
-			return d.currentInputReportInto(dst)
-		case <-d.inputNotify:
-			if ctx.Err() == context.Canceled {
-				return nil
-			}
-			return d.currentInputReportInto(dst)
-		}
+		return d.clockedControllerInputReport(ctx, dst)
 	default:
 		return nil
 	}
@@ -221,32 +204,75 @@ func copyINReport(dst, report []byte) []byte {
 	return dst[:len(report):len(report)]
 }
 
-func (d *SteamDeck) currentInputReportInto(dst []byte) []byte {
+func (d *SteamDeck) clockedControllerInputReport(ctx context.Context, dst []byte) []byte {
 	if dst != nil && len(dst) < InputReportLen {
 		return nil
 	}
-
-	d.mtx.Lock()
-	d.frame++
-	st := *d.inputState
-	st.Frame = d.frame
-	d.mtx.Unlock()
-
-	if dst == nil {
-		return st.buildReport(st.Frame)
+	if ctx.Err() != nil {
+		return nil
 	}
-	st.writeReport(dst, st.Frame)
-	return dst[:InputReportLen:InputReportLen]
+
+	for {
+		now := time.Now()
+		d.mtx.Lock()
+		if ctx.Err() != nil {
+			d.mtx.Unlock()
+			return nil
+		}
+		if d.reportClockOrigin.IsZero() {
+			d.reportClockOrigin = now
+		}
+		slot := nextFutureControllerReportSlot(d.reportClockOrigin, now, d.reportClockLastSlot)
+		due := controllerReportSlotTime(d.reportClockOrigin, slot)
+		d.mtx.Unlock()
+
+		timer := time.NewTimer(time.Until(due))
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return nil
+		case <-timer.C:
+		}
+
+		// A slow scheduler wake may skip slots, but can never cause catch-up
+		// reports. Only the latest elapsed unserved slot can be claimed once.
+		now = time.Now()
+		d.mtx.Lock()
+		if ctx.Err() != nil {
+			d.mtx.Unlock()
+			return nil
+		}
+		servedSlot, eligible := latestElapsedControllerReportSlot(d.reportClockOrigin, now, d.reportClockLastSlot)
+		if !eligible {
+			d.mtx.Unlock()
+			continue
+		}
+
+		// This slot/Frame claim is the report's linearization point. A later
+		// cancellation may suppress USB/IP completion, but cannot roll it back.
+		d.reportClockLastSlot = servedSlot
+		d.frame++ // uint32 wrap is intentional.
+		st := *d.inputState
+		st.Frame = d.frame
+		d.mtx.Unlock()
+
+		if dst == nil {
+			return st.buildReport(st.Frame)
+		}
+		st.writeReport(dst, st.Frame)
+		return dst[:InputReportLen:InputReportLen]
+	}
 }
 
-// InterruptINWaitBudget separates the Deck controller's expected report cadence
-// from its 1 ms USB interrupt polling descriptor. Other endpoints use the
-// server's normal descriptor-derived wait interval.
-func (d *SteamDeck) InterruptINWaitBudget(ep uint32) time.Duration {
-	if ep == controllerEndpointNumber {
-		return controllerReportWait
-	}
-	return 0
+// DeviceOwnsInterruptINWait reports that controller endpoint 3 is paced by
+// the Deck's device-owned grid rather than a per-URB timeout.
+func (d *SteamDeck) DeviceOwnsInterruptINWait(ep uint32) bool {
+	return ep == controllerEndpointNumber
 }
 
 func (d *SteamDeck) HandleControl(bmRequestType, bRequest uint8, wValue, _ /* wIndex */, wLength uint16, data []byte) ([]byte, bool) {

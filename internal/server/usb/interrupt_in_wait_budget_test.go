@@ -18,10 +18,11 @@ func TestInterruptINWaitDurationSeparatesDeckPollAndReportCadence(t *testing.T) 
 				{BEndpointAddress: 0x85, BMAttributes: 0x03, BInterval: 2},
 			},
 		}}},
-		overrides: map[uint32]time.Duration{3: 4 * time.Millisecond},
+		overrides:   map[uint32]time.Duration{3: 4 * time.Millisecond},
+		deviceOwned: map[uint32]bool{3: true},
 	}
-	if got := interruptINWaitDuration(dev, 3); got != 4*time.Millisecond {
-		t.Fatalf("device-specific controller wait budget = %s, want 4ms", got)
+	if got := interruptINWaitDuration(dev, 3); got != 0 {
+		t.Fatalf("device-owned controller wait = %s, want no per-attempt timeout", got)
 	}
 	if got := interruptINWaitDuration(dev, 1); got != 10*time.Millisecond {
 		t.Fatalf("Deck keyboard fallback = %s, want descriptor interval 10ms", got)
@@ -35,11 +36,16 @@ func TestInterruptINWaitDurationSeparatesDeckPollAndReportCadence(t *testing.T) 
 	if got := interruptINWaitDuration(dev, 5); got != 2*time.Millisecond {
 		t.Fatalf("unrelated device wait budget = %s, want descriptor interval 2ms", got)
 	}
+	delete(dev.deviceOwned, 3)
+	if got := interruptINWaitDuration(dev, 3); got != 4*time.Millisecond {
+		t.Fatalf("existing device-specific wait override = %s, want 4ms", got)
+	}
 }
 
 type waitBudgetTestDevice struct {
-	descriptor rootusb.Descriptor
-	overrides  map[uint32]time.Duration
+	descriptor  rootusb.Descriptor
+	overrides   map[uint32]time.Duration
+	deviceOwned map[uint32]bool
 }
 
 func (*waitBudgetTestDevice) HandleTransfer(context.Context, uint32, uint32, []byte) []byte {
@@ -52,4 +58,8 @@ func (*waitBudgetTestDevice) GetDeviceSpecificArgs() map[string]any { return nil
 
 func (d *waitBudgetTestDevice) InterruptINWaitBudget(ep uint32) time.Duration {
 	return d.overrides[ep]
+}
+
+func (d *waitBudgetTestDevice) DeviceOwnsInterruptINWait(ep uint32) bool {
+	return d.deviceOwned[ep]
 }
