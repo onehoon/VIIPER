@@ -991,6 +991,13 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 	if ctx == nil {
 		return fmt.Errorf("no device context available from bus")
 	}
+	var outputDiagnostics *dualSenseOutputDiagnostics
+	if enableDualSenseOutputDiagnostics && isDualSenseEdgeDescriptor(dev.GetDescriptor()) {
+		outputDiagnostics = newDualSenseOutputDiagnostics(s.logger)
+	}
+	if outputDiagnostics != nil {
+		defer outputDiagnostics.finish()
+	}
 	if mc := s.managedConnectionFor(conn); mc != nil && mc.transportCtx != nil {
 		streamCtx, cancel := context.WithCancel(ctx)
 		stop := context.AfterFunc(mc.transportCtx, cancel)
@@ -1186,6 +1193,11 @@ func (s *Server) handleUrbStream(conn net.Conn, dev usb.Device) error {
 			outPayload = outPayloadScratch[:xferLen]
 			if err := usbip.ReadExactly(conn, outPayload); err != nil {
 				return fmt.Errorf("read OUT payload: %w", err)
+			}
+		}
+		if outputDiagnostics != nil {
+			if source, ok := dualSenseOutputSourceForTransfer(dir, ep, setup, outPayload); ok {
+				outputDiagnostics.observe(source, outPayload)
 			}
 		}
 		if dir == usbip.DirIn && ep != 0 {
