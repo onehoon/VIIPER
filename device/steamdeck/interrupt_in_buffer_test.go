@@ -51,7 +51,14 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 		t.Fatal("mouse endpoint was not the fixed four-byte zero report")
 	}
 	checkReport(keyboardEndpointNumber, zeroKeyboardReport)
-	neutral := (&InputState{}).buildReport(0)
+	beforeControllerIN, handled := d.HandleControl(0xa1, 0x01, 0x0100, 0, InputReportLen, nil)
+	if !handled || len(beforeControllerIN) != InputReportLen {
+		t.Fatalf("GET_REPORT before controller IN handled/length = %v/%d, want true/%d", handled, len(beforeControllerIN), InputReportLen)
+	}
+	if got := binaryFrame(beforeControllerIN); got != 0 {
+		t.Fatalf("auxiliary IN endpoints advanced controller Frame to %d, want 0", got)
+	}
+	neutral := (&InputState{}).buildReport(1)
 	checkReport(controllerEndpointNumber, neutral)
 
 	active := InputState{
@@ -84,13 +91,31 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 		return want
 	}
 	d.UpdateInputState(&active)
-	checkReport(controllerEndpointNumber, activeGoldenForFrame(1))
+	checkReport(controllerEndpointNumber, activeGoldenForFrame(2))
 
 	d.UpdateInputState(&InputState{})
-	neutralWant := (&InputState{}).buildReport(2)
-	checkReport(controllerEndpointNumber, neutralWant)
+	shortCtx, cancelShort := context.WithDeadline(context.Background(), time.Now().Add(-time.Millisecond))
+	shortReport := buffered.HandleInterruptIN(shortCtx, controllerEndpointNumber, scratch[:InputReportLen-1])
+	cancelShort()
+	if shortReport != nil {
+		t.Fatalf("short controller buffer returned %d bytes, want nil", len(shortReport))
+	}
+	getReport, handled := d.HandleControl(0xa1, 0x01, 0x0100, 0, InputReportLen, nil)
+	if !handled || len(getReport) != InputReportLen || binaryFrame(getReport) != 2 {
+		var gotFrame uint32
+		if len(getReport) >= 8 {
+			gotFrame = binaryFrame(getReport)
+		}
+		t.Fatalf("short controller buffer advanced Frame to %d (handled=%v, length=%d), want 2", gotFrame, handled, len(getReport))
+	}
+	deadlineAfterShort, cancelDeadlineAfterShort := context.WithDeadline(context.Background(), time.Now().Add(-time.Millisecond))
+	neutralWant := buffered.HandleInterruptIN(deadlineAfterShort, controllerEndpointNumber, scratch)
+	cancelDeadlineAfterShort()
+	if len(neutralWant) != InputReportLen || binaryFrame(neutralWant) != 3 {
+		t.Fatalf("report after short buffer length/frame = %d/%d, want %d/3", len(neutralWant), binaryFrame(neutralWant), InputReportLen)
+	}
 	d.UpdateInputState(&active)
-	checkReport(controllerEndpointNumber, activeGoldenForFrame(3))
+	checkReport(controllerEndpointNumber, activeGoldenForFrame(4))
 
 	// Expiry returns the latest state; parent cancellation with no queued
 	// notification remains no-data, as in the legacy HandleTransfer path.
@@ -98,8 +123,8 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 	deadlineCtx, cancelDeadline := context.WithDeadline(context.Background(), time.Now().Add(-time.Millisecond))
 	deadlineReport := buffered.HandleInterruptIN(deadlineCtx, controllerEndpointNumber, scratch)
 	cancelDeadline()
-	if len(deadlineReport) != InputReportLen || binaryFrame(deadlineReport) != 4 {
-		t.Fatalf("deadline report length/frame = %d/%d, want %d/4", len(deadlineReport), binaryFrame(deadlineReport), InputReportLen)
+	if len(deadlineReport) != InputReportLen || binaryFrame(deadlineReport) != 5 {
+		t.Fatalf("deadline report length/frame = %d/%d, want %d/5", len(deadlineReport), binaryFrame(deadlineReport), InputReportLen)
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -109,13 +134,13 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 
 	d.UpdateInputState(&active)
 	legacy := d.HandleTransfer(context.Background(), controllerEndpointNumber, usbip.DirIn, nil)
-	if len(legacy) != InputReportLen || &legacy[0] == &scratch[0] {
+	if len(legacy) != InputReportLen || binaryFrame(legacy) != 6 || &legacy[0] == &scratch[0] {
 		t.Fatalf("legacy report length/ownership invalid: len=%d", len(legacy))
 	}
 	legacySnapshot := append([]byte(nil), legacy...)
 	d.UpdateInputState(&InputState{B: true})
 	legacySecond := d.HandleTransfer(context.Background(), controllerEndpointNumber, usbip.DirIn, nil)
-	if len(legacySecond) != InputReportLen || &legacySecond[0] == &legacy[0] || &legacySecond[0] == &scratch[0] {
+	if len(legacySecond) != InputReportLen || binaryFrame(legacySecond) != 7 || &legacySecond[0] == &legacy[0] || &legacySecond[0] == &scratch[0] {
 		t.Fatal("successive legacy HandleTransfer reports share storage")
 	}
 	if !bytes.Equal(legacy, legacySnapshot) {
@@ -128,7 +153,7 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 	}
 	ep0Snapshot := append([]byte(nil), ep0...)
 	d.UpdateInputState(&InputState{})
-	checkReport(controllerEndpointNumber, (&InputState{}).buildReport(7))
+	checkReport(controllerEndpointNumber, (&InputState{}).buildReport(8))
 	if !bytes.Equal(legacy, legacySnapshot) {
 		t.Fatal("later buffer report modified legacy allocated storage")
 	}
@@ -140,6 +165,14 @@ func TestInterruptINBufferReuseEndpointsAndLegacyAllocation(t *testing.T) {
 	}
 	if got := buffered.HandleInterruptIN(context.Background(), 4, scratch); got != nil {
 		t.Fatalf("unknown endpoint returned % x, want nil", got)
+	}
+	d.HandleTransfer(context.Background(), controllerEndpointNumber, usbip.DirOut, []byte{FeatureTriggerHapticCommand})
+	finalReport, handled := d.HandleControl(0xa1, 0x01, 0x0100, 0, InputReportLen, nil)
+	if !handled || len(finalReport) != InputReportLen {
+		t.Fatalf("GET_REPORT after non-IN requests handled/length = %v/%d, want true/%d", handled, len(finalReport), InputReportLen)
+	}
+	if got := binaryFrame(finalReport); got != 8 {
+		t.Fatalf("non-IN controller requests changed Frame to %d, want 8", got)
 	}
 }
 

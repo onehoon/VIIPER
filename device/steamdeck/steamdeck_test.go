@@ -107,9 +107,18 @@ func TestControllerINCoalescesToLatestInputState(t *testing.T) {
 	if !assert.Len(t, report, steamdeck.InputReportLen) {
 		return
 	}
-	assert.Equal(t, uint32(2), binary.LittleEndian.Uint32(report[4:8]), "Frame advances once per update, not per read")
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(report[4:8]), "coalesced producer updates consume one report Frame")
 	assert.Equal(t, int16(333), int16(binary.LittleEndian.Uint16(report[48:50])))
 	assert.Equal(t, int16(444), int16(binary.LittleEndian.Uint16(report[30:32])))
+
+	deadlineCtx, cancelDeadline := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancelDeadline()
+	secondReport := dev.HandleTransfer(deadlineCtx, defaultControllerEndpoint, usbip.DirIn, nil)
+	if !assert.Len(t, secondReport, steamdeck.InputReportLen) {
+		return
+	}
+	assert.Equal(t, uint32(2), binary.LittleEndian.Uint32(secondReport[4:8]), "each generated report consumes one Frame")
+	assert.Equal(t, int16(333), int16(binary.LittleEndian.Uint16(secondReport[48:50])))
 }
 
 func TestControllerINDeadlineReturnsLatestReportAndCancellationReturnsNoData(t *testing.T) {
@@ -118,7 +127,11 @@ func TestControllerINDeadlineReturnsLatestReportAndCancellationReturnsNoData(t *
 		return
 	}
 	// Consume the constructor's initial neutral-state notification.
-	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
+	initialReport := dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
+	if !assert.Len(t, initialReport, steamdeck.InputReportLen) {
+		return
+	}
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(initialReport[4:8]))
 
 	deadlineCtx, cancelDeadline := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	report := dev.HandleTransfer(deadlineCtx, defaultControllerEndpoint, usbip.DirIn, nil)
@@ -126,11 +139,19 @@ func TestControllerINDeadlineReturnsLatestReportAndCancellationReturnsNoData(t *
 	if !assert.Len(t, report, steamdeck.InputReportLen) {
 		return
 	}
-	assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(report[4:8]))
+	assert.Equal(t, uint32(2), binary.LittleEndian.Uint32(report[4:8]))
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 	assert.Nil(t, dev.HandleTransfer(cancelCtx, defaultControllerEndpoint, usbip.DirIn, nil), "cancelled reads must not produce a stale success report")
+
+	nextCtx, cancelNext := context.WithDeadline(context.Background(), time.Now().Add(-time.Millisecond))
+	defer cancelNext()
+	nextReport := dev.HandleTransfer(nextCtx, defaultControllerEndpoint, usbip.DirIn, nil)
+	if !assert.Len(t, nextReport, steamdeck.InputReportLen) {
+		return
+	}
+	assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(nextReport[4:8]), "cancelled read must not consume a Frame")
 }
 
 func TestControllerGETReportRemainsImmediateLatestSnapshot(t *testing.T) {
@@ -138,16 +159,51 @@ func TestControllerGETReportRemainsImmediateLatestSnapshot(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	// Consume the initial IN notification so GET_REPORT cannot depend on it.
-	dev.HandleTransfer(context.Background(), defaultControllerEndpoint, usbip.DirIn, nil)
-	dev.UpdateInputState(&steamdeck.InputState{Pitch: 1234})
-
-	report, handled := dev.HandleControl(0xa1, 0x01, 0x0100, 0, steamdeck.InputReportLen, nil)
-	if !assert.True(t, handled) || !assert.Len(t, report, steamdeck.InputReportLen) {
+	getInputReport := func() []byte {
+		t.Helper()
+		report, handled := dev.HandleControl(0xa1, 0x01, 0x0100, 0, steamdeck.InputReportLen, nil)
+		if !assert.True(t, handled) || !assert.Len(t, report, steamdeck.InputReportLen) {
+			return nil
+		}
+		return report
+	}
+	initial := getInputReport()
+	if initial == nil {
 		return
 	}
-	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(report[4:8]))
-	assert.Equal(t, int16(1234), int16(binary.LittleEndian.Uint16(report[30:32])))
+	assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(initial[4:8]), "GET_REPORT starts at Frame zero")
+
+	dev.UpdateInputState(&steamdeck.InputState{Pitch: 1234, Frame: 0xdeadbeef})
+	for range 2 {
+		report := getInputReport()
+		if report == nil {
+			return
+		}
+		assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(report[4:8]), "GET_REPORT must not consume or spoof a Frame")
+		assert.Equal(t, int16(1234), int16(binary.LittleEndian.Uint16(report[30:32])))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	inReport := dev.HandleTransfer(ctx, defaultControllerEndpoint, usbip.DirIn, nil)
+	if !assert.Len(t, inReport, steamdeck.InputReportLen) {
+		return
+	}
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(inReport[4:8]))
+	assert.Equal(t, int16(1234), int16(binary.LittleEndian.Uint16(inReport[30:32])))
+	afterIN := getInputReport()
+	if afterIN == nil {
+		return
+	}
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(afterIN[4:8]))
+
+	dev.UpdateInputState(&steamdeck.InputState{Pitch: -4321, Frame: 0xffffffff})
+	latest := getInputReport()
+	if latest == nil {
+		return
+	}
+	assert.Equal(t, uint32(1), binary.LittleEndian.Uint32(latest[4:8]), "producer update preserves the last generated IN Frame")
+	assert.Equal(t, int16(-4321), int16(binary.LittleEndian.Uint16(latest[30:32])))
 }
 
 func TestSteamDeckControllerDescriptorAndSoftwareWaitBudget(t *testing.T) {

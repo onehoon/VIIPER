@@ -1484,8 +1484,8 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	if len(initial) != steamdeck.InputReportLen {
 		t.Fatalf("initial report length = %d, want %d", len(initial), steamdeck.InputReportLen)
 	}
-	if got := binary.LittleEndian.Uint32(initial[4:8]); got != 0 {
-		t.Fatalf("initial frame = %d, want neutral frame 0", got)
+	if got := binary.LittleEndian.Uint32(initial[4:8]); got != 1 {
+		t.Fatalf("initial frame = %d, want first generated report frame 1", got)
 	}
 
 	second := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: 32, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
@@ -1503,8 +1503,8 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	if len(latest) != steamdeck.InputReportLen {
 		t.Fatalf("updated report length = %d, want %d", len(latest), steamdeck.InputReportLen)
 	}
-	if got := binary.LittleEndian.Uint32(latest[4:8]); got != 1 {
-		t.Fatalf("updated frame = %d, want latest state frame 1", got)
+	if got := binary.LittleEndian.Uint32(latest[4:8]); got != 2 {
+		t.Fatalf("updated frame = %d, want second generated report frame 2", got)
 	}
 	if got := int16(binary.LittleEndian.Uint16(latest[30:32])); got != 1234 {
 		t.Fatalf("updated gyro pitch = %d, want 1234", got)
@@ -1527,8 +1527,8 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	if len(idle) != steamdeck.InputReportLen {
 		t.Fatalf("idle report length = %d, want %d", len(idle), steamdeck.InputReportLen)
 	}
-	if got := binary.LittleEndian.Uint32(idle[4:8]); got != 1 {
-		t.Fatalf("idle frame = %d, want latest state frame 1", got)
+	if got := binary.LittleEndian.Uint32(idle[4:8]); got != 3 {
+		t.Fatalf("idle frame = %d, want third generated report frame 3", got)
 	}
 	if got := int16(binary.LittleEndian.Uint16(idle[30:32])); got != 1234 {
 		t.Fatalf("idle gyro pitch = %d, want 1234", got)

@@ -147,7 +147,7 @@ func (d *SteamDeck) setInputState(state *InputState) {
 	}
 	updated := *state
 	d.mtx.Lock()
-	d.frame++
+	// Ignore a producer-supplied Frame; d.frame is the report-owned counter.
 	updated.Frame = d.frame
 	d.inputState = &updated
 	d.mtx.Unlock()
@@ -161,7 +161,9 @@ func (d *SteamDeck) setInputState(state *InputState) {
 func (d *SteamDeck) snapshotInputState() InputState {
 	d.mtx.Lock()
 	defer d.mtx.Unlock()
-	return *d.inputState
+	st := *d.inputState
+	st.Frame = d.frame
+	return st
 }
 
 func (d *SteamDeck) HandleTransfer(ctx context.Context, ep uint32, dir uint32, out []byte) []byte {
@@ -220,12 +222,18 @@ func copyINReport(dst, report []byte) []byte {
 }
 
 func (d *SteamDeck) currentInputReportInto(dst []byte) []byte {
-	st := d.snapshotInputState()
+	if dst != nil && len(dst) < InputReportLen {
+		return nil
+	}
+
+	d.mtx.Lock()
+	d.frame++
+	st := *d.inputState
+	st.Frame = d.frame
+	d.mtx.Unlock()
+
 	if dst == nil {
 		return st.buildReport(st.Frame)
-	}
-	if len(dst) < InputReportLen {
-		return nil
 	}
 	st.writeReport(dst, st.Frame)
 	return dst[:InputReportLen:InputReportLen]
