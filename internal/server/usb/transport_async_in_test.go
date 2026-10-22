@@ -1177,8 +1177,11 @@ func TestXbox360PendingFallbackINCanBeUnlinkedIndependently(t *testing.T) {
 
 type observedSteamDeckINDevice struct {
 	*steamdeck.SteamDeck
-	entered         chan struct{}
-	deadlineReports chan struct{}
+	entered chan struct{}
+}
+
+func (d *observedSteamDeckINDevice) DeviceOwnsInterruptINWait(ep uint32) bool {
+	return d.SteamDeck.DeviceOwnsInterruptINWait(ep)
 }
 
 type observedSteamDeckAuxINDevice struct {
@@ -1230,7 +1233,7 @@ func (d *observedSteamDeckAuxINDevice) InterruptINWaitBudget(ep uint32) time.Dur
 	if (ep == 1 || ep == 2) && d.waitBudget > 0 {
 		return d.waitBudget
 	}
-	return d.SteamDeck.InterruptINWaitBudget(ep)
+	return 0
 }
 
 func (d *observedSteamDeckAuxINDevice) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
@@ -1296,14 +1299,248 @@ func (d *observedSteamDeckINDevice) HandleInterruptIN(ctx context.Context, ep ui
 		default:
 		}
 	}
-	report := d.SteamDeck.HandleInterruptIN(ctx, ep, dst)
-	if ep == 3 && report != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+	return d.SteamDeck.HandleInterruptIN(ctx, ep, dst)
+}
+
+type gatedSteamDeckINDevice struct {
+	*steamdeck.SteamDeck
+	entered      chan context.Context
+	scratch      chan []byte
+	beforeReturn chan struct{}
+	claimed      chan struct{}
+	afterClaim   chan struct{}
+}
+
+func (d *gatedSteamDeckINDevice) DeviceOwnsInterruptINWait(ep uint32) bool {
+	return d.SteamDeck.DeviceOwnsInterruptINWait(ep)
+}
+
+func (d *gatedSteamDeckINDevice) HandleInterruptIN(ctx context.Context, ep uint32, dst []byte) []byte {
+	if ep == 3 && d.entered != nil {
+		d.entered <- ctx
+	}
+	if ep == 3 && d.scratch != nil {
+		d.scratch <- dst
+	}
+	if ep == 3 && d.beforeReturn != nil {
 		select {
-		case d.deadlineReports <- struct{}{}:
-		default:
+		case <-d.beforeReturn:
+		case <-ctx.Done():
+			return nil
+		}
+	}
+	report := d.SteamDeck.HandleInterruptIN(ctx, ep, dst)
+	if ep == 3 && report != nil && d.claimed != nil {
+		d.claimed <- struct{}{}
+		select {
+		case <-d.afterClaim:
+		case <-ctx.Done():
 		}
 	}
 	return report
+}
+
+func TestSteamDeckControllerUSBIPCompletionAndUnlinkOwnership(t *testing.T) {
+	newDeck := func(t *testing.T) *steamdeck.SteamDeck {
+		t.Helper()
+		deck, err := steamdeck.New(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return deck
+	}
+
+	writeSubmit := func(t *testing.T, conn net.Conn, seq uint32) {
+		t.Helper()
+		cmd := usbip.CmdSubmit{Basic: usbip.HeaderBasic{Command: usbip.CmdSubmitCode, Seqnum: seq, Dir: usbip.DirIn, Ep: 3}, TransferBufferLen: steamdeck.InputReportLen}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("submit Steam Deck IN sequence %d: %v", seq, err)
+		}
+	}
+	writeUnlink := func(t *testing.T, conn net.Conn, unlinkSeq, requestSeq uint32) int32 {
+		t.Helper()
+		cmd := usbip.CmdUnlink{Basic: usbip.HeaderBasic{Command: usbip.CmdUnlinkCode, Seqnum: unlinkSeq, Dir: usbip.DirIn, Ep: 3}, UnlinkSeqnum: requestSeq}
+		if err := cmd.Write(conn); err != nil {
+			t.Fatalf("unlink Steam Deck IN sequence %d: %v", requestSeq, err)
+		}
+		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		defer conn.SetReadDeadline(time.Time{})
+		var response [48]byte
+		if _, err := io.ReadFull(conn, response[:]); err != nil {
+			t.Fatalf("read RET_UNLINK for request %d: %v", requestSeq, err)
+		}
+		if got := binary.BigEndian.Uint32(response[0:4]); got != usbip.RetUnlinkCode {
+			t.Fatalf("unlink response command = %#x, want RET_UNLINK", got)
+		}
+		if got := binary.BigEndian.Uint32(response[4:8]); got != unlinkSeq {
+			t.Fatalf("RET_UNLINK sequence = %d, want %d", got, unlinkSeq)
+		}
+		return int32(binary.BigEndian.Uint32(response[20:24]))
+	}
+	waitContext := func(t *testing.T, contexts <-chan context.Context) context.Context {
+		t.Helper()
+		select {
+		case ctx := <-contexts:
+			return ctx
+		case <-time.After(time.Second):
+			t.Fatal("Steam Deck controller request did not enter its device handler")
+			return nil
+		}
+	}
+	assertNoPerAttemptDeadline := func(t *testing.T, ctx context.Context) {
+		t.Helper()
+		if deadline, ok := ctx.Deadline(); ok {
+			t.Fatalf("Steam Deck EP3 received per-attempt deadline %s; device clock must own the wait", deadline)
+		}
+	}
+	assertFrame := func(t *testing.T, deck *steamdeck.SteamDeck, want uint32) {
+		t.Helper()
+		report, handled := deck.HandleControl(0xa1, 0x01, 0x0100, 0, steamdeck.InputReportLen, nil)
+		if !handled || len(report) != steamdeck.InputReportLen {
+			t.Fatalf("GET_REPORT handled/length = %v/%d", handled, len(report))
+		}
+		if got := binary.LittleEndian.Uint32(report[4:8]); got != want {
+			t.Fatalf("GET_REPORT Frame = %d, want %d", got, want)
+		}
+	}
+
+	t.Run("normal completion then unlink sees completed URB", func(t *testing.T) {
+		deck := newDeck(t)
+		dev := &gatedSteamDeckINDevice{SteamDeck: deck, entered: make(chan context.Context, 1)}
+		_, conn := startAsyncINTestSession(t, dev, 3081)
+		writeSubmit(t, conn, 101)
+		ctx := waitContext(t, dev.entered)
+		assertNoPerAttemptDeadline(t, ctx)
+		report := readAsyncINResponse(t, conn, 101)
+		if len(report) != steamdeck.InputReportLen || binary.LittleEndian.Uint32(report[4:8]) != 1 {
+			t.Fatalf("RET_SUBMIT report length/frame = %d/%d, want %d/1", len(report), binary.LittleEndian.Uint32(report[4:8]), steamdeck.InputReportLen)
+		}
+		if got := writeUnlink(t, conn, 102, 101); got != 0 {
+			t.Fatalf("UNLINK after completed RET_SUBMIT status = %d, want 0", got)
+		}
+		assertFrame(t, deck, 1)
+	})
+
+	t.Run("unlink before report claim consumes nothing", func(t *testing.T) {
+		deck := newDeck(t)
+		dev := &gatedSteamDeckINDevice{SteamDeck: deck, entered: make(chan context.Context, 1), beforeReturn: make(chan struct{})}
+		_, conn := startAsyncINTestSession(t, dev, 3082)
+		writeSubmit(t, conn, 111)
+		ctx := waitContext(t, dev.entered)
+		assertNoPerAttemptDeadline(t, ctx)
+		if got := writeUnlink(t, conn, 112, 111); got != -104 {
+			t.Fatalf("UNLINK before report claim status = %d, want -ECONNRESET (-104)", got)
+		}
+		close(dev.beforeReturn)
+		assertNoLateAsyncINResponse(t, conn)
+		assertFrame(t, deck, 0)
+		writeSubmit(t, conn, 113)
+		assertNoPerAttemptDeadline(t, waitContext(t, dev.entered))
+		if got := binary.LittleEndian.Uint32(readAsyncINResponse(t, conn, 113)[4:8]); got != 1 {
+			t.Fatalf("subsequent Steam Deck IN Frame = %d, want 1 after cancelled pre-claim request", got)
+		}
+	})
+
+	t.Run("claimed report is not rolled back when unlink wins pending map", func(t *testing.T) {
+		deck := newDeck(t)
+		dev := &gatedSteamDeckINDevice{
+			SteamDeck: deck, entered: make(chan context.Context, 1),
+			claimed: make(chan struct{}, 1), afterClaim: make(chan struct{}),
+		}
+		_, conn := startAsyncINTestSession(t, dev, 3083)
+		writeSubmit(t, conn, 121)
+		ctx := waitContext(t, dev.entered)
+		assertNoPerAttemptDeadline(t, ctx)
+		select {
+		case <-dev.claimed:
+		case <-time.After(time.Second):
+			t.Fatal("Steam Deck did not claim a report slot")
+		}
+		assertFrame(t, deck, 1)
+		if got := writeUnlink(t, conn, 122, 121); got != -104 {
+			t.Fatalf("UNLINK after device claim but before pending-map completion status = %d, want -ECONNRESET (-104)", got)
+		}
+		close(dev.afterClaim)
+		assertNoLateAsyncINResponse(t, conn)
+		assertFrame(t, deck, 1)
+	})
+
+	t.Run("overlapping IN requests use independent scratch and distinct slots", func(t *testing.T) {
+		deck := newDeck(t)
+		deck.UpdateInputState(&steamdeck.InputState{A: true, Pitch: 2345})
+		dev := &gatedSteamDeckINDevice{
+			SteamDeck: deck, entered: make(chan context.Context, 2), scratch: make(chan []byte, 2),
+		}
+		_, conn := startAsyncINTestSession(t, dev, 3084)
+		for _, seq := range []uint32{131, 132} {
+			writeSubmit(t, conn, seq)
+		}
+		for range 2 {
+			assertNoPerAttemptDeadline(t, waitContext(t, dev.entered))
+		}
+		firstScratch, secondScratch := <-dev.scratch, <-dev.scratch
+		if len(firstScratch) < steamdeck.InputReportLen || len(secondScratch) < steamdeck.InputReportLen || &firstScratch[0] == &secondScratch[0] {
+			t.Fatal("overlapping Steam Deck IN requests did not receive independent 64-byte scratch buffers")
+		}
+
+		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		defer conn.SetReadDeadline(time.Time{})
+		seenSeq := make(map[uint32]bool, 2)
+		seenFrame := make(map[uint32]bool, 2)
+		for range 2 {
+			var header [48]byte
+			if _, err := io.ReadFull(conn, header[:]); err != nil {
+				t.Fatalf("read overlapping Steam Deck RET_SUBMIT: %v", err)
+			}
+			if got := binary.BigEndian.Uint32(header[:4]); got != usbip.RetSubmitCode {
+				t.Fatalf("overlapping response command = %#x, want RET_SUBMIT", got)
+			}
+			seq := binary.BigEndian.Uint32(header[4:8])
+			if (seq != 131 && seq != 132) || seenSeq[seq] {
+				t.Fatalf("overlapping RET_SUBMIT sequence = %d, duplicate or unexpected", seq)
+			}
+			seenSeq[seq] = true
+			if got := binary.BigEndian.Uint32(header[24:28]); got != steamdeck.InputReportLen {
+				t.Fatalf("sequence %d payload length = %d, want %d", seq, got, steamdeck.InputReportLen)
+			}
+			payload := make([]byte, steamdeck.InputReportLen)
+			if _, err := io.ReadFull(conn, payload); err != nil {
+				t.Fatalf("read sequence %d payload: %v", seq, err)
+			}
+			frame := binary.LittleEndian.Uint32(payload[4:8])
+			if (frame != 1 && frame != 2) || seenFrame[frame] {
+				t.Fatalf("sequence %d Frame = %d, duplicate or unexpected", seq, frame)
+			}
+			seenFrame[frame] = true
+			if payload[8]&0x80 == 0 || int16(binary.LittleEndian.Uint16(payload[30:32])) != 2345 {
+				t.Fatalf("sequence %d payload was corrupted or stale: buttons=%#x pitch=%d", seq, payload[8], int16(binary.LittleEndian.Uint16(payload[30:32])))
+			}
+		}
+	})
+
+	t.Run("client EOF cancels a pending device-clock wait", func(t *testing.T) {
+		deck := newDeck(t)
+		dev := &gatedSteamDeckINDevice{SteamDeck: deck, entered: make(chan context.Context, 1), beforeReturn: make(chan struct{})}
+		server, conn := startAsyncINTestSession(t, dev, 3085)
+		writeSubmit(t, conn, 141)
+		assertNoPerAttemptDeadline(t, waitContext(t, dev.entered))
+		if err := conn.Close(); err != nil {
+			t.Fatal(err)
+		}
+		drain := server.BeginDeviceDrain(dev)
+		done := make(chan struct{})
+		go func() { drain.Wait(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("client EOF did not cancel and join the pending device-clock request")
+		}
+		assertFrame(t, deck, 0)
+	})
 }
 
 func readAsyncINResponse(t *testing.T, conn net.Conn, seq uint32) []byte {
@@ -1465,9 +1702,8 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	dev := &observedSteamDeckINDevice{
-		SteamDeck:       deck,
-		entered:         make(chan struct{}, 4),
-		deadlineReports: make(chan struct{}, 4),
+		SteamDeck: deck,
+		entered:   make(chan struct{}, 4),
 	}
 	_, conn := startAsyncINTestSession(t, dev, 3054)
 
@@ -1522,7 +1758,6 @@ func TestSteamDeckAsyncINReturnsFreshStateForPendingRequest(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("idle Steam Deck IN did not reach the device")
 	}
-	waitForDeadlineCount(t, dev.deadlineReports, 1)
 	idle := readAsyncINResponse(t, conn, 33)
 	if len(idle) != steamdeck.InputReportLen {
 		t.Fatalf("idle report length = %d, want %d", len(idle), steamdeck.InputReportLen)
