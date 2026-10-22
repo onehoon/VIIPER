@@ -278,6 +278,10 @@ func TestDualSenseOutputTraceUsesProvidedServerLogger(t *testing.T) {
 }
 
 func TestHandleUrbStreamTracesEdgeOutputThroughServerLoggerWithoutChangingTransfer(t *testing.T) {
+	if !enableDualSenseOutputDiagnostics {
+		t.Skip("USB/IP output trace integration requires a diagnostic-enabled build")
+	}
+
 	device := newTransportOutTestDevice()
 	device.descriptor.Strings = map[uint8]string{2: dualSenseEdgeProductName}
 	busID := transportOutTestBusID.Add(1) + 42000

@@ -12,8 +12,8 @@ import (
 	"github.com/Alia5/VIIPER/usbip"
 )
 
-// This immediate-capture build is intentionally enabled; set it to false after capture and rebuild.
-const enableDualSenseOutputDiagnostics = true
+// Enable only in a dedicated, temporary diagnostic build.
+const enableDualSenseOutputDiagnostics = false
 
 const (
 	dualSenseEdgeProductName         = "DualSense Edge Wireless Controller"
