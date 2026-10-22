@@ -174,6 +174,26 @@ func TestSteamDeckControllerDescriptorAndSoftwareWaitBudget(t *testing.T) {
 	}
 }
 
+func TestSteamDeckUSBSerialStringDescriptor(t *testing.T) {
+	dev, err := steamdeck.New(nil)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	desc := dev.GetDescriptor()
+	deviceDescriptor := desc.Bytes()
+	if !assert.Len(t, deviceDescriptor, 18) {
+		return
+	}
+	assert.Equal(t, byte(0x06), deviceDescriptor[16], "iSerialNumber must reference the dedicated serial string")
+	assert.Equal(t, "Valve Software", desc.Strings[1])
+	assert.Equal(t, "Steam Deck Controller", desc.Strings[2])
+	assert.Equal(t, "Keyboard", desc.Strings[3])
+	assert.Equal(t, "Mouse", desc.Strings[4])
+	assert.Equal(t, "Valve", desc.Strings[5])
+	assert.Equal(t, "SteamDeck-0001", desc.Strings[6])
+}
+
 func TestMotionFieldWireOrderMatchesSteamConsumers(t *testing.T) {
 	dev, err := steamdeck.New(nil)
 	if !assert.NoError(t, err) {
@@ -1059,7 +1079,8 @@ func TestFeatureResponsesViaSetThenGetReportZero(t *testing.T) {
 	}
 	assert.Equal(t, byte(steamdeck.FeatureGetStringAttribute), resp[0])
 	assert.Equal(t, byte(steamdeck.StringAttributeUnitSerial), resp[2])
-	assert.Contains(t, string(resp[3:3+int(resp[1])-1]), "SteamDeck")
+	assert.Equal(t, byte(len("SteamDeck-0001")), resp[1])
+	assert.Equal(t, "SteamDeck-0001", string(resp[3:3+int(resp[1])]))
 
 	request = []byte{0x00, steamdeck.FeatureGetDeviceInfo}
 	_, handled = dev.HandleControl(0x21, 0x09, uint16(0x0300), 0, uint16(len(request)), request)

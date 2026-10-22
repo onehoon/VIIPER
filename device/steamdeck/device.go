@@ -626,7 +626,7 @@ var defaultDescriptor = usb.Descriptor{
 		BcdDevice:          0x0100,
 		IManufacturer:      0x01,
 		IProduct:           0x02,
-		ISerialNumber:      0x03,
+		ISerialNumber:      0x06,
 		BNumConfigurations: 0x01,
 		Speed:              2,
 	},
@@ -698,5 +698,6 @@ var defaultDescriptor = usb.Descriptor{
 		3: "Keyboard",
 		4: "Mouse",
 		5: "Valve",
+		6: "SteamDeck-0001",
 	},
 }
