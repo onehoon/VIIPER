@@ -13,7 +13,7 @@ import (
 )
 
 // Enable only in a dedicated, temporary diagnostic build.
-const enableDualSenseOutputDiagnostics = true
+const enableDualSenseOutputDiagnostics = false
 
 const (
 	dualSenseEdgeProductName         = "DualSense Edge Wireless Controller"
